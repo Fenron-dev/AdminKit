@@ -12,6 +12,7 @@ import {
   ScanSoftware, SaveSoftwareScan,
   RunConsoleTool, BackupVault, GetClipboard, GetUptime,
   ExportSession,
+  SaveConfig,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ const state = {
   softwareSortCol: 'name',     // Aktive Sortierspalte
   softwareSortDir: 'asc',      // Sortierrichtung
   isScanning: false,
+  config: null,                // Geladene Konfiguration (config.yaml)
 };
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
@@ -40,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initSoftwareTab();
   initToolsTab();
   initExport();
+  initSettings();
+  initDashboardCardNav();
   loadAppInfo();
 });
 
@@ -93,6 +97,8 @@ async function loadAppInfo() {
     setEl('app-version', `v${version}`);
     setEl('vault-label', shortenPath(vaultPath));
     setEl('status-vault', shortenPath(vaultPath));
+
+    state.config = cfg;
 
     if (cfg?.ui?.theme && !localStorage.getItem('adminkit-theme') && cfg.ui.theme !== 'system') {
       state.theme = cfg.ui.theme;
@@ -657,7 +663,7 @@ function initSessionModal() {
   const modal = document.getElementById('modal-session');
   const input = document.getElementById('session-name-input');
 
-  document.getElementById('btn-settings')?.addEventListener('click', () => {
+  document.getElementById('btn-new-session')?.addEventListener('click', () => {
     modal?.classList.remove('hidden');
     input?.focus();
   });
@@ -993,4 +999,77 @@ function showExportModal(format, path, error) {
 
 function closeExportModal() {
   document.getElementById('export-modal-overlay')?.classList.add('hidden');
+}
+
+// ─── Einstellungen ────────────────────────────────────────────────────────────
+
+function initSettings() {
+  const overlay = document.getElementById('settings-modal-overlay');
+
+  // Einstellungen-Button öffnet das Modal und befüllt die Felder
+  document.getElementById('btn-settings')?.addEventListener('click', openSettings);
+  document.getElementById('settings-modal-close')?.addEventListener('click', closeSettings);
+  document.getElementById('settings-cancel')?.addEventListener('click', closeSettings);
+  overlay?.addEventListener('click', (e) => {
+    if (e.target.id === 'settings-modal-overlay') closeSettings();
+  });
+  document.getElementById('settings-save')?.addEventListener('click', saveSettings);
+}
+
+function openSettings() {
+  // Aktuelle Werte aus der Config laden
+  const cfg = state.config;
+  if (cfg) {
+    document.getElementById('setting-company').value  = cfg.branding?.company_name    ?? '';
+    document.getElementById('setting-technician').value = cfg.branding?.technician_name ?? '';
+    document.getElementById('setting-logo').value     = cfg.branding?.logo_path        ?? '';
+    document.getElementById('setting-wifi-passwords').checked =
+      cfg.defaults?.include_wifi_passwords ?? false;
+  }
+  document.getElementById('settings-modal-overlay')?.classList.remove('hidden');
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal-overlay')?.classList.add('hidden');
+}
+
+async function saveSettings() {
+  const cfg = state.config;
+  if (!cfg) {
+    addAction('Einstellungen konnten nicht gespeichert werden: keine Config geladen', 'error');
+    return;
+  }
+
+  // Branding-Felder übernehmen
+  if (!cfg.branding) cfg.branding = {};
+  cfg.branding.company_name    = document.getElementById('setting-company').value.trim();
+  cfg.branding.technician_name = document.getElementById('setting-technician').value.trim();
+  cfg.branding.logo_path       = document.getElementById('setting-logo').value.trim();
+  cfg.defaults.include_wifi_passwords =
+    document.getElementById('setting-wifi-passwords').checked;
+
+  const btn = document.getElementById('settings-save');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Speichere…'; }
+
+  try {
+    await SaveConfig(cfg);
+    state.config = cfg;
+    closeSettings();
+    addAction('Einstellungen gespeichert', 'success');
+  } catch (err) {
+    addAction('Einstellungen konnten nicht gespeichert werden: ' + err, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Speichern'; }
+  }
+}
+
+// ─── Dashboard-Karten Navigation ──────────────────────────────────────────────
+
+function initDashboardCardNav() {
+  document.querySelectorAll('.card-nav[data-nav-tab]').forEach(card => {
+    card.addEventListener('click', () => {
+      const tab = card.dataset.navTab;
+      if (tab) switchTab(tab);
+    });
+  });
 }

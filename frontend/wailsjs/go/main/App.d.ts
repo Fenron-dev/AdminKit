@@ -24,5 +24,6 @@ export function BackupVault(): Promise<string>;
 export function GetClipboard(): Promise<string>;
 export function GetUptime(): Promise<string>;
 
-// Phase 6: Export
+// Phase 6: Export & Einstellungen
 export function ExportSession(format: string): Promise<string>;
+export function SaveConfig(cfg: any): Promise<void>;

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -109,6 +110,20 @@ func (a *App) GetVaultPath() string {
 // GetAppVersion gibt die AdminKit-Version zurück.
 func (a *App) GetAppVersion() string {
 	return "1.0.0"
+}
+
+// SaveConfig speichert die Konfiguration (z.B. Branding-Einstellungen) dauerhaft in config.yaml.
+func (a *App) SaveConfig(cfg *config.Config) error {
+	if a.vault == nil {
+		return fmt.Errorf("keine Vault initialisiert")
+	}
+	a.cfg = cfg
+	if err := config.Save(cfg, a.vault.RootPath); err != nil {
+		logging.Errorf("Config", "Speichern fehlgeschlagen: %v", err)
+		return err
+	}
+	logging.Info("Config", "Konfiguration gespeichert")
+	return nil
 }
 
 // NewSession erstellt eine neue Kunden-Session im Vault und speichert den Namen für den Export.
@@ -284,12 +299,15 @@ func (a *App) ExportSession(format string) (string, error) {
 	}
 
 	data := &export.SessionExport{
-		GeneratedAt: time.Now(),
-		SessionName: sessionName,
-		SessionPath: a.lastSessionPath,
-		System:      a.lastSystemScan,
-		Network:     a.lastNetworkScan,
-		Software:    a.lastSoftwareScan,
+		GeneratedAt:    time.Now(),
+		SessionName:    sessionName,
+		SessionPath:    a.lastSessionPath,
+		System:         a.lastSystemScan,
+		Network:        a.lastNetworkScan,
+		Software:       a.lastSoftwareScan,
+		CompanyName:    a.cfg.Branding.CompanyName,
+		TechnicianName: a.cfg.Branding.TechnicianName,
+		LogoBase64:     a.readLogoBase64(),
 	}
 
 	includePasswords := a.cfg != nil && a.cfg.Defaults.IncludeWifiPasswords
@@ -310,6 +328,38 @@ func (a *App) ExportSession(format string) (string, error) {
 	}
 	logging.Infof("Export", "Bericht erstellt: %s", path)
 	return path, nil
+}
+
+// readLogoBase64 liest die Logo-Datei aus der Konfiguration und gibt sie als
+// "data:image/...;base64,..." zurück. Gibt "" zurück wenn kein Logo konfiguriert ist.
+func (a *App) readLogoBase64() string {
+	if a.cfg == nil || a.cfg.Branding.LogoPath == "" {
+		return ""
+	}
+	logoPath := a.cfg.Branding.LogoPath
+	// Relativen Pfad relativ zur Vault auflösen
+	if !filepath.IsAbs(logoPath) && a.vault != nil {
+		logoPath = filepath.Join(a.vault.RootPath, logoPath)
+	}
+	data, err := os.ReadFile(logoPath)
+	if err != nil {
+		logging.Warnf("Export", "Logo konnte nicht gelesen werden: %v", err)
+		return ""
+	}
+	// MIME-Typ aus Dateiendung ableiten
+	mime := "image/png"
+	lower := strings.ToLower(logoPath)
+	switch {
+	case strings.HasSuffix(lower, ".jpg") || strings.HasSuffix(lower, ".jpeg"):
+		mime = "image/jpeg"
+	case strings.HasSuffix(lower, ".svg"):
+		mime = "image/svg+xml"
+	case strings.HasSuffix(lower, ".gif"):
+		mime = "image/gif"
+	case strings.HasSuffix(lower, ".webp"):
+		mime = "image/webp"
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)
 }
 
 // resolveVaultPath sucht den Vault-Pfad in dieser Reihenfolge:

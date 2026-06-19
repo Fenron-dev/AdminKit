@@ -62,7 +62,11 @@ export function GetUptime() {
     return window['go']['main']['App']['GetUptime']();
 }
 
-// ── Phase 6: Export ──
+// ── Phase 6: Export & Einstellungen ──
 export function ExportSession(arg1) {
     return window['go']['main']['App']['ExportSession'](arg1);
+}
+
+export function SaveConfig(arg1) {
+    return window['go']['main']['App']['SaveConfig'](arg1);
 }

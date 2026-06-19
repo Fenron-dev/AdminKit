@@ -657,6 +657,77 @@ html, body {
   gap: 8px;
 }
 
+/* Breiteres Modal für Einstellungen */
+.modal-wide { width: 520px; position: relative; }
+
+/* Einstellungen-Sections */
+.settings-section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.settings-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+}
+.settings-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.settings-row:last-child { margin-bottom: 0; }
+.settings-row label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+.settings-row input[type="text"] {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s;
+}
+.settings-row input[type="text"]:focus { border-color: var(--color-primary); }
+.settings-hint {
+  grid-column: 2;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: -6px;
+}
+.settings-row-check {
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+}
+.settings-row-check input[type="checkbox"] { cursor: pointer; }
+.settings-row-check label { font-weight: 400; cursor: pointer; }
+
+/* Dashboard-Karten anklickbar */
+.card-nav {
+  cursor: pointer;
+  transition: box-shadow .15s, transform .1s;
+}
+.card-nav:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  transform: translateY(-1px);
+}
+
+/* Neue Session Button im Titlebar */
+#btn-new-session {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
 /* ============================================================
    Lade-Spinner
    ============================================================ */

@@ -25,26 +25,54 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 		hostname = data.System.OS.Name
 	}
 
+	title := data.SessionName
+	if data.CompanyName != "" {
+		title = data.CompanyName + " – " + data.SessionName
+	}
+
 	fmt.Fprintf(sb, "<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n"+
 		"<meta charset=\"UTF-8\">\n"+
 		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"+
 		"<title>AdminKit – %s</title>\n<style>%s</style>\n</head>\n<body>\n",
-		h(data.SessionName), reportCSS)
+		h(title), reportCSS)
 
 	// ── Kopfzeile ────────────────────────────────────────────────────────────
-	fmt.Fprintf(sb,
-		"<header>\n"+
-			"  <div class=\"hdr-logo\">🛠 AdminKit</div>\n"+
-			"  <div class=\"hdr-body\">\n"+
-			"    <div class=\"hdr-title\">Systembericht – %s</div>\n"+
-			"    <div class=\"hdr-meta\">\n"+
-			"      <span>Hostname: <strong>%s</strong></span>\n"+
-			"      <span>Erstellt: <strong>%s</strong></span>\n"+
-			"    </div>\n"+
-			"  </div>\n"+
-			"</header>\n",
-		h(data.SessionName), h(hostname),
+	sb.WriteString("<header>\n")
+	if data.LogoBase64 != "" {
+		fmt.Fprintf(sb, "  <img class=\"hdr-logo-img\" src=\"%s\" alt=\"Logo\">\n", data.LogoBase64)
+	} else {
+		sb.WriteString("  <div class=\"hdr-logo\">🛠 AdminKit</div>\n")
+	}
+	sb.WriteString("  <div class=\"hdr-body\">\n")
+	if data.CompanyName != "" {
+		fmt.Fprintf(sb, "    <div class=\"hdr-company\">%s</div>\n", h(data.CompanyName))
+	}
+	fmt.Fprintf(sb, "    <div class=\"hdr-title\">Systembericht – %s</div>\n", h(data.SessionName))
+	sb.WriteString("    <div class=\"hdr-meta\">\n")
+	fmt.Fprintf(sb, "      <span>Hostname: <strong>%s</strong></span>\n", h(hostname))
+	fmt.Fprintf(sb, "      <span>Erstellt: <strong>%s</strong></span>\n",
 		h(data.GeneratedAt.Format("02.01.2006 15:04:05")))
+	if data.TechnicianName != "" {
+		fmt.Fprintf(sb, "      <span>Techniker: <strong>%s</strong></span>\n", h(data.TechnicianName))
+	}
+	sb.WriteString("    </div>\n  </div>\n</header>\n")
+
+	// ── Anker-Navigation ─────────────────────────────────────────────────────
+	sb.WriteString("<nav class=\"report-nav\">\n")
+	if data.System != nil {
+		sb.WriteString("  <a href=\"#sec-system\">⚙ System</a>\n")
+		if len(data.System.Smart) > 0 {
+			sb.WriteString("  <a href=\"#sec-smart\">💿 SMART</a>\n")
+		}
+		sb.WriteString("  <a href=\"#sec-security\">🔒 Sicherheit</a>\n")
+	}
+	if data.Network != nil {
+		sb.WriteString("  <a href=\"#sec-network\">🌐 Netzwerk</a>\n")
+	}
+	if data.Software != nil {
+		sb.WriteString("  <a href=\"#sec-software\">📦 Software</a>\n")
+	}
+	sb.WriteString("</nav>\n")
 
 	// ── Übersichtskarten ─────────────────────────────────────────────────────
 	sb.WriteString("<section class=\"overview\">\n")
@@ -53,38 +81,45 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 
 	// ── System ───────────────────────────────────────────────────────────────
 	if data.System != nil {
-		sb.WriteString("<section>\n<h2 class=\"sec-title\">⚙ System</h2>\n")
+		sb.WriteString("<section id=\"sec-system\">\n<h2 class=\"sec-title\">⚙ System</h2>\n")
 		writeSystemSection(sb, data.System)
 		sb.WriteString("</section>\n")
 
 		if len(data.System.Smart) > 0 {
-			sb.WriteString("<section>\n<h2 class=\"sec-title\">💿 SMART-Status</h2>\n")
+			sb.WriteString("<section id=\"sec-smart\">\n<h2 class=\"sec-title\">💿 SMART-Status</h2>\n")
 			writeSmartSection(sb, data.System.Smart)
 			sb.WriteString("</section>\n")
 		}
 
-		sb.WriteString("<section>\n<h2 class=\"sec-title\">🔒 Sicherheit & Benutzer</h2>\n")
+		sb.WriteString("<section id=\"sec-security\">\n<h2 class=\"sec-title\">🔒 Sicherheit & Benutzer</h2>\n")
 		writeSecuritySection(sb, data.System)
 		sb.WriteString("</section>\n")
 	}
 
 	// ── Netzwerk ─────────────────────────────────────────────────────────────
 	if data.Network != nil {
-		sb.WriteString("<section>\n<h2 class=\"sec-title\">🌐 Netzwerk</h2>\n")
+		sb.WriteString("<section id=\"sec-network\">\n<h2 class=\"sec-title\">🌐 Netzwerk</h2>\n")
 		writeNetworkSection(sb, data.Network, includePasswords)
 		sb.WriteString("</section>\n")
 	}
 
 	// ── Software ─────────────────────────────────────────────────────────────
 	if data.Software != nil {
-		sb.WriteString("<section>\n<h2 class=\"sec-title\">📦 Software</h2>\n")
+		sb.WriteString("<section id=\"sec-software\">\n<h2 class=\"sec-title\">📦 Software</h2>\n")
 		writeSoftwareSection(sb, data.Software)
 		sb.WriteString("</section>\n")
 	}
 
 	// ── Fußzeile ─────────────────────────────────────────────────────────────
-	fmt.Fprintf(sb, "<footer>Generiert von AdminKit • %s</footer>\n",
-		h(data.GeneratedAt.Format("02.01.2006 15:04:05")))
+	footerParts := []string{"Generiert von AdminKit"}
+	if data.CompanyName != "" {
+		footerParts = append(footerParts, h(data.CompanyName))
+	}
+	if data.TechnicianName != "" {
+		footerParts = append(footerParts, "Techniker: "+h(data.TechnicianName))
+	}
+	footerParts = append(footerParts, h(data.GeneratedAt.Format("02.01.2006 15:04:05")))
+	fmt.Fprintf(sb, "<footer>%s</footer>\n", strings.Join(footerParts, " • "))
 
 	fmt.Fprintf(sb, "<script>%s</script>\n</body>\n</html>\n", reportJS)
 	return sb.String()
@@ -93,7 +128,7 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 // ─── Übersichtskarten ─────────────────────────────────────────────────────────
 
 func writeOverviewCards(sb *strings.Builder, data *SessionExport) {
-	type card struct{ icon, title, cls, detail string }
+	type card struct{ icon, title, cls, detail, anchor string }
 	var cards []card
 
 	if data.System != nil {
@@ -101,13 +136,13 @@ func writeOverviewCards(sb *strings.Builder, data *SessionExport) {
 		if data.System.Hardware.CPU.Name != "" {
 			cpuName = data.System.Hardware.CPU.Name
 		}
-		cards = append(cards, card{"🖥", "Hardware", "ok", cpuName})
+		cards = append(cards, card{"🖥", "Hardware", "ok", cpuName, "#sec-system"})
 
 		osDetail := "–"
 		if data.System.OS.Name != "" {
 			osDetail = data.System.OS.Name + " " + data.System.OS.Version
 		}
-		cards = append(cards, card{"💻", "Betriebssystem", "ok", osDetail})
+		cards = append(cards, card{"💻", "Betriebssystem", "ok", osDetail, "#sec-system"})
 
 		if len(data.System.Smart) > 0 {
 			cls := "ok"
@@ -119,8 +154,10 @@ func writeOverviewCards(sb *strings.Builder, data *SessionExport) {
 				}
 			}
 			cards = append(cards, card{"💾", "SMART", cls,
-				fmt.Sprintf("%d Disk(s)", len(data.System.Smart))})
+				fmt.Sprintf("%d Disk(s)", len(data.System.Smart)), "#sec-smart"})
 		}
+
+		cards = append(cards, card{"🔒", "Sicherheit", "ok", "Benutzer & Firewall", "#sec-security"})
 	}
 
 	if data.Network != nil {
@@ -135,18 +172,20 @@ func writeOverviewCards(sb *strings.Builder, data *SessionExport) {
 			cls = "warning"
 		}
 		cards = append(cards, card{"🌐", "Netzwerk", cls,
-			fmt.Sprintf("%d/%d Adapter verbunden", connected, len(data.Network.Adapters))})
+			fmt.Sprintf("%d/%d Adapter verbunden", connected, len(data.Network.Adapters)), "#sec-network"})
 	}
 
 	if data.Software != nil {
 		cards = append(cards, card{"📦", "Software", "ok",
-			fmt.Sprintf("%d Programme", len(data.Software.Programs))})
+			fmt.Sprintf("%d Programme", len(data.Software.Programs)), "#sec-software"})
 	}
 
 	for _, c := range cards {
-		fmt.Fprintf(sb, "<div class=\"card card-%s\"><div class=\"card-icon\">%s</div>"+
-			"<div><div class=\"card-title\">%s</div><div class=\"card-detail\">%s</div></div></div>\n",
-			c.cls, c.icon, c.title, h(c.detail))
+		fmt.Fprintf(sb, "<a class=\"card card-%s\" href=\"%s\">"+
+			"<div class=\"card-icon\">%s</div>"+
+			"<div><div class=\"card-title\">%s</div><div class=\"card-detail\">%s</div></div>"+
+			"</a>\n",
+			c.cls, c.anchor, c.icon, c.title, h(c.detail))
 	}
 }
 
@@ -464,8 +503,16 @@ color:var(--text);padding:0;line-height:1.5}
 header{display:flex;align-items:center;gap:16px;padding:20px 32px;
 background:var(--surface);border-bottom:2px solid var(--primary);print-color-adjust:exact}
 .hdr-logo{font-size:22px;font-weight:700;color:var(--primary)}
+.hdr-logo-img{max-height:48px;max-width:160px;object-fit:contain}
+.hdr-company{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
 .hdr-title{font-size:18px;font-weight:600}
 .hdr-meta{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:4px}
+nav.report-nav{display:flex;gap:0;background:var(--surface);border-bottom:1px solid var(--border);
+padding:0 32px;overflow-x:auto}
+nav.report-nav a{display:inline-block;padding:10px 16px;font-size:13px;font-weight:500;
+color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;
+transition:color .15s,border-color .15s;white-space:nowrap}
+nav.report-nav a:hover{color:var(--primary);border-bottom-color:var(--primary)}
 section{padding:24px 32px;border-bottom:1px solid var(--border)}
 .sec-title{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--primary)}
 .sub-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;
@@ -473,7 +520,9 @@ color:var(--muted);margin:16px 0 8px}
 .overview{display:flex;flex-wrap:wrap;gap:12px;padding:20px 32px;
 background:var(--surface);border-bottom:1px solid var(--border)}
 .card{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;
-border:1px solid var(--border);min-width:180px;background:var(--bg)}
+border:1px solid var(--border);min-width:180px;background:var(--bg);
+text-decoration:none;color:inherit;transition:box-shadow .15s,transform .1s;cursor:pointer}
+.card:hover{box-shadow:0 2px 8px rgba(0,0,0,.12);transform:translateY(-1px)}
 .card-ok{border-left:4px solid var(--ok)}.card-warning{border-left:4px solid var(--warn)}
 .card-error{border-left:4px solid var(--err)}.card-unknown{border-left:4px solid var(--muted)}
 .card-icon{font-size:24px}.card-title{font-weight:600;font-size:13px}

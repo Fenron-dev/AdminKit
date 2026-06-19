@@ -14,12 +14,22 @@ const DefaultConfigFilename = "config.yaml"
 
 // Config repräsentiert die vollständige Konfiguration aus config.yaml.
 type Config struct {
-	Version   string  `yaml:"version"`
-	VaultPath string  `yaml:"vault_path"`
+	Version   string   `yaml:"version"`
+	VaultPath string   `yaml:"vault_path"`
+	Branding  Branding `yaml:"branding"`
 	Defaults  Defaults `yaml:"defaults"`
 	Backup    Backup   `yaml:"backup"`
 	UI        UI       `yaml:"ui"`
 	Logging   Logging  `yaml:"logging"`
+}
+
+// Branding enthält Firmen- und Technikerinformationen für Berichte.
+type Branding struct {
+	CompanyName    string `yaml:"company_name"`
+	TechnicianName string `yaml:"technician_name"`
+	// LogoPath: absoluter oder vault-relativer Pfad zu einer PNG/JPG-Datei.
+	// Wird beim Export als Base64-Data-URI eingebettet.
+	LogoPath string `yaml:"logo_path"`
 }
 
 type Defaults struct {

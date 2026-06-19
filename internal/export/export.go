@@ -18,9 +18,16 @@ type SessionExport struct {
 	GeneratedAt time.Time
 	SessionName string
 	SessionPath string
-	System      *system.ScanResult
-	Network     *network.ScanResult
-	Software    *software.ScanResult
+
+	// Branding-Informationen aus config.yaml
+	CompanyName    string
+	TechnicianName string
+	// LogoBase64: vollständige Data-URI ("data:image/png;base64,...") oder leer.
+	LogoBase64 string
+
+	System   *system.ScanResult
+	Network  *network.ScanResult
+	Software *software.ScanResult
 }
 
 // ExportHTML erzeugt einen selbst-enthaltenen HTML-Bericht und speichert ihn

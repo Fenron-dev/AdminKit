@@ -22,6 +22,7 @@
           </span>
         </div>
         <div class="titlebar-right">
+          <button class="icon-btn" id="btn-new-session" title="Neue Session erstellen">📋 Neue Session</button>
           <button class="icon-btn" id="btn-theme" title="Theme wechseln">🌙</button>
           <div class="export-wrap">
             <button class="icon-btn export-btn" id="btn-export" title="Bericht exportieren">📤 Exportieren ▾</button>
@@ -74,27 +75,27 @@
               </div>
             </div>
 
-            <div class="card">
+            <div class="card card-nav" data-nav-tab="system" title="System-Tab öffnen">
               <div class="card-header"><h3>Hardware</h3></div>
               <div class="status-badge badge-unknown" id="badge-hardware">⚪ Unbekannt</div>
               <p class="badge-detail" id="detail-hardware">Noch kein Scan</p>
             </div>
-            <div class="card">
+            <div class="card card-nav" data-nav-tab="system" title="System-Tab öffnen">
               <div class="card-header"><h3>Betriebssystem</h3></div>
               <div class="status-badge badge-unknown" id="badge-os">⚪ Unbekannt</div>
               <p class="badge-detail" id="detail-os">Noch kein Scan</p>
             </div>
-            <div class="card">
+            <div class="card card-nav" data-nav-tab="system" title="System-Tab öffnen">
               <div class="card-header"><h3>SMART</h3></div>
               <div class="status-badge badge-unknown" id="badge-smart">⚪ Unbekannt</div>
               <p class="badge-detail" id="detail-smart">Noch kein Scan</p>
             </div>
-            <div class="card">
+            <div class="card card-nav" data-nav-tab="network" title="Netzwerk-Tab öffnen">
               <div class="card-header"><h3>Netzwerk</h3></div>
               <div class="status-badge badge-unknown" id="badge-network">⚪ Unbekannt</div>
               <p class="badge-detail" id="detail-network">Noch kein Scan</p>
             </div>
-            <div class="card">
+            <div class="card card-nav" data-nav-tab="software" title="Software-Tab öffnen">
               <div class="card-header"><h3>Software</h3></div>
               <div class="status-badge badge-unknown" id="badge-software">⚪ Unbekannt</div>
               <p class="badge-detail" id="detail-software">Noch kein Scan</p>
@@ -262,6 +263,44 @@
         <span>Vault: <span id="status-vault">–</span></span>
         <button class="refresh-btn" id="btn-refresh" title="Aktualisieren">🔄</button>
       </footer>
+
+      <!-- Einstellungen-Dialog -->
+      <div class="modal-overlay hidden" id="settings-modal-overlay">
+        <div class="modal modal-wide">
+          <button class="modal-close" id="settings-modal-close" title="Schließen">✕</button>
+          <h2>⚙ Einstellungen</h2>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Branding / Bericht-Kopfzeile</h3>
+            <div class="settings-row">
+              <label for="setting-company">Firmenname</label>
+              <input type="text" id="setting-company" placeholder="z.B. Musterfirma GmbH">
+            </div>
+            <div class="settings-row">
+              <label for="setting-technician">Techniker</label>
+              <input type="text" id="setting-technician" placeholder="z.B. Max Mustermann">
+            </div>
+            <div class="settings-row">
+              <label for="setting-logo">Logo (Dateipfad)</label>
+              <input type="text" id="setting-logo" placeholder="z.B. /Users/max/logo.png">
+              <span class="settings-hint">PNG, JPG oder SVG • wird im Bericht eingebettet</span>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Datenschutz</h3>
+            <div class="settings-row settings-row-check">
+              <input type="checkbox" id="setting-wifi-passwords">
+              <label for="setting-wifi-passwords">WiFi-Passwörter in Vault &amp; Berichte einschließen</label>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="settings-cancel">Abbrechen</button>
+            <button class="btn btn-primary" id="settings-save">Speichern</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Export-Ergebnis-Dialog -->
       <div class="modal-overlay hidden" id="export-modal-overlay">
