@@ -309,7 +309,7 @@ func scanDisks(errs *[]ScanError) []DiskInfo {
 }
 
 // scanVolumes liest die Speichernutzung aller gemounteten Volumes via `df -kP`.
-// Systemvolumes (/System/Volumes/*) und temporäre Mounts werden übersprungen.
+// Systemvolumes, Simulator-Images und UUID-benannte Disk-Images werden gefiltert.
 func scanVolumes(errs *[]ScanError) []VolumeInfo {
 	var vols []VolumeInfo
 	out, err := exec.Command("df", "-kP").Output()
@@ -323,6 +323,7 @@ func scanVolumes(errs *[]ScanError) []VolumeInfo {
 		"/private/var/",
 		"/private/tmp",
 		"/.vol",
+		"/Library/", // CoreSimulator und andere Developer-Disk-Images
 	}
 
 	lines := strings.Split(string(out), "\n")
@@ -337,7 +338,6 @@ func scanVolumes(errs *[]ScanError) []VolumeInfo {
 		}
 
 		totalKB, _ := strconv.ParseInt(fields[1], 10, 64)
-		usedKB, _ := strconv.ParseInt(fields[2], 10, 64)
 		availKB, _ := strconv.ParseInt(fields[3], 10, 64)
 		mp := strings.Join(fields[5:], " ")
 
@@ -356,10 +356,20 @@ func scanVolumes(errs *[]ScanError) []VolumeInfo {
 			continue
 		}
 
+		// UUID-benannte Volumes (z.B. iOS-Simulator-Laufwerke) überspringen
+		parts := strings.Split(mp, "/")
+		if isUUIDString(parts[len(parts)-1]) {
+			continue
+		}
+
 		label := mp
 		if mp == "/" {
 			label = "Macintosh HD"
 		}
+
+		// APFS-Besonderheit: df "Used" zeigt nur das jeweilige Volume-Fragment,
+		// nicht den tatsächlich belegten Container-Speicher. Korrekte Berechnung:
+		usedKB := totalKB - availKB
 
 		vols = append(vols, VolumeInfo{
 			Letter:     label,
@@ -371,6 +381,29 @@ func scanVolumes(errs *[]ScanError) []VolumeInfo {
 		})
 	}
 	return vols
+}
+
+// isUUIDString prüft ob ein String einem UUID-Format entspricht (8-4-4-4-12 Hex-Zeichen).
+func isUUIDString(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	dashes := []int{8, 13, 18, 23}
+	di := 0
+	for i := 0; i < 36; i++ {
+		if di < len(dashes) && i == dashes[di] {
+			if s[i] != '-' {
+				return false
+			}
+			di++
+			continue
+		}
+		c := s[i]
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
 }
 
 // ─── Betriebssystem ───────────────────────────────────────────────────────────

@@ -660,14 +660,14 @@ function renderHardware(hw) {
       const item = document.createElement('div');
       item.className = 'hw-volume-item';
       item.innerHTML = `
-        <div class="hw-volume-label">
+        <div class="hw-volume-header">
           <span class="hw-volume-name">${escapeHtml(vol.letter)}</span>
-          <span class="hw-volume-stats">${vol.used_gb} GB belegt &middot; ${vol.free_gb} GB frei &middot; ${vol.total_gb} GB gesamt</span>
+          <span class="hw-volume-pct">${pct}%</span>
         </div>
+        <div class="hw-volume-stats">${vol.used_gb} GB belegt &middot; ${vol.free_gb} GB frei &middot; ${vol.total_gb} GB gesamt</div>
         <div class="hw-volume-bar-bg">
           <div class="hw-volume-bar-fill ${fillClass}" style="width:${Math.min(pct, 100)}%"></div>
-        </div>
-        <span class="hw-volume-pct">${pct}%</span>`;
+        </div>`;
       section.appendChild(item);
     });
 

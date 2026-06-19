@@ -119,7 +119,7 @@ func (a *App) GetVaultPath() string {
 
 // GetAppVersion gibt die AdminKit-Version zurück.
 func (a *App) GetAppVersion() string {
-	return "1.0.0"
+	return "0.6.0"
 }
 
 // SaveConfig speichert die Konfiguration (z.B. Branding-Einstellungen) dauerhaft in config.yaml.
