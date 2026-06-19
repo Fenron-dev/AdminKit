@@ -6,8 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"adminkit/internal/autostart"
+	"adminkit/internal/events"
 	"adminkit/internal/network"
 	"adminkit/internal/printers"
+	"adminkit/internal/services"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
 )
@@ -78,6 +81,15 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if data.Printers != nil && len(data.Printers.Printers) > 0 {
 		sb.WriteString("  <a href=\"#sec-printers\">🖨 Drucker</a>\n")
 	}
+	if data.Autostart != nil && len(data.Autostart.Entries) > 0 {
+		sb.WriteString("  <a href=\"#sec-autostart\">🚀 Autostart</a>\n")
+	}
+	if data.Services != nil && len(data.Services.Services) > 0 {
+		sb.WriteString("  <a href=\"#sec-services\">⚙ Dienste</a>\n")
+	}
+	if data.Events != nil && len(data.Events.Events) > 0 {
+		sb.WriteString("  <a href=\"#sec-events\">📋 Ereignisse</a>\n")
+	}
 	sb.WriteString("</nav>\n")
 
 	// ── Übersichtskarten ─────────────────────────────────────────────────────
@@ -120,6 +132,27 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if data.Printers != nil && len(data.Printers.Printers) > 0 {
 		sb.WriteString("<section id=\"sec-printers\">\n<h2 class=\"sec-title\">🖨 Drucker</h2>\n")
 		writePrintersSection(sb, data.Printers)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Autostart ────────────────────────────────────────────────────────────
+	if data.Autostart != nil && len(data.Autostart.Entries) > 0 {
+		sb.WriteString("<section id=\"sec-autostart\">\n<h2 class=\"sec-title\">🚀 Autostart</h2>\n")
+		writeAutostartSection(sb, data.Autostart)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Dienste ──────────────────────────────────────────────────────────────
+	if data.Services != nil && len(data.Services.Services) > 0 {
+		sb.WriteString("<section id=\"sec-services\">\n<h2 class=\"sec-title\">⚙ Dienste</h2>\n")
+		writeServicesSection(sb, data.Services)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Ereignisse ───────────────────────────────────────────────────────────
+	if data.Events != nil && len(data.Events.Events) > 0 {
+		sb.WriteString("<section id=\"sec-events\">\n<h2 class=\"sec-title\">📋 Systemereignisse</h2>\n")
+		writeEventsSection(sb, data.Events)
 		sb.WriteString("</section>\n")
 	}
 
@@ -207,6 +240,36 @@ func writeOverviewCards(sb *strings.Builder, data *SessionExport) {
 		cards = append(cards, card{"🖨", "Drucker", "ok", detail, "#sec-printers"})
 	}
 
+	if data.Autostart != nil {
+		thirdParty := 0
+		for _, e := range data.Autostart.Entries {
+			if !e.IsSystem {
+				thirdParty++
+			}
+		}
+		cls := "ok"
+		if thirdParty > 0 {
+			cls = "warning"
+		}
+		cards = append(cards, card{"🚀", "Autostart", cls,
+			fmt.Sprintf("%d Einträge (%d Drittanbieter)", len(data.Autostart.Entries), thirdParty), "#sec-autostart"})
+	}
+
+	if data.Events != nil && len(data.Events.Events) > 0 {
+		critical := 0
+		for _, e := range data.Events.Events {
+			if e.Level == events.LevelCritical {
+				critical++
+			}
+		}
+		cls := "warning"
+		if critical > 0 {
+			cls = "error"
+		}
+		cards = append(cards, card{"📋", "Ereignisse", cls,
+			fmt.Sprintf("%d kritische Ereignisse (%d Tage)", len(data.Events.Events), data.Events.DaysBack), "#sec-events"})
+	}
+
 	for _, c := range cards {
 		fmt.Fprintf(sb, "<a class=\"card card-%s\" href=\"%s\">"+
 			"<div class=\"card-icon\">%s</div>"+
@@ -264,6 +327,12 @@ func writeSystemSection(sb *strings.Builder, r *system.ScanResult) {
 	}
 	row(sb, "Lizenzstatus", os.LicenseStatus)
 	row(sb, "Seriennummer", os.SerialNumber)
+	if !os.LastUpdateDate.IsZero() {
+		row(sb, "Letztes Update", fmtDate(os.LastUpdateDate))
+	}
+	if os.PendingUpdates >= 0 {
+		row(sb, "Ausstehende Updates", fmt.Sprintf("%d", os.PendingUpdates))
+	}
 	sb.WriteString("</tbody></table>\n")
 }
 
@@ -337,7 +406,36 @@ func writeSecuritySection(sb *strings.Builder, r *system.ScanResult) {
 		}
 		row(sb, "BitLocker "+v.Drive, status)
 	}
+
+	// RDP
+	rdpStatus := "❌ Deaktiviert"
+	if sec.RDPEnabled {
+		rdpStatus = fmt.Sprintf("✅ Aktiviert (Port %d", sec.RDPPort)
+		if sec.NLAEnabled {
+			rdpStatus += ", NLA aktiv"
+		}
+		rdpStatus += ")"
+	}
+	row(sb, "Remote Desktop (RDP)", rdpStatus)
+
 	sb.WriteString("</tbody></table>\n")
+
+	// Lokale Freigaben
+	if len(sec.LocalShares) > 0 {
+		sb.WriteString("<h3 class=\"sub-title\">Lokale Netzwerkfreigaben</h3>\n" +
+			"<table class=\"info-table data-table\"><thead><tr>" +
+			"<th>Name</th><th>Pfad</th><th>Beschreibung</th><th>Typ</th>" +
+			"</tr></thead><tbody>\n")
+		for _, s := range sec.LocalShares {
+			typ := "Freigabe"
+			if s.IsSystem {
+				typ = "System"
+			}
+			fmt.Fprintf(sb, "<tr><td><strong>%s</strong></td><td><code>%s</code></td><td>%s</td><td>%s</td></tr>\n",
+				h(s.Name), h(s.Path), h(s.Description), typ)
+		}
+		sb.WriteString("</tbody></table>\n")
+	}
 
 	if len(r.Users) > 0 {
 		sb.WriteString("<h3 class=\"sub-title\">Lokale Benutzer</h3>\n" +
@@ -549,6 +647,136 @@ func writePrintersSection(sb *strings.Builder, r *printers.ScanResult) {
 		}
 		sb.WriteString("</p>\n")
 	}
+}
+
+// ─── Autostart ────────────────────────────────────────────────────────────────
+
+func writeAutostartSection(sb *strings.Builder, r *autostart.ScanResult) {
+	// Drittanbieter zuerst, dann System
+	thirdParty := []autostart.Entry{}
+	system := []autostart.Entry{}
+	for _, e := range r.Entries {
+		if e.IsSystem {
+			system = append(system, e)
+		} else {
+			thirdParty = append(thirdParty, e)
+		}
+	}
+
+	writeAutostartTable(sb, thirdParty, "⚠ Drittanbieter-Einträge", "smart-warning")
+	writeAutostartTable(sb, system, "✓ System-Einträge", "")
+}
+
+func writeAutostartTable(sb *strings.Builder, entries []autostart.Entry, title, cls string) {
+	if len(entries) == 0 {
+		return
+	}
+	if cls != "" {
+		fmt.Fprintf(sb, "<div class=\"smart-card %s\">\n<div class=\"smart-title\">%s (%d)</div>\n", cls, h(title), len(entries))
+	} else {
+		fmt.Fprintf(sb, "<h3 class=\"sub-title\">%s (%d)</h3>\n", h(title), len(entries))
+	}
+	sb.WriteString("<table class=\"info-table data-table\"><thead><tr>" +
+		"<th>Name</th><th>Quelle</th><th>Pfad</th><th>Aktiv</th>" +
+		"</tr></thead><tbody>\n")
+	for _, e := range entries {
+		active := "✅"
+		if !e.IsEnabled {
+			active = "–"
+		}
+		fmt.Fprintf(sb, "<tr><td><strong>%s</strong></td><td>%s</td><td><code>%s</code></td><td>%s</td></tr>\n",
+			h(e.Name), h(string(e.Location)), h(e.Path), active)
+	}
+	sb.WriteString("</tbody></table>\n")
+	if cls != "" {
+		sb.WriteString("</div>\n")
+	}
+}
+
+// ─── Dienste ──────────────────────────────────────────────────────────────────
+
+func writeServicesSection(sb *strings.Builder, r *services.ScanResult) {
+	autoThird := []services.ServiceInfo{}
+	autoSys := []services.ServiceInfo{}
+	for _, s := range r.Services {
+		if s.StartType != services.StartAuto {
+			continue
+		}
+		if s.IsSystem {
+			autoSys = append(autoSys, s)
+		} else {
+			autoThird = append(autoThird, s)
+		}
+	}
+
+	running := r.Services
+	totalRunning := 0
+	for _, s := range running {
+		if s.State == services.StateRunning {
+			totalRunning++
+		}
+	}
+
+	fmt.Fprintf(sb, "<p style=\"color:var(--muted);font-size:12px;margin-bottom:12px\">"+
+		"%d Dienste gesamt · %d laufen · %d Drittanbieter-Autostart</p>",
+		len(r.Services), totalRunning, len(autoThird))
+
+	if len(autoThird) > 0 {
+		sb.WriteString("<div class=\"smart-card smart-warning\">\n<div class=\"smart-title\">⚠ Drittanbieter – Automatisch</div>\n")
+		writeServicesTable(sb, autoThird)
+		sb.WriteString("</div>\n")
+	}
+	if len(autoSys) > 0 {
+		sb.WriteString("<h3 class=\"sub-title\">System – Automatisch</h3>\n")
+		writeServicesTable(sb, autoSys)
+	}
+}
+
+func writeServicesTable(sb *strings.Builder, list []services.ServiceInfo) {
+	sb.WriteString("<table class=\"info-table data-table\"><thead><tr>" +
+		"<th>Anzeigename</th><th>Dienstname</th><th>Status</th>" +
+		"</tr></thead><tbody>\n")
+	icons := map[services.ServiceState]string{
+		services.StateRunning: "🟢", services.StateStopped: "🔴",
+		services.StatePaused: "🟡", services.StateUnknown: "⚪",
+	}
+	for _, s := range list {
+		icon := icons[s.State]
+		if icon == "" {
+			icon = "⚪"
+		}
+		fmt.Fprintf(sb, "<tr><td><strong>%s</strong></td><td><code>%s</code></td><td>%s %s</td></tr>\n",
+			h(s.DisplayName), h(s.Name), icon, h(string(s.State)))
+	}
+	sb.WriteString("</tbody></table>\n")
+}
+
+// ─── Ereignisse ───────────────────────────────────────────────────────────────
+
+func writeEventsSection(sb *strings.Builder, r *events.ScanResult) {
+	fmt.Fprintf(sb, "<p style=\"color:var(--muted);font-size:12px;margin-bottom:12px\">"+
+		"%d kritische Ereignisse der letzten %d Tage</p>", len(r.Events), r.DaysBack)
+
+	sb.WriteString("<table class=\"info-table data-table\"><thead><tr>" +
+		"<th>Zeit</th><th>Level</th><th>Quelle</th><th>Event-ID</th><th>Meldung</th>" +
+		"</tr></thead><tbody>\n")
+
+	levelIcon := map[events.Level]string{
+		events.LevelCritical: "🔴", events.LevelError: "🟠", events.LevelWarning: "🟡",
+	}
+	for _, e := range r.Events {
+		icon := levelIcon[e.Level]
+		if icon == "" {
+			icon = "⚪"
+		}
+		t := "–"
+		if !e.Time.IsZero() {
+			t = e.Time.Format("02.01.2006 15:04")
+		}
+		fmt.Fprintf(sb, "<tr><td style=\"white-space:nowrap\">%s</td><td>%s %s</td><td>%s</td><td>%d</td><td>%s</td></tr>\n",
+			t, icon, h(string(e.Level)), h(e.Source), e.EventID, h(e.Message))
+	}
+	sb.WriteString("</tbody></table>\n")
 }
 
 // ─── Hilfs-Funktionen ─────────────────────────────────────────────────────────

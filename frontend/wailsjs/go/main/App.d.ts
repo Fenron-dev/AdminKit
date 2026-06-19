@@ -24,6 +24,11 @@ export function BackupVault(): Promise<string>;
 export function GetClipboard(): Promise<string>;
 export function GetUptime(): Promise<string>;
 
+// Phase 9: Erweiterte Scanner
+export function ScanAutostart(): Promise<any>;
+export function ScanServices(): Promise<any>;
+export function ScanEvents(): Promise<any>;
+
 // Phase 8: Drucker-Scanner
 export function ScanPrinters(): Promise<any>;
 export function SavePrinterScan(result: any, sessionPath: string): Promise<void>;

@@ -11,6 +11,7 @@ import {
   ScanNetwork, SaveNetworkScan,
   ScanSoftware, SaveSoftwareScan,
   ScanPrinters, SavePrinterScan,
+  ScanAutostart, ScanServices, ScanEvents,
   RunConsoleTool, BackupVault, GetClipboard, GetUptime,
   ExportSession, ExportCSV,
   SaveConfig,
@@ -131,15 +132,21 @@ function initScanButtons() {
 
 function initPrinterScan() {
   document.getElementById('btn-scan-printers')?.addEventListener('click', () => runPrinterScan());
+  document.getElementById('btn-scan-autostart')?.addEventListener('click', () => runAutostartScan());
+  document.getElementById('btn-scan-services')?.addEventListener('click', () => runServicesScan());
+  document.getElementById('btn-scan-events')?.addEventListener('click', () => runEventsScan());
 }
 
-/** Vollständiger Scan: System + Netzwerk + Software + Drucker nacheinander */
+/** Vollständiger Scan: alle Scanner nacheinander */
 async function runFullScan() {
   switchTab('system');
   await runSystemScan();
+  await runAutostartScan();
+  await runServicesScan();
+  await runEventsScan();
+  await runPrinterScan();
   await runNetworkScan();
   await runSoftwareScan();
-  await runPrinterScan();
 }
 
 async function runSystemScan() {
@@ -341,10 +348,220 @@ function logScanErrors(errors, label) {
 }
 
 function setScanButtonsDisabled(disabled) {
-  ['btn-full-scan', 'btn-scan-system', 'btn-scan-network', 'btn-scan-software', 'btn-scan-printers'].forEach(id => {
+  ['btn-full-scan', 'btn-scan-system', 'btn-scan-network', 'btn-scan-software',
+   'btn-scan-printers', 'btn-scan-autostart', 'btn-scan-services', 'btn-scan-events'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = disabled;
   });
+}
+
+// ─── Autostart-Scanner ────────────────────────────────────────────────────────
+
+async function runAutostartScan() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  setScanButtonsDisabled(true);
+  setStatus('Autostart-Scan läuft…');
+  addAction('Autostart-Scan gestartet', 'info');
+  setPlaceholder('autostart-info', 'Scanne Autostart-Quellen…');
+
+  try {
+    const result = await ScanAutostart();
+    renderAutostart(result.entries);
+    setEl('autostart-count', result.entries?.length ?? 0);
+    logScanErrors(result.errors, 'Autostart-Scan');
+    setStatus('Autostart-Scan abgeschlossen');
+  } catch (err) {
+    console.error('Autostart-Scan fehlgeschlagen:', err);
+    setPlaceholder('autostart-info', 'Fehler: ' + err);
+    addAction('Autostart-Scan fehlgeschlagen: ' + err, 'error');
+    setStatus('Fehler beim Autostart-Scan');
+  } finally {
+    state.isScanning = false;
+    setScanButtonsDisabled(false);
+  }
+}
+
+function renderAutostart(entries) {
+  const container = document.getElementById('autostart-info');
+  if (!container) return;
+  if (!entries?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine Autostart-Einträge gefunden.</div>';
+    return;
+  }
+
+  // Gruppiert nach Location
+  const groups = {};
+  entries.forEach(e => {
+    if (!groups[e.location]) groups[e.location] = [];
+    groups[e.location].push(e);
+  });
+
+  container.innerHTML = '';
+  for (const [loc, items] of Object.entries(groups)) {
+    const section = document.createElement('div');
+    section.className = 'autostart-group';
+
+    // Drittanbieter-Einträge hervorheben
+    const thirdPartyCount = items.filter(e => !e.is_system).length;
+    const badge = thirdPartyCount > 0
+      ? ` <span class="badge-warning-sm">${thirdPartyCount} Drittanbieter</span>` : '';
+
+    section.innerHTML = `<div class="autostart-group-title">${escapeHtml(loc)}${badge}</div>`;
+
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.innerHTML = '<thead><tr><th>Name</th><th>Pfad / Befehl</th><th>System</th><th>Aktiv</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+
+    items.forEach(e => {
+      const tr = document.createElement('tr');
+      if (!e.is_system) tr.classList.add('highlight-third-party');
+      const sys = e.is_system ? '✓' : '<span class="text-warning">⚠ Drittanbieter</span>';
+      const active = e.is_enabled ? '✓' : '–';
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(e.name)}</strong></td>
+        <td class="mono-cell" style="font-size:11px;word-break:break-all">${escapeHtml(e.path || '–')}</td>
+        <td style="text-align:center">${sys}</td>
+        <td style="text-align:center">${active}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    section.appendChild(table);
+    container.appendChild(section);
+  }
+}
+
+// ─── Dienste-Scanner ──────────────────────────────────────────────────────────
+
+async function runServicesScan() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  setScanButtonsDisabled(true);
+  setStatus('Dienste-Scan läuft…');
+  addAction('Dienste-Scan gestartet', 'info');
+  setPlaceholder('services-info', 'Scanne Dienste…');
+
+  try {
+    const result = await ScanServices();
+    renderServices(result.services);
+    setEl('services-count', result.services?.length ?? 0);
+    logScanErrors(result.errors, 'Dienste-Scan');
+    setStatus('Dienste-Scan abgeschlossen');
+  } catch (err) {
+    setPlaceholder('services-info', 'Fehler: ' + err);
+    addAction('Dienste-Scan fehlgeschlagen: ' + err, 'error');
+    setStatus('Fehler beim Dienste-Scan');
+  } finally {
+    state.isScanning = false;
+    setScanButtonsDisabled(false);
+  }
+}
+
+function renderServices(svcList) {
+  const container = document.getElementById('services-info');
+  if (!container) return;
+  if (!svcList?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine Dienste gefunden.</div>';
+    return;
+  }
+
+  // Nur Drittanbieter-Auto-Dienste prominent, Rest zusammengefasst
+  const autoThird = svcList.filter(s => s.start_type === 'Automatisch' && !s.is_system);
+  const autoSystem = svcList.filter(s => s.start_type === 'Automatisch' && s.is_system);
+  const running = svcList.filter(s => s.state === 'Läuft' && s.start_type !== 'Automatisch' && !s.is_system);
+
+  container.innerHTML = `<p class="section-meta">${svcList.length} Dienste gesamt · ${autoThird.length} Drittanbieter-Autostart · ${svcList.filter(s=>s.state==='Läuft').length} laufend</p>`;
+
+  if (autoThird.length > 0) {
+    const tbl = buildServicesTable(autoThird, '⚠ Drittanbieter – Automatisch');
+    container.appendChild(tbl);
+  }
+  if (autoSystem.length > 0) {
+    const tbl = buildServicesTable(autoSystem, '✓ System – Automatisch');
+    container.appendChild(tbl);
+  }
+  if (running.length > 0) {
+    const tbl = buildServicesTable(running, 'Laufende Drittanbieter-Dienste (Manuell)');
+    container.appendChild(tbl);
+  }
+}
+
+function buildServicesTable(list, title) {
+  const wrap = document.createElement('div');
+  wrap.className = 'autostart-group';
+  wrap.innerHTML = `<div class="autostart-group-title">${escapeHtml(title)}</div>`;
+  const tbl = document.createElement('table');
+  tbl.className = 'data-table';
+  tbl.innerHTML = '<thead><tr><th>Name</th><th>Starttyp</th><th>Status</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+  list.forEach(s => {
+    const tr = document.createElement('tr');
+    const stateIcon = s.state === 'Läuft' ? '🟢' : (s.state === 'Gestoppt' ? '🔴' : '🟡');
+    tr.innerHTML = `<td><strong>${escapeHtml(s.display_name)}</strong><br><span class="text-muted" style="font-size:11px">${escapeHtml(s.name)}</span></td><td>${escapeHtml(s.start_type)}</td><td>${stateIcon} ${escapeHtml(s.state)}</td>`;
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  wrap.appendChild(tbl);
+  return wrap;
+}
+
+// ─── Event-Log-Scanner ───────────────────────────────────────────────────────
+
+async function runEventsScan() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  setScanButtonsDisabled(true);
+  setStatus('Event-Log-Scan läuft…');
+  addAction('Event-Log-Scan gestartet', 'info');
+  setPlaceholder('events-info', 'Lese Ereignis-Log…');
+
+  try {
+    const result = await ScanEvents();
+    renderEvents(result.events);
+    setEl('events-count', result.events?.length ?? 0);
+    logScanErrors(result.errors, 'Event-Log-Scan');
+    setStatus('Event-Log-Scan abgeschlossen');
+  } catch (err) {
+    setPlaceholder('events-info', 'Fehler: ' + err);
+    addAction('Event-Log-Scan fehlgeschlagen: ' + err, 'error');
+    setStatus('Fehler beim Event-Log-Scan');
+  } finally {
+    state.isScanning = false;
+    setScanButtonsDisabled(false);
+  }
+}
+
+function renderEvents(evtList) {
+  const container = document.getElementById('events-info');
+  if (!container) return;
+  if (!evtList?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine kritischen Ereignisse in den letzten 7 Tagen.</div>';
+    return;
+  }
+
+  const table = document.createElement('table');
+  table.className = 'data-table';
+  table.innerHTML = '<thead><tr><th>Zeit</th><th>Level</th><th>Quelle</th><th>Event-ID</th><th>Meldung</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+
+  evtList.forEach(e => {
+    const tr = document.createElement('tr');
+    const levelIcon = e.level === 'Kritisch' ? '🔴' : (e.level === 'Fehler' ? '🟠' : '🟡');
+    const time = e.time ? new Date(e.time).toLocaleString('de-DE') : '–';
+    tr.innerHTML = `
+      <td style="white-space:nowrap;font-size:11px">${escapeHtml(time)}</td>
+      <td>${levelIcon} ${escapeHtml(e.level)}</td>
+      <td style="font-size:11px">${escapeHtml(e.source)}</td>
+      <td style="text-align:center">${e.event_id || '–'}</td>
+      <td style="font-size:12px">${escapeHtml(e.message)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  container.innerHTML = `<p class="section-meta">${evtList.length} kritische Ereignisse</p>`;
+  container.appendChild(table);
 }
 
 // ─── System-Tab Rendering ─────────────────────────────────────────────────────
@@ -713,6 +930,16 @@ function updateDashboardBadges(result) {
     setEl('info-os', `${result.os.name ?? ''} ${result.os.build ?? ''}`);
     if (result.os.last_boot_time) {
       setEl('info-uptime', calcUptime(result.os.last_boot_time));
+    }
+  }
+
+  // Letzte Anmeldung: aktivierten, nicht-System-Benutzer mit neuester LastLogon
+  if (result.users?.length) {
+    const lastUser = result.users
+      .filter(u => u.is_enabled && u.last_logon && !u.last_logon.startsWith('0001'))
+      .sort((a, b) => new Date(b.last_logon) - new Date(a.last_logon))[0];
+    if (lastUser) {
+      setEl('info-lastlogin', `${lastUser.name} (${formatDate(lastUser.last_logon)})`);
     }
   }
 

@@ -76,6 +76,8 @@ type OSInfo struct {
 	LastBootTime     time.Time `json:"last_boot_time"`
 	LicenseStatus    string    `json:"license_status"`   // Licensed, Unlicensed, Unknown
 	SerialNumber     string    `json:"serial_number"`
+	LastUpdateDate   time.Time `json:"last_update_date,omitempty"`
+	PendingUpdates   int       `json:"pending_updates,omitempty"` // -1 = nicht ermittelt
 }
 
 // ─── SMART ────────────────────────────────────────────────────────────────────
@@ -126,6 +128,18 @@ type SecurityInfo struct {
 	DefenderSignatureDate time.Time         `json:"defender_signature_date"`
 	DefenderVersion       string            `json:"defender_version"`
 	FirewallEnabled       bool              `json:"firewall_enabled"`
+	RDPEnabled            bool              `json:"rdp_enabled"`
+	RDPPort               int               `json:"rdp_port,omitempty"`
+	NLAEnabled            bool              `json:"nla_enabled"`
+	LocalShares           []LocalShare      `json:"local_shares,omitempty"`
+}
+
+// LocalShare beschreibt eine lokale Netzwerkfreigabe des Systems.
+type LocalShare struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Description string `json:"description"`
+	IsSystem    bool   `json:"is_system"` // ADMIN$, C$, IPC$
 }
 
 type BitLockerVolume struct {

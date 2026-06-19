@@ -8,8 +8,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"adminkit/internal/autostart"
+	"adminkit/internal/events"
 	"adminkit/internal/network"
 	"adminkit/internal/printers"
+	"adminkit/internal/services"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
 )
@@ -26,10 +29,13 @@ type SessionExport struct {
 	// LogoBase64: vollständige Data-URI ("data:image/png;base64,...") oder leer.
 	LogoBase64 string
 
-	System   *system.ScanResult
-	Network  *network.ScanResult
-	Software *software.ScanResult
-	Printers *printers.ScanResult
+	System    *system.ScanResult
+	Network   *network.ScanResult
+	Software  *software.ScanResult
+	Printers  *printers.ScanResult
+	Autostart *autostart.ScanResult
+	Services  *services.ScanResult
+	Events    *events.ScanResult
 }
 
 // ExportHTML erzeugt einen selbst-enthaltenen HTML-Bericht und speichert ihn

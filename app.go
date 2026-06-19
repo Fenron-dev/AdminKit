@@ -10,11 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"adminkit/internal/autostart"
 	"adminkit/internal/config"
+	"adminkit/internal/events"
 	"adminkit/internal/export"
 	"adminkit/internal/logging"
 	"adminkit/internal/network"
 	"adminkit/internal/printers"
+	"adminkit/internal/services"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
 	"adminkit/internal/tools"
@@ -33,12 +36,15 @@ type App struct {
 	cfg   *config.Config
 
 	// Zwischengespeicherte Scan-Ergebnisse für den Export
-	lastSystemScan   *system.ScanResult
-	lastNetworkScan  *network.ScanResult
-	lastSoftwareScan *software.ScanResult
-	lastPrinterScan  *printers.ScanResult
-	lastSessionName  string
-	lastSessionPath  string
+	lastSystemScan    *system.ScanResult
+	lastNetworkScan   *network.ScanResult
+	lastSoftwareScan  *software.ScanResult
+	lastPrinterScan   *printers.ScanResult
+	lastAutostartScan *autostart.ScanResult
+	lastServicesScan  *services.ScanResult
+	lastEventsScan    *events.ScanResult
+	lastSessionName   string
+	lastSessionPath   string
 }
 
 // NewApp erstellt eine neue App-Instanz.
@@ -200,6 +206,9 @@ func (a *App) NewSession(customerName string) (string, error) {
 	a.lastNetworkScan = nil
 	a.lastSoftwareScan = nil
 	a.lastPrinterScan = nil
+	a.lastAutostartScan = nil
+	a.lastServicesScan = nil
+	a.lastEventsScan = nil
 	return path, nil
 }
 
@@ -300,6 +309,52 @@ func (a *App) SaveSoftwareScan(result *software.ScanResult, sessionPath string) 
 	return nil
 }
 
+// ScanAutostart sammelt alle Autostart-Einträge (Registry, Tasks, LaunchAgents usw.).
+func (a *App) ScanAutostart() (*autostart.ScanResult, error) {
+	logging.Info("Autostart", "Autostart-Scan gestartet")
+	result := autostart.Scan()
+	for _, e := range result.Errors {
+		logging.Warnf("Autostart", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Autostart", "Autostart-Scan abgeschlossen: %d Einträge (%d Fehler)",
+		len(result.Entries), len(result.Errors))
+	a.lastAutostartScan = &result
+	if a.vault != nil {
+		path := a.lastSessionPath
+		if path == "" {
+			path = a.vault.RootPath
+		}
+		if _, err := autostart.SaveToVault(path, result); err != nil {
+			logging.Warnf("Autostart", "Vault-Speicherung fehlgeschlagen: %v", err)
+		}
+	}
+	return &result, nil
+}
+
+// ScanServices listet laufende und automatisch startende Dienste auf.
+func (a *App) ScanServices() (*services.ScanResult, error) {
+	logging.Info("Services", "Dienste-Scan gestartet")
+	result := services.Scan()
+	for _, e := range result.Errors {
+		logging.Warnf("Services", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Services", "Dienste-Scan abgeschlossen: %d Dienste", len(result.Services))
+	a.lastServicesScan = &result
+	return &result, nil
+}
+
+// ScanEvents liest kritische Systemereignisse der letzten 7 Tage.
+func (a *App) ScanEvents() (*events.ScanResult, error) {
+	logging.Info("Events", "Event-Log-Scan gestartet")
+	result := events.Scan()
+	for _, e := range result.Errors {
+		logging.Warnf("Events", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Events", "Event-Scan abgeschlossen: %d Ereignisse", len(result.Events))
+	a.lastEventsScan = &result
+	return &result, nil
+}
+
 // ScanPrinters listet alle installierten Drucker auf.
 func (a *App) ScanPrinters() (*printers.ScanResult, error) {
 	logging.Info("Printers", "Drucker-Scan gestartet")
@@ -372,7 +427,8 @@ func (a *App) GetUptime() (string, error) {
 // format: "html" oder "json"
 // Gibt den absoluten Pfad der erzeugten Datei zurück.
 func (a *App) ExportSession(format string) (string, error) {
-	if a.lastSystemScan == nil && a.lastNetworkScan == nil && a.lastSoftwareScan == nil {
+	if a.lastSystemScan == nil && a.lastNetworkScan == nil &&
+		a.lastSoftwareScan == nil && a.lastAutostartScan == nil {
 		return "", fmt.Errorf("kein Scan durchgeführt – bitte zuerst scannen")
 	}
 
@@ -394,6 +450,9 @@ func (a *App) ExportSession(format string) (string, error) {
 		Network:        a.lastNetworkScan,
 		Software:       a.lastSoftwareScan,
 		Printers:       a.lastPrinterScan,
+		Autostart:      a.lastAutostartScan,
+		Services:       a.lastServicesScan,
+		Events:         a.lastEventsScan,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
 		LogoBase64:     a.readLogoBase64(),

@@ -127,6 +127,9 @@
             <h2>System-Informationen</h2>
             <div class="toolbar-actions">
               <button class="btn btn-primary" id="btn-scan-system">🔍 System scannen</button>
+              <button class="btn btn-secondary" id="btn-scan-autostart">🚀 Autostart scannen</button>
+              <button class="btn btn-secondary" id="btn-scan-services">⚙ Dienste scannen</button>
+              <button class="btn btn-secondary" id="btn-scan-events">📋 Ereignisse scannen</button>
               <button class="btn btn-secondary" id="btn-scan-printers">🖨 Drucker scannen</button>
             </div>
           </div>
@@ -147,6 +150,24 @@
               <h3 class="section-title">SMART-Status</h3>
               <div class="info-grid" id="smart-info">
                 <div class="info-placeholder">Scan starten um SMART-Daten zu laden…</div>
+              </div>
+            </div>
+            <div class="info-section">
+              <h3 class="section-title">Autostart-Einträge <span class="count-badge" id="autostart-count"></span></h3>
+              <div id="autostart-info">
+                <div class="info-placeholder">„Autostart scannen" klicken um alle Autostart-Quellen zu prüfen…</div>
+              </div>
+            </div>
+            <div class="info-section">
+              <h3 class="section-title">Dienste <span class="count-badge" id="services-count"></span></h3>
+              <div id="services-info">
+                <div class="info-placeholder">„Dienste scannen" klicken um Dienste aufzulisten…</div>
+              </div>
+            </div>
+            <div class="info-section">
+              <h3 class="section-title">Systemereignisse (letzte 7 Tage) <span class="count-badge" id="events-count"></span></h3>
+              <div id="events-info">
+                <div class="info-placeholder">„Ereignisse scannen" klicken um kritische Ereignisse zu laden…</div>
               </div>
             </div>
             <div class="info-section">

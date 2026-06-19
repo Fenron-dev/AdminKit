@@ -62,6 +62,19 @@ export function GetUptime() {
     return window['go']['main']['App']['GetUptime']();
 }
 
+// ── Phase 9: Erweiterte Scanner ──
+export function ScanAutostart() {
+    return window['go']['main']['App']['ScanAutostart']();
+}
+
+export function ScanServices() {
+    return window['go']['main']['App']['ScanServices']();
+}
+
+export function ScanEvents() {
+    return window['go']['main']['App']['ScanEvents']();
+}
+
 // ── Phase 8: Drucker-Scanner ──
 export function ScanPrinters() {
     return window['go']['main']['App']['ScanPrinters']();

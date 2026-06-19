@@ -367,6 +367,39 @@ html, body {
   margin: 0 0 10px 0;
 }
 
+.autostart-group {
+  margin-bottom: 16px;
+}
+
+.autostart-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge-warning-sm {
+  background: var(--color-warning);
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.highlight-third-party td {
+  background: rgba(202, 138, 4, 0.06);
+}
+
+.text-warning { color: var(--color-warning); font-weight: 600; }
+
 /* ============================================================
    Software-Tabelle
    ============================================================ */

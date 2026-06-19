@@ -351,6 +351,24 @@ func scanOS() (OSInfo, []ScanError) {
 		info.LastBootTime = time.Unix(bootSeconds, 0)
 	}
 
+	// Letztes Software-Update: Datum aus /Library/Receipts/InstallHistory.plist
+	histOut, err := exec.Command("plutil", "-convert", "json", "-o", "-",
+		"/Library/Receipts/InstallHistory.plist").Output()
+	if err == nil {
+		var hist []struct {
+			Date string `json:"date"`
+		}
+		if json.Unmarshal(histOut, &hist) == nil && len(hist) > 0 {
+			// Letzter Eintrag ist neuestes Update
+			last := hist[len(hist)-1]
+			t, parseErr := time.Parse("2006-01-02 15:04:05 -0700", last.Date)
+			if parseErr == nil {
+				info.LastUpdateDate = t
+			}
+		}
+	}
+	info.PendingUpdates = -1 // nicht via CLI ermittelbar ohne Systemrechte
+
 	return info, errs
 }
 
@@ -472,6 +490,33 @@ func scanSecurity() (SecurityInfo, []ScanError) {
 	// XProtect / Gatekeeper als Defender-Äquivalent
 	info.DefenderEnabled = true // Gatekeeper ist auf modernen Macs immer aktiv
 	info.DefenderVersion = "XProtect / Gatekeeper"
+
+	// Remote Login (SSH) als RDP-Äquivalent
+	sshOut, err := exec.Command("systemsetup", "-getremotelogin").Output()
+	if err == nil {
+		info.RDPEnabled = strings.Contains(strings.ToLower(string(sshOut)), "on")
+		info.RDPPort = 22
+	}
+
+	// Lokale Freigaben (AFP/SMB)
+	sharesOut, err := exec.Command("sharing", "-l").Output()
+	if err == nil {
+		lines := strings.Split(string(sharesOut), "\n")
+		var currentName string
+		for _, line := range lines {
+			if strings.HasPrefix(line, "name:") {
+				currentName = strings.TrimSpace(strings.TrimPrefix(line, "name:"))
+			} else if strings.HasPrefix(line, "path:") && currentName != "" {
+				path := strings.TrimSpace(strings.TrimPrefix(line, "path:"))
+				info.LocalShares = append(info.LocalShares, LocalShare{
+					Name:     currentName,
+					Path:     path,
+					IsSystem: false,
+				})
+				currentName = ""
+			}
+		}
+	}
 
 	return info, errs
 }
