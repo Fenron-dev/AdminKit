@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"adminkit/internal/network"
+	"adminkit/internal/printers"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
 )
@@ -55,7 +56,9 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if data.TechnicianName != "" {
 		fmt.Fprintf(sb, "      <span>Techniker: <strong>%s</strong></span>\n", h(data.TechnicianName))
 	}
-	sb.WriteString("    </div>\n  </div>\n</header>\n")
+	sb.WriteString("    </div>\n  </div>\n" +
+		"  <div class=\"hdr-actions\"><button class=\"print-btn\" onclick=\"window.print()\">🖨 Drucken / PDF</button></div>\n" +
+		"</header>\n")
 
 	// ── Anker-Navigation ─────────────────────────────────────────────────────
 	sb.WriteString("<nav class=\"report-nav\">\n")
@@ -71,6 +74,9 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	}
 	if data.Software != nil {
 		sb.WriteString("  <a href=\"#sec-software\">📦 Software</a>\n")
+	}
+	if data.Printers != nil && len(data.Printers.Printers) > 0 {
+		sb.WriteString("  <a href=\"#sec-printers\">🖨 Drucker</a>\n")
 	}
 	sb.WriteString("</nav>\n")
 
@@ -107,6 +113,13 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if data.Software != nil {
 		sb.WriteString("<section id=\"sec-software\">\n<h2 class=\"sec-title\">📦 Software</h2>\n")
 		writeSoftwareSection(sb, data.Software)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Drucker ──────────────────────────────────────────────────────────────
+	if data.Printers != nil && len(data.Printers.Printers) > 0 {
+		sb.WriteString("<section id=\"sec-printers\">\n<h2 class=\"sec-title\">🖨 Drucker</h2>\n")
+		writePrintersSection(sb, data.Printers)
 		sb.WriteString("</section>\n")
 	}
 
@@ -178,6 +191,20 @@ func writeOverviewCards(sb *strings.Builder, data *SessionExport) {
 	if data.Software != nil {
 		cards = append(cards, card{"📦", "Software", "ok",
 			fmt.Sprintf("%d Programme", len(data.Software.Programs)), "#sec-software"})
+	}
+
+	if data.Printers != nil && len(data.Printers.Printers) > 0 {
+		networkCount := 0
+		for _, p := range data.Printers.Printers {
+			if p.IsNetwork {
+				networkCount++
+			}
+		}
+		detail := fmt.Sprintf("%d Drucker", len(data.Printers.Printers))
+		if networkCount > 0 {
+			detail += fmt.Sprintf(", %d Netzwerk", networkCount)
+		}
+		cards = append(cards, card{"🖨", "Drucker", "ok", detail, "#sec-printers"})
 	}
 
 	for _, c := range cards {
@@ -462,6 +489,68 @@ func writeSoftwareSection(sb *strings.Builder, r *software.ScanResult) {
 	}
 }
 
+// ─── Drucker ──────────────────────────────────────────────────────────────────
+
+func writePrintersSection(sb *strings.Builder, r *printers.ScanResult) {
+	sb.WriteString("<table class=\"info-table data-table\">\n" +
+		"<thead><tr>" +
+		"<th>Name</th><th>Treiber</th><th>Port</th><th>Status</th><th>Typ</th><th>Freigabe</th>" +
+		"</tr></thead>\n<tbody>\n")
+
+	for _, p := range r.Printers {
+		nameCell := h(p.Name)
+		if p.IsDefault {
+			nameCell = "<strong>" + nameCell + "</strong> ⭐"
+		}
+		netCell := "🖥 Lokal"
+		if p.IsNetwork {
+			if p.IPAddress != "" {
+				netCell = "🌐 Netzwerk (" + h(p.IPAddress) + ")"
+			} else {
+				netCell = "🌐 Netzwerk"
+			}
+		}
+		share := "–"
+		if p.IsShared {
+			share = "✅"
+			if p.ShareName != "" {
+				share = "✅ " + h(p.ShareName)
+			}
+		}
+		statusIcon := map[printers.PrinterStatus]string{
+			printers.StatusReady:    "🟢",
+			printers.StatusPrinting: "🔵",
+			printers.StatusOffline:  "🔴",
+			printers.StatusError:    "🔴",
+			printers.StatusPaused:   "🟡",
+			printers.StatusUnknown:  "⚪",
+		}[p.Status]
+		if statusIcon == "" {
+			statusIcon = "⚪"
+		}
+		fmt.Fprintf(sb, "<tr><td>%s</td><td><code>%s</code></td><td><code>%s</code></td><td>%s %s</td><td>%s</td><td>%s</td></tr>\n",
+			nameCell,
+			h(p.Driver),
+			h(p.Port),
+			statusIcon, h(string(p.Status)),
+			netCell,
+			share,
+		)
+	}
+	sb.WriteString("</tbody></table>\n")
+
+	if len(r.Errors) > 0 {
+		sb.WriteString("<p class=\"scan-warn\">⚠ Scan-Warnungen: ")
+		for i, e := range r.Errors {
+			if i > 0 {
+				sb.WriteString(" · ")
+			}
+			fmt.Fprintf(sb, "[%s] %s", h(e.Module), h(e.Message))
+		}
+		sb.WriteString("</p>\n")
+	}
+}
+
 // ─── Hilfs-Funktionen ─────────────────────────────────────────────────────────
 
 // row schreibt eine th/td-Tabellenzeile; leere Werte werden übersprungen.
@@ -502,6 +591,11 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;background:va
 color:var(--text);padding:0;line-height:1.5}
 header{display:flex;align-items:center;gap:16px;padding:20px 32px;
 background:var(--surface);border-bottom:2px solid var(--primary);print-color-adjust:exact}
+.hdr-actions{margin-left:auto}
+.print-btn{padding:7px 14px;background:var(--primary);color:#fff;border:none;border-radius:6px;
+font-size:13px;cursor:pointer;font-weight:500}
+.print-btn:hover{opacity:.85}
+.scan-warn{font-size:12px;color:var(--warn);margin-top:8px}
 .hdr-logo{font-size:22px;font-weight:700;color:var(--primary)}
 .hdr-logo-img{max-height:48px;max-width:160px;object-fit:contain}
 .hdr-company{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
@@ -552,7 +646,7 @@ font-size:13px;width:300px;background:var(--bg);color:var(--text)}
 footer{text-align:center;padding:16px;font-size:11px;color:var(--muted);
 background:var(--surface);border-top:1px solid var(--border)}
 @media print{
-  .search-bar{display:none}
+  .search-bar,.print-btn{display:none}
   .info-table tbody tr:nth-child(even){background:#f8fafc!important}
   section{break-inside:avoid}
   header{background:#f8fafc!important}

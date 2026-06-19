@@ -393,6 +393,7 @@ func (a *App) ExportSession(format string) (string, error) {
 		System:         a.lastSystemScan,
 		Network:        a.lastNetworkScan,
 		Software:       a.lastSoftwareScan,
+		Printers:       a.lastPrinterScan,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
 		LogoBase64:     a.readLogoBase64(),
@@ -415,6 +416,41 @@ func (a *App) ExportSession(format string) (string, error) {
 		return "", err
 	}
 	logging.Infof("Export", "Bericht erstellt: %s", path)
+	return path, nil
+}
+
+// ExportCSV exportiert die Software-Liste als CSV-Datei (Excel-kompatibel, UTF-8 BOM).
+func (a *App) ExportCSV() (string, error) {
+	if a.lastSoftwareScan == nil && a.lastPrinterScan == nil {
+		return "", fmt.Errorf("kein Scan durchgeführt – bitte zuerst scannen")
+	}
+
+	sessionName := a.lastSessionName
+	if sessionName == "" {
+		sessionName = "Unbenannte Session"
+	}
+
+	outDir := filepath.Join(a.vault.RootPath, "exports")
+	if a.lastSessionPath != "" {
+		outDir = filepath.Join(a.lastSessionPath, "exports")
+	}
+
+	data := &export.SessionExport{
+		GeneratedAt:    time.Now(),
+		SessionName:    sessionName,
+		SessionPath:    a.lastSessionPath,
+		Software:       a.lastSoftwareScan,
+		Printers:       a.lastPrinterScan,
+		CompanyName:    a.cfg.Branding.CompanyName,
+		TechnicianName: a.cfg.Branding.TechnicianName,
+	}
+
+	path, err := export.ExportCSV(data, outDir)
+	if err != nil {
+		logging.Errorf("Export", "CSV-Export fehlgeschlagen: %v", err)
+		return "", err
+	}
+	logging.Infof("Export", "CSV erstellt: %s", path)
 	return path, nil
 }
 

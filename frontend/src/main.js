@@ -12,7 +12,7 @@ import {
   ScanSoftware, SaveSoftwareScan,
   ScanPrinters, SavePrinterScan,
   RunConsoleTool, BackupVault, GetClipboard, GetUptime,
-  ExportSession,
+  ExportSession, ExportCSV,
   SaveConfig,
   PickLogoFile,
   GetLogoBase64,
@@ -1031,6 +1031,7 @@ function escapeHtml(str) {
 function initExport() {
   // Dropdown-Buttons
   document.getElementById('btn-export-html')?.addEventListener('click', () => runExport('html'));
+  document.getElementById('btn-export-csv')?.addEventListener('click', () => runExportCSV());
   document.getElementById('btn-export-json')?.addEventListener('click', () => runExport('json'));
 
   // Dropdown öffnen/schließen
@@ -1063,6 +1064,24 @@ async function runExport(format) {
   } catch (err) {
     showExportModal(format, null, String(err));
     addAction(`Export fehlgeschlagen: ${err}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Exportieren ▾'; }
+  }
+}
+
+async function runExportCSV() {
+  document.getElementById('export-dropdown')?.classList.remove('open');
+
+  const btn = document.getElementById('btn-export');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Exportiere…'; }
+
+  try {
+    const path = await ExportCSV();
+    showExportModal('CSV', path);
+    addAction(`CSV exportiert: ${shortenPath(path)}`, 'success');
+  } catch (err) {
+    showExportModal('CSV', null, String(err));
+    addAction(`CSV-Export fehlgeschlagen: ${err}`, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '📤 Exportieren ▾'; }
   }

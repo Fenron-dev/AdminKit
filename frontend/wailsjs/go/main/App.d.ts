@@ -30,6 +30,7 @@ export function SavePrinterScan(result: any, sessionPath: string): Promise<void>
 
 // Phase 6: Export & Einstellungen
 export function ExportSession(format: string): Promise<string>;
+export function ExportCSV(): Promise<string>;
 export function SaveConfig(cfg: any): Promise<void>;
 export function PickLogoFile(): Promise<string>;
 export function GetLogoBase64(): Promise<string>;

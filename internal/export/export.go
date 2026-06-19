@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"adminkit/internal/network"
+	"adminkit/internal/printers"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
 )
@@ -28,6 +29,7 @@ type SessionExport struct {
 	System   *system.ScanResult
 	Network  *network.ScanResult
 	Software *software.ScanResult
+	Printers *printers.ScanResult
 }
 
 // ExportHTML erzeugt einen selbst-enthaltenen HTML-Bericht und speichert ihn
@@ -64,6 +66,21 @@ func ExportJSON(data *SessionExport, outDir string) (string, error) {
 	}
 	if err := os.WriteFile(path, js, 0644); err != nil {
 		return "", fmt.Errorf("JSON-Datei schreiben: %w", err)
+	}
+	return path, nil
+}
+
+// ExportCSV exportiert die Software-Liste als CSV-Datei.
+func ExportCSV(data *SessionExport, outDir string) (string, error) {
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return "", fmt.Errorf("export-verzeichnis: %w", err)
+	}
+	name := sanitizeFilename(data.SessionName)
+	ts := data.GeneratedAt.Format("20060102_150405")
+	path := filepath.Join(outDir, fmt.Sprintf("software_%s_%s.csv", name, ts))
+	csv := GenerateCSV(data)
+	if err := os.WriteFile(path, []byte(csv), 0644); err != nil {
+		return "", fmt.Errorf("CSV-Datei schreiben: %w", err)
 	}
 	return path, nil
 }

@@ -76,6 +76,10 @@ export function ExportSession(arg1) {
     return window['go']['main']['App']['ExportSession'](arg1);
 }
 
+export function ExportCSV() {
+    return window['go']['main']['App']['ExportCSV']();
+}
+
 export function SaveConfig(arg1) {
     return window['go']['main']['App']['SaveConfig'](arg1);
 }
