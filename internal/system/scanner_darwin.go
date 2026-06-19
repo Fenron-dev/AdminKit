@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -325,14 +326,28 @@ func scanOS() (OSInfo, []ScanError) {
 		info.Architecture = "x64"
 	}
 
-	info.Name = strings.TrimSpace(prodName) + " " + strings.TrimSpace(prodVersion)
+	info.Name = strings.TrimSpace(prodName)
 	info.Version = strings.TrimSpace(prodVersion)
 	info.Build = strings.TrimSpace(buildVersion)
 	info.LicenseStatus = "Licensed" // macOS ist immer lizenziert wenn macOS läuft
 
+	// Seriennummer aus system_profiler SPHardwareDataType
+	if hwOut, hwErr := exec.Command("system_profiler", "SPHardwareDataType", "-json").Output(); hwErr == nil {
+		var data spHardware
+		if json.Unmarshal(hwOut, &data) == nil && len(data.SPHardwareDataType) > 0 {
+			info.SerialNumber = data.SPHardwareDataType[0].SerialNumber
+		}
+	}
+
+	// Installations-Datum: Erstellungsdatum von /private/var/db/.AppleSetupDone
+	setupFile := "/private/var/db/.AppleSetupDone"
+	if fi, statErr := os.Stat(setupFile); statErr == nil {
+		info.InstallDate = fi.ModTime()
+	}
+
 	// Boot-Zeit via sysctl
-	bootSeconds, err2 := sysctlInt64("kern.boottime")
-	if err2 == nil && bootSeconds > 0 {
+	bootSeconds, bootErr := sysctlInt64("kern.boottime")
+	if bootErr == nil && bootSeconds > 0 {
 		info.LastBootTime = time.Unix(bootSeconds, 0)
 	}
 
