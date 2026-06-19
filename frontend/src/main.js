@@ -9,6 +9,7 @@ import {
   GetAppVersion, GetVaultPath, GetConfig, NewSession,
   ScanSystem, SaveSystemScan,
   ScanNetwork, SaveNetworkScan,
+  ScanSoftware, SaveSoftwareScan,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -20,6 +21,9 @@ const state = {
   currentSessionPath: null,    // Absoluter Pfad zur Session im Vault
   lastScanResult: null,        // Letztes System-ScanResult
   lastNetworkResult: null,     // Letztes Netzwerk-ScanResult
+  lastSoftwareResult: null,    // Letztes Software-ScanResult
+  softwareSortCol: 'name',     // Aktive Sortierspalte
+  softwareSortDir: 'asc',      // Sortierrichtung
   isScanning: false,
 };
 
@@ -31,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initThemeToggle();
   initSessionModal();
   initScanButtons();
+  initSoftwareTab();
   loadAppInfo();
 });
 
@@ -104,14 +109,16 @@ function initScanButtons() {
   document.getElementById('btn-full-scan')?.addEventListener('click', () => runFullScan());
   document.getElementById('btn-scan-system')?.addEventListener('click', () => runSystemScan());
   document.getElementById('btn-scan-network')?.addEventListener('click', () => runNetworkScan());
+  document.getElementById('btn-scan-software')?.addEventListener('click', () => runSoftwareScan());
   document.getElementById('btn-refresh')?.addEventListener('click', () => loadAppInfo());
 }
 
-/** Vollständiger Scan: System + Netzwerk nacheinander */
+/** Vollständiger Scan: System + Netzwerk + Software nacheinander */
 async function runFullScan() {
   switchTab('system');
   await runSystemScan();
   await runNetworkScan();
+  await runSoftwareScan();
 }
 
 async function runSystemScan() {
@@ -188,6 +195,40 @@ async function runNetworkScan() {
   }
 }
 
+async function runSoftwareScan() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  setStatus('Software-Scan läuft…');
+  setScanButtonsDisabled(true);
+  addAction('Software-Scan gestartet', 'info');
+
+  const tbody = document.getElementById('software-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="table-placeholder">Scanne installierte Software…</td></tr>';
+
+  try {
+    const result = await ScanSoftware();
+    state.lastSoftwareResult = result;
+
+    renderSoftware(result);
+    updateSoftwareBadge(result);
+
+    if (state.currentSessionPath) {
+      await SaveSoftwareScan(result, state.currentSessionPath);
+      addAction('Software-Scan in Vault gespeichert', 'success');
+    }
+
+    logScanErrors(result.errors, 'Software-Scan');
+    setStatus('Software-Scan abgeschlossen');
+  } catch (err) {
+    console.error('Software-Scan fehlgeschlagen:', err);
+    addAction('Software-Scan fehlgeschlagen: ' + err, 'error');
+    setStatus('Fehler beim Software-Scan');
+  } finally {
+    state.isScanning = false;
+    setScanButtonsDisabled(false);
+  }
+}
+
 function logScanErrors(errors, label) {
   const count = errors?.length ?? 0;
   if (count > 0) {
@@ -199,7 +240,7 @@ function logScanErrors(errors, label) {
 }
 
 function setScanButtonsDisabled(disabled) {
-  ['btn-full-scan', 'btn-scan-system', 'btn-scan-network'].forEach(id => {
+  ['btn-full-scan', 'btn-scan-system', 'btn-scan-network', 'btn-scan-software'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = disabled;
   });
@@ -424,6 +465,135 @@ function renderWiFi(profiles) {
       btn.textContent = visible ? '👁' : '🙈';
     });
   });
+}
+
+// ─── Software-Tab ────────────────────────────────────────────────────────────
+
+/** Initialisiert Sortierung und Live-Suche im Software-Tab. */
+function initSoftwareTab() {
+  // Spalten-Sortierung per Klick auf Thead
+  document.querySelectorAll('#software-table thead th[data-sort]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      if (state.softwareSortCol === col) {
+        state.softwareSortDir = state.softwareSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.softwareSortCol = col;
+        state.softwareSortDir = 'asc';
+      }
+      if (state.lastSoftwareResult) renderSoftware(state.lastSoftwareResult);
+    });
+  });
+
+  // Live-Suche
+  document.getElementById('software-search')?.addEventListener('input', e => {
+    if (state.lastSoftwareResult) renderSoftware(state.lastSoftwareResult, e.target.value.trim().toLowerCase());
+  });
+}
+
+/** Rendert die Software-Tabelle mit optionalem Such-Filter. */
+function renderSoftware(result, filter = '') {
+  const tbody = document.getElementById('software-tbody');
+  if (!tbody) return;
+
+  // Alle Programme: installierte + Browser + Laufzeiten als getrennte Sektionen
+  let programs = result.programs ?? [];
+
+  // Filter anwenden
+  if (filter) {
+    programs = programs.filter(p =>
+      p.name?.toLowerCase().includes(filter) ||
+      p.publisher?.toLowerCase().includes(filter)
+    );
+  }
+
+  // Sortieren
+  programs = [...programs].sort((a, b) => {
+    let va, vb;
+    switch (state.softwareSortCol) {
+      case 'version':   va = a.version ?? '';    vb = b.version ?? '';    break;
+      case 'publisher': va = a.publisher ?? '';   vb = b.publisher ?? '';  break;
+      case 'date':      va = a.install_date ?? ''; vb = b.install_date ?? ''; break;
+      case 'size':      va = a.size_mb ?? 0;      vb = b.size_mb ?? 0;
+                        return state.softwareSortDir === 'asc' ? va - vb : vb - va;
+      default:          va = a.name ?? '';        vb = b.name ?? '';       break;
+    }
+    const cmp = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
+    return state.softwareSortDir === 'asc' ? cmp : -cmp;
+  });
+
+  // Sort-Icons aktualisieren
+  document.querySelectorAll('#software-table thead th[data-sort]').forEach(th => {
+    const icon = th.querySelector('.sort-icon');
+    if (!icon) return;
+    if (th.dataset.sort === state.softwareSortCol) {
+      icon.textContent = state.softwareSortDir === 'asc' ? '↑' : '↓';
+    } else {
+      icon.textContent = '↕';
+    }
+  });
+
+  tbody.innerHTML = '';
+
+  if (programs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="table-placeholder">${filter ? 'Keine Treffer für „' + escapeHtml(filter) + '"' : 'Keine Programme gefunden.'}</td></tr>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  programs.forEach(p => {
+    const tr = document.createElement('tr');
+
+    const date = p.install_date && !p.install_date.startsWith('0001')
+      ? formatDate(p.install_date) : '–';
+
+    const size = p.size_mb > 0
+      ? (p.size_mb >= 1000 ? `${(p.size_mb / 1024).toFixed(1)} GB` : `${Math.round(p.size_mb)} MB`)
+      : '–';
+
+    // Kopier-Button für Uninstall-String (nur wenn vorhanden)
+    const copyBtn = p.uninstall_string
+      ? `<button class="copy-btn" data-copy="${escapeHtml(p.uninstall_string)}" title="Uninstall-Befehl kopieren">📋</button>`
+      : '<span class="text-muted">–</span>';
+
+    tr.innerHTML = `
+      <td>${escapeHtml(p.name ?? '–')}</td>
+      <td class="mono-cell">${escapeHtml(p.version ?? '–')}</td>
+      <td>${escapeHtml(p.publisher ?? '–')}</td>
+      <td>${date}</td>
+      <td style="text-align:right">${size}</td>
+      <td style="text-align:center">${copyBtn}</td>`;
+
+    frag.appendChild(tr);
+  });
+
+  tbody.appendChild(frag);
+
+  // Kopier-Buttons verdrahten
+  tbody.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btn.textContent;
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      } catch { /* Clipboard-API nicht verfügbar */ }
+    });
+  });
+
+  // Zähler aktualisieren
+  const total = result.programs?.length ?? 0;
+  const shown = programs.length;
+  setEl('software-count', filter ? `${shown} von ${total}` : `${total}`);
+  updateSoftwareBadge(result);
+}
+
+function updateSoftwareBadge(result) {
+  const count = result.programs?.length ?? 0;
+  setBadge('badge-software', 'detail-software', 'OK',
+    `${count} Programme gefunden`);
 }
 
 function updateNetworkBadge(result) {

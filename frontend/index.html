@@ -88,6 +88,11 @@
               <div class="status-badge badge-unknown" id="badge-network">⚪ Unbekannt</div>
               <p class="badge-detail" id="detail-network">Noch kein Scan</p>
             </div>
+            <div class="card">
+              <div class="card-header"><h3>Software</h3></div>
+              <div class="status-badge badge-unknown" id="badge-software">⚪ Unbekannt</div>
+              <p class="badge-detail" id="detail-software">Noch kein Scan</p>
+            </div>
 
             <div class="card card-full-row">
               <div class="card-header"><h3>Letzte Aktionen</h3></div>
@@ -157,25 +162,26 @@
         <!-- ── SOFTWARE ── -->
         <section class="tab-panel" id="tab-software">
           <div class="panel-toolbar">
-            <h2>Software-Inventarisierung</h2>
+            <h2>Software-Inventarisierung <span class="count-badge" id="software-count"></span></h2>
             <div class="toolbar-actions">
-              <input class="search-input" type="search" id="software-search" placeholder="Software suchen…" />
-              <button class="btn btn-secondary" id="btn-export-csv">📋 CSV Export</button>
+              <input class="search-input" type="search" id="software-search" placeholder="Name oder Hersteller suchen…" />
               <button class="btn btn-primary" id="btn-scan-software">🔍 Software scannen</button>
             </div>
           </div>
           <div class="table-wrapper">
-            <table class="data-table" id="software-table">
+            <table class="data-table sortable-table" id="software-table">
               <thead>
                 <tr>
                   <th data-sort="name">Name <span class="sort-icon">↕</span></th>
                   <th data-sort="version">Version <span class="sort-icon">↕</span></th>
+                  <th data-sort="publisher">Hersteller <span class="sort-icon">↕</span></th>
                   <th data-sort="date">Installiert <span class="sort-icon">↕</span></th>
                   <th data-sort="size">Größe <span class="sort-icon">↕</span></th>
+                  <th>Aktion</th>
                 </tr>
               </thead>
               <tbody id="software-tbody">
-                <tr><td colspan="4" class="table-placeholder">Scan starten um Software zu laden…</td></tr>
+                <tr><td colspan="6" class="table-placeholder">Scan starten um Software zu laden…</td></tr>
               </tbody>
             </table>
           </div>

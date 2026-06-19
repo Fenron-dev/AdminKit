@@ -35,3 +35,12 @@ export function ScanNetwork() {
 export function SaveNetworkScan(arg1, arg2) {
     return window['go']['main']['App']['SaveNetworkScan'](arg1, arg2);
 }
+
+// ── Phase 4: Software-Inventarisierung ──
+export function ScanSoftware() {
+    return window['go']['main']['App']['ScanSoftware']();
+}
+
+export function SaveSoftwareScan(arg1, arg2) {
+    return window['go']['main']['App']['SaveSoftwareScan'](arg1, arg2);
+}

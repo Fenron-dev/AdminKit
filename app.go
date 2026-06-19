@@ -8,6 +8,7 @@ import (
 	"adminkit/internal/config"
 	"adminkit/internal/logging"
 	"adminkit/internal/network"
+	"adminkit/internal/software"
 	"adminkit/internal/system"
 	"adminkit/internal/vault"
 )
@@ -168,6 +169,35 @@ func (a *App) SaveNetworkScan(result *network.ScanResult, sessionPath string) er
 		return err
 	}
 	logging.Infof("Network", "Scan gespeichert: %s", sessionPath)
+	return nil
+}
+
+// ScanSoftware inventarisiert installierte Programme, Laufzeiten und Browser.
+func (a *App) ScanSoftware() (*software.ScanResult, error) {
+	logging.Info("Software", "Software-Scan gestartet")
+	result, err := software.Scan()
+	if err != nil {
+		logging.Errorf("Software", "Scan fehlgeschlagen: %v", err)
+		return nil, err
+	}
+	for _, e := range result.Errors {
+		logging.Warnf("Software", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Software", "Software-Scan abgeschlossen: %d Programme, %d Laufzeiten, %d Browser (%d Fehler)",
+		len(result.Programs), len(result.Runtimes), len(result.Browsers), len(result.Errors))
+	return result, nil
+}
+
+// SaveSoftwareScan speichert den Software-Scan als Markdown und CSV im Session-Ordner.
+func (a *App) SaveSoftwareScan(result *software.ScanResult, sessionPath string) error {
+	if sessionPath == "" {
+		return nil
+	}
+	if err := software.SaveToVault(result, sessionPath); err != nil {
+		logging.Errorf("Software", "Vault-Speicherung fehlgeschlagen: %v", err)
+		return err
+	}
+	logging.Infof("Software", "Scan gespeichert: %s", sessionPath)
 	return nil
 }
 
