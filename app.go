@@ -7,6 +7,7 @@ import (
 
 	"adminkit/internal/config"
 	"adminkit/internal/logging"
+	"adminkit/internal/system"
 	"adminkit/internal/vault"
 )
 
@@ -102,6 +103,36 @@ func (a *App) NewSession(customerName string) (string, error) {
 		return "", nil
 	}
 	return a.vault.NewSession(customerName)
+}
+
+// ScanSystem führt einen vollständigen System-Scan durch und gibt das Ergebnis zurück.
+// Fehler (z.B. fehlende Adminrechte) werden als result.Errors zurückgegeben, kein Absturz.
+func (a *App) ScanSystem() (*system.ScanResult, error) {
+	logging.Info("System", "System-Scan gestartet")
+	result, err := system.Scan()
+	if err != nil {
+		logging.Errorf("System", "Scan fehlgeschlagen: %v", err)
+		return nil, err
+	}
+	for _, e := range result.Errors {
+		logging.Warnf("System", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("System", "System-Scan abgeschlossen (%d Fehler)", len(result.Errors))
+	return result, nil
+}
+
+// SaveSystemScan speichert ein Scan-Ergebnis im aktuellen Session-Ordner als Markdown.
+// sessionPath muss ein gültiger Pfad zu einem Session-Verzeichnis im Vault sein.
+func (a *App) SaveSystemScan(result *system.ScanResult, sessionPath string) error {
+	if sessionPath == "" {
+		return nil
+	}
+	if err := system.SaveToVault(result, sessionPath); err != nil {
+		logging.Errorf("System", "Vault-Speicherung fehlgeschlagen: %v", err)
+		return err
+	}
+	logging.Infof("System", "Scan gespeichert: %s", sessionPath)
+	return nil
 }
 
 // resolveVaultPath sucht den Vault-Pfad in dieser Reihenfolge:

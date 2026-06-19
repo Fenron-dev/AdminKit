@@ -5,3 +5,5 @@ export function GetAppVersion(): Promise<string>;
 export function GetConfig(): Promise<any>;
 export function GetVaultPath(): Promise<string>;
 export function NewSession(customerName: string): Promise<string>;
+export function ScanSystem(): Promise<any>;
+export function SaveSystemScan(result: any, sessionPath: string): Promise<void>;

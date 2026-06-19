@@ -17,3 +17,11 @@ export function GetVaultPath() {
 export function NewSession(arg1) {
     return window['go']['main']['App']['NewSession'](arg1);
 }
+
+export function ScanSystem() {
+    return window['go']['main']['App']['ScanSystem']();
+}
+
+export function SaveSystemScan(arg1, arg2) {
+    return window['go']['main']['App']['SaveSystemScan'](arg1, arg2);
+}

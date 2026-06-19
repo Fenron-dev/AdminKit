@@ -419,6 +419,27 @@ html, body {
   padding: 30px !important;
 }
 
+/* ── SMART-Disk-Blöcke im System-Tab ── */
+.smart-disk {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.smart-disk-title {
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+}
+#smart-info .info-key, #smart-info .info-val {
+  border-bottom: 1px solid var(--color-border);
+}
+#smart-info .info-key:last-of-type, #smart-info .info-val:last-child {
+  border-bottom: none;
+}
+
 /* ============================================================
    Tools
    ============================================================ */
