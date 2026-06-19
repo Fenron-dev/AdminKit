@@ -14,6 +14,7 @@ import (
 	"adminkit/internal/export"
 	"adminkit/internal/logging"
 	"adminkit/internal/network"
+	"adminkit/internal/printers"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
 	"adminkit/internal/tools"
@@ -35,6 +36,7 @@ type App struct {
 	lastSystemScan   *system.ScanResult
 	lastNetworkScan  *network.ScanResult
 	lastSoftwareScan *software.ScanResult
+	lastPrinterScan  *printers.ScanResult
 	lastSessionName  string
 	lastSessionPath  string
 }
@@ -197,6 +199,7 @@ func (a *App) NewSession(customerName string) (string, error) {
 	a.lastSystemScan = nil
 	a.lastNetworkScan = nil
 	a.lastSoftwareScan = nil
+	a.lastPrinterScan = nil
 	return path, nil
 }
 
@@ -294,6 +297,35 @@ func (a *App) SaveSoftwareScan(result *software.ScanResult, sessionPath string) 
 		return err
 	}
 	logging.Infof("Software", "Scan gespeichert: %s", sessionPath)
+	return nil
+}
+
+// ScanPrinters listet alle installierten Drucker auf.
+func (a *App) ScanPrinters() (*printers.ScanResult, error) {
+	logging.Info("Printers", "Drucker-Scan gestartet")
+	result := printers.Scan()
+	for _, e := range result.Errors {
+		logging.Warnf("Printers", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Printers", "Drucker-Scan abgeschlossen: %d Drucker (%d Fehler)", len(result.Printers), len(result.Errors))
+	a.lastPrinterScan = &result
+	return &result, nil
+}
+
+// SavePrinterScan speichert den Drucker-Scan als Markdown in den Vault.
+func (a *App) SavePrinterScan(result *printers.ScanResult, sessionPath string) error {
+	if sessionPath == "" && a.vault != nil {
+		sessionPath = a.vault.RootPath
+	}
+	if sessionPath == "" {
+		return nil
+	}
+	path, err := printers.SaveToVault(sessionPath, *result)
+	if err != nil {
+		logging.Errorf("Printers", "Vault-Speicherung fehlgeschlagen: %v", err)
+		return err
+	}
+	logging.Infof("Printers", "Scan gespeichert: %s", path)
 	return nil
 }
 

@@ -10,6 +10,7 @@ import {
   ScanSystem, SaveSystemScan,
   ScanNetwork, SaveNetworkScan,
   ScanSoftware, SaveSoftwareScan,
+  ScanPrinters, SavePrinterScan,
   RunConsoleTool, BackupVault, GetClipboard, GetUptime,
   ExportSession,
   SaveConfig,
@@ -27,6 +28,7 @@ const state = {
   lastScanResult: null,        // Letztes System-ScanResult
   lastNetworkResult: null,     // Letztes Netzwerk-ScanResult
   lastSoftwareResult: null,    // Letztes Software-ScanResult
+  lastPrinterResult: null,     // Letztes Drucker-ScanResult
   softwareSortCol: 'name',     // Aktive Sortierspalte
   softwareSortDir: 'asc',      // Sortierrichtung
   isScanning: false,
@@ -46,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initExport();
   initSettings();
   initDashboardCardNav();
+  initPrinterScan();
   loadAppInfo();
 });
 
@@ -126,12 +129,17 @@ function initScanButtons() {
   document.getElementById('btn-refresh')?.addEventListener('click', () => loadAppInfo());
 }
 
-/** Vollständiger Scan: System + Netzwerk + Software nacheinander */
+function initPrinterScan() {
+  document.getElementById('btn-scan-printers')?.addEventListener('click', () => runPrinterScan());
+}
+
+/** Vollständiger Scan: System + Netzwerk + Software + Drucker nacheinander */
 async function runFullScan() {
   switchTab('system');
   await runSystemScan();
   await runNetworkScan();
   await runSoftwareScan();
+  await runPrinterScan();
 }
 
 async function runSystemScan() {
@@ -242,6 +250,86 @@ async function runSoftwareScan() {
   }
 }
 
+async function runPrinterScan() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  setStatus('Drucker-Scan läuft…');
+  setScanButtonsDisabled(true);
+  addAction('Drucker-Scan gestartet', 'info');
+  setPlaceholder('printer-info', 'Scanne Drucker…');
+
+  try {
+    const result = await ScanPrinters();
+    state.lastPrinterResult = result;
+    renderPrinters(result.printers);
+
+    if (state.currentSessionPath) {
+      await SavePrinterScan(result, state.currentSessionPath);
+      addAction('Drucker-Scan in Vault gespeichert', 'success');
+    }
+
+    logScanErrors(result.errors, 'Drucker-Scan');
+    setStatus('Drucker-Scan abgeschlossen');
+  } catch (err) {
+    console.error('Drucker-Scan fehlgeschlagen:', err);
+    addAction('Drucker-Scan fehlgeschlagen: ' + err, 'error');
+    setPlaceholder('printer-info', 'Fehler beim Drucker-Scan: ' + err);
+    setStatus('Fehler beim Drucker-Scan');
+  } finally {
+    state.isScanning = false;
+    setScanButtonsDisabled(false);
+  }
+}
+
+function renderPrinters(printers) {
+  const container = document.getElementById('printer-info');
+  if (!container) return;
+
+  if (!printers?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine Drucker gefunden.</div>';
+    return;
+  }
+
+  const table = document.createElement('table');
+  table.className = 'data-table';
+  table.innerHTML = `
+    <thead><tr>
+      <th>Name</th>
+      <th>Treiber</th>
+      <th>Port / IP</th>
+      <th>Status</th>
+      <th>Typ</th>
+      <th>Freigabe</th>
+    </tr></thead>`;
+
+  const tbody = document.createElement('tbody');
+  printers.forEach(p => {
+    const statusIcon = {
+      'Bereit': '🟢', 'Druckt': '🔵', 'Offline': '🔴',
+      'Fehler': '🔴', 'Pausiert': '🟡',
+    }[p.status] ?? '⚪';
+    const def = p.is_default ? ' ⭐' : '';
+    const netInfo = p.is_network
+      ? `🌐 Netzwerk${p.ip_address ? ' (' + escapeHtml(p.ip_address) + ')' : ''}`
+      : '🖥 Lokal';
+    const share = p.is_shared ? (p.share_name ? escapeHtml(p.share_name) : '✓') : '–';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(p.name)}${def}</strong></td>
+      <td class="mono-cell" style="font-size:11px">${escapeHtml(p.driver || '–')}</td>
+      <td class="mono-cell" style="font-size:11px">${escapeHtml(p.port || '–')}</td>
+      <td>${statusIcon} ${escapeHtml(p.status || '–')}</td>
+      <td>${netInfo}</td>
+      <td>${share}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  container.innerHTML = `<p class="section-meta">${printers.length} Drucker gefunden</p>`;
+  container.appendChild(table);
+}
+
 function logScanErrors(errors, label) {
   const count = errors?.length ?? 0;
   if (count > 0) {
@@ -253,7 +341,7 @@ function logScanErrors(errors, label) {
 }
 
 function setScanButtonsDisabled(disabled) {
-  ['btn-full-scan', 'btn-scan-system', 'btn-scan-network', 'btn-scan-software'].forEach(id => {
+  ['btn-full-scan', 'btn-scan-system', 'btn-scan-network', 'btn-scan-software', 'btn-scan-printers'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = disabled;
   });

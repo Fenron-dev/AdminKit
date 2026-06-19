@@ -62,6 +62,15 @@ export function GetUptime() {
     return window['go']['main']['App']['GetUptime']();
 }
 
+// ── Phase 8: Drucker-Scanner ──
+export function ScanPrinters() {
+    return window['go']['main']['App']['ScanPrinters']();
+}
+
+export function SavePrinterScan(arg1, arg2) {
+    return window['go']['main']['App']['SavePrinterScan'](arg1, arg2);
+}
+
 // ── Phase 6: Export & Einstellungen ──
 export function ExportSession(arg1) {
     return window['go']['main']['App']['ExportSession'](arg1);

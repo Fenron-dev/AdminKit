@@ -124,7 +124,10 @@
         <section class="tab-panel" id="tab-system">
           <div class="panel-toolbar">
             <h2>System-Informationen</h2>
-            <button class="btn btn-primary" id="btn-scan-system">🔍 System scannen</button>
+            <div class="toolbar-actions">
+              <button class="btn btn-primary" id="btn-scan-system">🔍 System scannen</button>
+              <button class="btn btn-secondary" id="btn-scan-printers">🖨 Drucker scannen</button>
+            </div>
           </div>
           <div class="info-sections">
             <div class="info-section">
@@ -143,6 +146,12 @@
               <h3 class="section-title">SMART-Status</h3>
               <div class="info-grid" id="smart-info">
                 <div class="info-placeholder">Scan starten um SMART-Daten zu laden…</div>
+              </div>
+            </div>
+            <div class="info-section">
+              <h3 class="section-title">Drucker</h3>
+              <div id="printer-info">
+                <div class="info-placeholder">„Drucker scannen" klicken um Drucker aufzulisten…</div>
               </div>
             </div>
           </div>

@@ -361,6 +361,12 @@ html, body {
   font-size: 12px;
 }
 
+.section-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0 0 10px 0;
+}
+
 /* ============================================================
    Software-Tabelle
    ============================================================ */
