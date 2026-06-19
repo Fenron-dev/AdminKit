@@ -1,0 +1,111 @@
+// Package config verwaltet die AdminKit-Konfiguration aus config.yaml.
+// Die Konfiguration liegt im Vault-Verzeichnis und wird beim Start geladen.
+package config
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
+)
+
+const DefaultConfigFilename = "config.yaml"
+
+// Config repräsentiert die vollständige Konfiguration aus config.yaml.
+type Config struct {
+	Version   string  `yaml:"version"`
+	VaultPath string  `yaml:"vault_path"`
+	Defaults  Defaults `yaml:"defaults"`
+	Backup    Backup   `yaml:"backup"`
+	UI        UI       `yaml:"ui"`
+	Logging   Logging  `yaml:"logging"`
+}
+
+type Defaults struct {
+	LogLocation         string `yaml:"log_location"`
+	ExportFormat        string `yaml:"export_format"`
+	IncludeWifiPasswords bool   `yaml:"include_wifi_passwords"`
+	IncludeSmartData    bool   `yaml:"include_smart_data"`
+}
+
+type Backup struct {
+	AutoBackupBeforeExport bool   `yaml:"auto_backup_before_export"`
+	Compression            string `yaml:"compression"`
+}
+
+type UI struct {
+	Theme       string `yaml:"theme"`    // "light", "dark", "system"
+	Language    string `yaml:"language"` // "de", "en"
+	ShowAdvanced bool  `yaml:"show_advanced"`
+}
+
+type Logging struct {
+	Level      string `yaml:"level"`       // "debug", "info", "warn", "error"
+	Location   string `yaml:"location"`    // "vault", "custom", "system_temp"
+	CustomPath string `yaml:"custom_path"`
+	MaxSizeMB  int    `yaml:"max_size_mb"`
+}
+
+// DefaultConfig gibt eine sinnvolle Standardkonfiguration zurück.
+func DefaultConfig() *Config {
+	return &Config{
+		Version:   "1.0",
+		VaultPath: "./adminkit_vault",
+		Defaults: Defaults{
+			LogLocation:         "./logs",
+			ExportFormat:        "html",
+			IncludeWifiPasswords: true,
+			IncludeSmartData:    true,
+		},
+		Backup: Backup{
+			AutoBackupBeforeExport: true,
+			Compression:            "gzip",
+		},
+		UI: UI{
+			Theme:       "system",
+			Language:    "de",
+			ShowAdvanced: false,
+		},
+		Logging: Logging{
+			Level:     "info",
+			Location:  "vault",
+			MaxSizeMB: 10,
+		},
+	}
+}
+
+// Load liest config.yaml aus dem angegebenen Verzeichnis.
+// Wenn die Datei nicht existiert, wird die Standardkonfiguration zurückgegeben.
+func Load(vaultPath string) (*Config, error) {
+	cfg := DefaultConfig()
+	cfgPath := filepath.Join(vaultPath, DefaultConfigFilename)
+
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return cfg, nil
+		}
+		return nil, err
+	}
+
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// Save schreibt die Konfiguration als config.yaml in das angegebene Verzeichnis.
+func Save(cfg *Config, vaultPath string) error {
+	if err := os.MkdirAll(vaultPath, 0755); err != nil {
+		return err
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filepath.Join(vaultPath, DefaultConfigFilename), data, 0644)
+}

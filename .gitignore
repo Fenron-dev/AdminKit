@@ -1,0 +1,45 @@
+# ── Build-Artefakte ──────────────────────────────────────────
+build/bin/
+frontend/dist/
+*.exe
+*.app
+adminkit
+
+# ── Node.js ──────────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+
+# ── AdminKit Vault (enthält WiFi-Passwörter, Kundendaten etc.) ──
+# NIEMALS in Git! Vault liegt nur auf dem USB-Stick oder lokal.
+adminkit_vault/
+adminkit_vault*
+
+# ── Sensible Konfiguration ───────────────────────────────────
+# config.yaml kann Pfade und Einstellungen enthalten
+# Falls nötig, config.example.yaml als Vorlage committen
+config.yaml
+
+# ── Log-Dateien ──────────────────────────────────────────────
+*.log
+logs/
+
+# ── macOS / System-Dateien ───────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# ── Windows System-Dateien ───────────────────────────────────
+Thumbs.db
+desktop.ini
+
+# ── IDE / Editor ─────────────────────────────────────────────
+.idea/
+*.swp
+*.swo
+
+# ── Go ───────────────────────────────────────────────────────
+# go.sum und go.mod werden committed (kein sensitives Material)
+# Aber temporäre Go-Artefakte nicht
+/adminkit

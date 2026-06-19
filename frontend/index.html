@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AdminKit</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Titelleiste -->
+      <header class="titlebar">
+        <div class="titlebar-left">
+          <span class="logo-icon">🛠</span>
+          <span class="logo-text">AdminKit</span>
+          <span class="version-badge" id="app-version">v1.0.0</span>
+        </div>
+        <div class="titlebar-center">
+          <span class="vault-indicator">
+            <span class="vault-icon">📁</span>
+            <span id="vault-label">Vault wird geladen…</span>
+          </span>
+        </div>
+        <div class="titlebar-right">
+          <button class="icon-btn" id="btn-theme" title="Theme wechseln">🌙</button>
+          <button class="icon-btn" id="btn-export" title="Exportieren">📤</button>
+          <button class="icon-btn" id="btn-settings" title="Einstellungen">⚙</button>
+        </div>
+      </header>
+
+      <!-- Tab-Navigation -->
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="system">System</button>
+        <button class="tab-btn" data-tab="network">Netzwerk</button>
+        <button class="tab-btn" data-tab="software">Software</button>
+        <button class="tab-btn" data-tab="tools">Tools</button>
+      </nav>
+
+      <!-- Tab-Inhalt -->
+      <main class="tab-content">
+
+        <!-- ── DASHBOARD ── -->
+        <section class="tab-panel active" id="tab-dashboard">
+          <div class="dashboard-grid">
+            <div class="card card-full-row">
+              <div class="card-header">
+                <h2>System-Übersicht</h2>
+                <button class="btn btn-primary" id="btn-full-scan">🔍 Vollständiger Scan</button>
+              </div>
+              <div class="overview-grid">
+                <div class="overview-item">
+                  <span class="overview-label">Hostname</span>
+                  <span class="overview-value" id="info-hostname">–</span>
+                </div>
+                <div class="overview-item">
+                  <span class="overview-label">Betriebssystem</span>
+                  <span class="overview-value" id="info-os">–</span>
+                </div>
+                <div class="overview-item">
+                  <span class="overview-label">Uptime</span>
+                  <span class="overview-value" id="info-uptime">–</span>
+                </div>
+                <div class="overview-item">
+                  <span class="overview-label">Letzte Anmeldung</span>
+                  <span class="overview-value" id="info-lastlogin">–</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><h3>Hardware</h3></div>
+              <div class="status-badge badge-unknown" id="badge-hardware">⚪ Unbekannt</div>
+              <p class="badge-detail" id="detail-hardware">Noch kein Scan</p>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Betriebssystem</h3></div>
+              <div class="status-badge badge-unknown" id="badge-os">⚪ Unbekannt</div>
+              <p class="badge-detail" id="detail-os">Noch kein Scan</p>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>SMART</h3></div>
+              <div class="status-badge badge-unknown" id="badge-smart">⚪ Unbekannt</div>
+              <p class="badge-detail" id="detail-smart">Noch kein Scan</p>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Netzwerk</h3></div>
+              <div class="status-badge badge-unknown" id="badge-network">⚪ Unbekannt</div>
+              <p class="badge-detail" id="detail-network">Noch kein Scan</p>
+            </div>
+
+            <div class="card card-full-row">
+              <div class="card-header"><h3>Letzte Aktionen</h3></div>
+              <div class="action-list" id="action-list">
+                <p class="empty-state">Noch keine Aktionen. Starte einen Scan.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── SYSTEM ── -->
+        <section class="tab-panel" id="tab-system">
+          <div class="panel-toolbar">
+            <h2>System-Informationen</h2>
+            <button class="btn btn-primary" id="btn-scan-system">🔍 System scannen</button>
+          </div>
+          <div class="info-sections">
+            <div class="info-section">
+              <h3 class="section-title">Hardware</h3>
+              <div class="info-grid" id="hw-info">
+                <div class="info-placeholder">Scan starten um Hardware-Daten zu laden…</div>
+              </div>
+            </div>
+            <div class="info-section">
+              <h3 class="section-title">Betriebssystem</h3>
+              <div class="info-grid" id="os-info">
+                <div class="info-placeholder">Scan starten um OS-Daten zu laden…</div>
+              </div>
+            </div>
+            <div class="info-section">
+              <h3 class="section-title">SMART-Status</h3>
+              <div class="info-grid" id="smart-info">
+                <div class="info-placeholder">Scan starten um SMART-Daten zu laden…</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── NETZWERK ── -->
+        <section class="tab-panel" id="tab-network">
+          <div class="panel-toolbar">
+            <h2>Netzwerk-Informationen</h2>
+            <button class="btn btn-primary" id="btn-scan-network">🔍 Netzwerk scannen</button>
+          </div>
+          <div class="info-sections">
+            <div class="info-section">
+              <h3 class="section-title">Netzwerkadapter</h3>
+              <div class="info-grid" id="adapter-info">
+                <div class="info-placeholder">Scan starten um Netzwerkdaten zu laden…</div>
+              </div>
+            </div>
+            <div class="info-section">
+              <h3 class="section-title">Netzlaufwerke</h3>
+              <div class="info-grid" id="shares-info">
+                <div class="info-placeholder">Scan starten um Netzlaufwerke zu laden…</div>
+              </div>
+            </div>
+            <div class="info-section">
+              <h3 class="section-title">WiFi-Profile</h3>
+              <div class="info-grid" id="wifi-info">
+                <div class="info-placeholder">Scan starten um WiFi-Profile zu laden…</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── SOFTWARE ── -->
+        <section class="tab-panel" id="tab-software">
+          <div class="panel-toolbar">
+            <h2>Software-Inventarisierung</h2>
+            <div class="toolbar-actions">
+              <input class="search-input" type="search" id="software-search" placeholder="Software suchen…" />
+              <button class="btn btn-secondary" id="btn-export-csv">📋 CSV Export</button>
+              <button class="btn btn-primary" id="btn-scan-software">🔍 Software scannen</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table" id="software-table">
+              <thead>
+                <tr>
+                  <th data-sort="name">Name <span class="sort-icon">↕</span></th>
+                  <th data-sort="version">Version <span class="sort-icon">↕</span></th>
+                  <th data-sort="date">Installiert <span class="sort-icon">↕</span></th>
+                  <th data-sort="size">Größe <span class="sort-icon">↕</span></th>
+                </tr>
+              </thead>
+              <tbody id="software-tbody">
+                <tr><td colspan="4" class="table-placeholder">Scan starten um Software zu laden…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ── TOOLS ── -->
+        <section class="tab-panel" id="tab-tools">
+          <div class="tools-layout">
+            <div class="tools-group">
+              <h3 class="tools-group-title">Diagnose-Werkzeuge</h3>
+              <div class="tools-grid">
+                <button class="tool-btn" id="tool-full-scan">
+                  <span class="tool-icon">🔍</span>
+                  <span>System-Scan</span>
+                </button>
+                <button class="tool-btn" id="tool-clipboard">
+                  <span class="tool-icon">📋</span>
+                  <span>Zwischenablage</span>
+                </button>
+                <button class="tool-btn" id="tool-vault-backup">
+                  <span class="tool-icon">💾</span>
+                  <span>Vault-Backup</span>
+                </button>
+                <button class="tool-btn" id="tool-wifi-pw">
+                  <span class="tool-icon">🔑</span>
+                  <span>WiFi-Passwörter</span>
+                </button>
+                <button class="tool-btn" id="tool-uptime">
+                  <span class="tool-icon">⏱</span>
+                  <span>Uptime</span>
+                </button>
+                <button class="tool-btn" id="tool-drivers">
+                  <span class="tool-icon">📦</span>
+                  <span>Treiber-Export</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="tools-group">
+              <h3 class="tools-group-title">Konsolen-Tools</h3>
+              <div class="console-tools">
+                <div class="console-input-row">
+                  <select class="console-select" id="console-tool">
+                    <option value="ping">Ping</option>
+                    <option value="traceroute">Traceroute</option>
+                    <option value="dns">DNS-Lookup</option>
+                    <option value="netstat">Netstat</option>
+                    <option value="arp">ARP-Tabelle</option>
+                    <option value="portscan">Port-Scan</option>
+                  </select>
+                  <input class="console-input" type="text" id="console-target" placeholder="Ziel (Host / IP / Port)…" />
+                  <button class="btn btn-primary" id="btn-console-run">▶ Ausführen</button>
+                </div>
+                <div class="console-output" id="console-output">
+                  <span class="console-placeholder">Wähle ein Werkzeug und gib ein Ziel ein…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- Statusleiste -->
+      <footer class="statusbar">
+        <span id="status-text">Bereit</span>
+        <span class="statusbar-divider">|</span>
+        <span>Session: <span id="status-session">–</span></span>
+        <span class="statusbar-divider">|</span>
+        <span>Vault: <span id="status-vault">–</span></span>
+        <button class="refresh-btn" id="btn-refresh" title="Aktualisieren">🔄</button>
+      </footer>
+
+      <!-- Session-Dialog -->
+      <div class="modal-overlay hidden" id="modal-session">
+        <div class="modal">
+          <h2>Neue Session</h2>
+          <p>Gib den Kundennamen für diese Session ein:</p>
+          <input class="modal-input" type="text" id="session-name-input" placeholder="z.B. MusterGmbH" />
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="btn-session-cancel">Abbrechen</button>
+            <button class="btn btn-primary" id="btn-session-create">Session erstellen</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
