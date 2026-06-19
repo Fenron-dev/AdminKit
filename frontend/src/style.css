@@ -735,3 +735,87 @@ html, body {
   transition: background .1s;
 }
 .copy-btn:hover { background: var(--color-surface-2); }
+
+/* ── Export-Dropdown ─────────────────────────────────────────────────────── */
+
+.export-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.export-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.export-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 200;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  min-width: 160px;
+  overflow: hidden;
+}
+
+.export-dropdown.open { display: block; }
+
+.export-dropdown button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text);
+  transition: background .1s;
+}
+
+.export-dropdown button:hover { background: var(--color-surface-2); }
+
+/* ── Export-Ergebnis-Modal ───────────────────────────────────────────────── */
+
+.export-path {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  margin: 10px 0;
+}
+
+.export-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 6px;
+}
+
+.export-error {
+  color: var(--color-danger);
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+.modal-close:hover { color: var(--color-text); }
+

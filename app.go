@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"adminkit/internal/config"
+	"adminkit/internal/export"
 	"adminkit/internal/logging"
 	"adminkit/internal/network"
 	"adminkit/internal/software"
@@ -25,6 +27,13 @@ type App struct {
 	ctx   context.Context
 	vault *vault.Vault
 	cfg   *config.Config
+
+	// Zwischengespeicherte Scan-Ergebnisse für den Export
+	lastSystemScan   *system.ScanResult
+	lastNetworkScan  *network.ScanResult
+	lastSoftwareScan *software.ScanResult
+	lastSessionName  string
+	lastSessionPath  string
 }
 
 // NewApp erstellt eine neue App-Instanz.
@@ -102,12 +111,22 @@ func (a *App) GetAppVersion() string {
 	return "1.0.0"
 }
 
-// NewSession erstellt eine neue Kunden-Session im Vault.
+// NewSession erstellt eine neue Kunden-Session im Vault und speichert den Namen für den Export.
 func (a *App) NewSession(customerName string) (string, error) {
 	if a.vault == nil {
 		return "", nil
 	}
-	return a.vault.NewSession(customerName)
+	path, err := a.vault.NewSession(customerName)
+	if err != nil {
+		return "", err
+	}
+	a.lastSessionName = customerName
+	a.lastSessionPath = path
+	// Bisherige Scan-Caches zurücksetzen wenn eine neue Session beginnt
+	a.lastSystemScan = nil
+	a.lastNetworkScan = nil
+	a.lastSoftwareScan = nil
+	return path, nil
 }
 
 // ScanSystem führt einen vollständigen System-Scan durch und gibt das Ergebnis zurück.
@@ -123,6 +142,7 @@ func (a *App) ScanSystem() (*system.ScanResult, error) {
 		logging.Warnf("System", "[%s] %s", e.Module, e.Message)
 	}
 	logging.Infof("System", "System-Scan abgeschlossen (%d Fehler)", len(result.Errors))
+	a.lastSystemScan = result
 	return result, nil
 }
 
@@ -158,6 +178,7 @@ func (a *App) ScanNetwork() (*network.ScanResult, error) {
 	// WiFi-Passwörter bewusst NICHT loggen
 	logging.Infof("Network", "Netzwerk-Scan abgeschlossen: %d Adapter, %d Shares, %d WiFi-Profile",
 		len(result.Adapters), len(result.Shares), len(result.WiFi))
+	a.lastNetworkScan = result
 	return result, nil
 }
 
@@ -188,6 +209,7 @@ func (a *App) ScanSoftware() (*software.ScanResult, error) {
 	}
 	logging.Infof("Software", "Software-Scan abgeschlossen: %d Programme, %d Laufzeiten, %d Browser (%d Fehler)",
 		len(result.Programs), len(result.Runtimes), len(result.Browsers), len(result.Errors))
+	a.lastSoftwareScan = result
 	return result, nil
 }
 
@@ -241,6 +263,53 @@ func (a *App) GetClipboard() (string, error) {
 // GetUptime gibt die Zeit seit dem letzten Systemstart als formatierten String zurück.
 func (a *App) GetUptime() (string, error) {
 	return tools.GetUptime()
+}
+
+// ExportSession exportiert alle bisher durchgeführten Scans der aktuellen Session.
+// format: "html" oder "json"
+// Gibt den absoluten Pfad der erzeugten Datei zurück.
+func (a *App) ExportSession(format string) (string, error) {
+	if a.lastSystemScan == nil && a.lastNetworkScan == nil && a.lastSoftwareScan == nil {
+		return "", fmt.Errorf("kein Scan durchgeführt – bitte zuerst scannen")
+	}
+
+	sessionName := a.lastSessionName
+	if sessionName == "" {
+		sessionName = "Unbenannte Session"
+	}
+
+	outDir := filepath.Join(a.vault.RootPath, "exports")
+	if a.lastSessionPath != "" {
+		outDir = filepath.Join(a.lastSessionPath, "exports")
+	}
+
+	data := &export.SessionExport{
+		GeneratedAt: time.Now(),
+		SessionName: sessionName,
+		SessionPath: a.lastSessionPath,
+		System:      a.lastSystemScan,
+		Network:     a.lastNetworkScan,
+		Software:    a.lastSoftwareScan,
+	}
+
+	includePasswords := a.cfg != nil && a.cfg.Defaults.IncludeWifiPasswords
+
+	var (
+		path string
+		err  error
+	)
+	switch format {
+	case "json":
+		path, err = export.ExportJSON(data, outDir)
+	default:
+		path, err = export.ExportHTML(data, outDir, includePasswords)
+	}
+	if err != nil {
+		logging.Errorf("Export", "Export fehlgeschlagen (%s): %v", format, err)
+		return "", err
+	}
+	logging.Infof("Export", "Bericht erstellt: %s", path)
+	return path, nil
 }
 
 // resolveVaultPath sucht den Vault-Pfad in dieser Reihenfolge:

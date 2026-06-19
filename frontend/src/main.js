@@ -11,6 +11,7 @@ import {
   ScanNetwork, SaveNetworkScan,
   ScanSoftware, SaveSoftwareScan,
   RunConsoleTool, BackupVault, GetClipboard, GetUptime,
+  ExportSession,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initScanButtons();
   initSoftwareTab();
   initToolsTab();
+  initExport();
   loadAppInfo();
 });
 
@@ -925,4 +927,70 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+
+function initExport() {
+  // Dropdown-Buttons
+  document.getElementById('btn-export-html')?.addEventListener('click', () => runExport('html'));
+  document.getElementById('btn-export-json')?.addEventListener('click', () => runExport('json'));
+
+  // Dropdown öffnen/schließen
+  const trigger = document.getElementById('btn-export');
+  const dropdown = document.getElementById('export-dropdown');
+  trigger?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdown?.classList.toggle('open');
+  });
+  document.addEventListener('click', () => dropdown?.classList.remove('open'));
+
+  // Modal schließen
+  document.getElementById('export-modal-close')?.addEventListener('click', closeExportModal);
+  document.getElementById('export-modal-ok')?.addEventListener('click', closeExportModal);
+  document.getElementById('export-modal-overlay')?.addEventListener('click', (e) => {
+    if (e.target.id === 'export-modal-overlay') closeExportModal();
+  });
+}
+
+async function runExport(format) {
+  document.getElementById('export-dropdown')?.classList.remove('open');
+
+  const btn = document.getElementById('btn-export');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Exportiere…'; }
+
+  try {
+    const path = await ExportSession(format);
+    showExportModal(format, path);
+    addAction(`Bericht exportiert (${format.toUpperCase()}): ${shortenPath(path)}`, 'success');
+  } catch (err) {
+    showExportModal(format, null, String(err));
+    addAction(`Export fehlgeschlagen: ${err}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Exportieren ▾'; }
+  }
+}
+
+function showExportModal(format, path, error) {
+  const overlay = document.getElementById('export-modal-overlay');
+  const title   = document.getElementById('export-modal-title');
+  const body    = document.getElementById('export-modal-body');
+  if (!overlay || !title || !body) return;
+
+  if (error) {
+    title.textContent = 'Export fehlgeschlagen';
+    body.innerHTML = `<p class="export-error">⚠️ ${escapeHtml(error)}</p>`;
+  } else {
+    title.textContent = `Bericht erstellt (${format.toUpperCase()})`;
+    body.innerHTML = `
+      <p>Die Datei wurde erfolgreich gespeichert:</p>
+      <div class="export-path">${escapeHtml(path)}</div>
+      <p class="export-hint">Öffne die Datei mit dem Datei-Manager oder dem Browser.</p>
+    `;
+  }
+  overlay.classList.remove('hidden');
+}
+
+function closeExportModal() {
+  document.getElementById('export-modal-overlay')?.classList.add('hidden');
 }

@@ -61,3 +61,8 @@ export function GetClipboard() {
 export function GetUptime() {
     return window['go']['main']['App']['GetUptime']();
 }
+
+// ── Phase 6: Export ──
+export function ExportSession(arg1) {
+    return window['go']['main']['App']['ExportSession'](arg1);
+}

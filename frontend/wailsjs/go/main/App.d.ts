@@ -23,3 +23,6 @@ export function RunConsoleTool(tool: string, target: string): Promise<string>;
 export function BackupVault(): Promise<string>;
 export function GetClipboard(): Promise<string>;
 export function GetUptime(): Promise<string>;
+
+// Phase 6: Export
+export function ExportSession(format: string): Promise<string>;

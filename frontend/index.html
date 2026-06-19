@@ -23,7 +23,13 @@
         </div>
         <div class="titlebar-right">
           <button class="icon-btn" id="btn-theme" title="Theme wechseln">🌙</button>
-          <button class="icon-btn" id="btn-export" title="Exportieren">📤</button>
+          <div class="export-wrap">
+            <button class="icon-btn export-btn" id="btn-export" title="Bericht exportieren">📤 Exportieren ▾</button>
+            <div class="export-dropdown" id="export-dropdown">
+              <button id="btn-export-html">📄 HTML-Bericht</button>
+              <button id="btn-export-json">📋 JSON-Rohdaten</button>
+            </div>
+          </div>
           <button class="icon-btn" id="btn-settings" title="Einstellungen">⚙</button>
         </div>
       </header>
@@ -256,6 +262,18 @@
         <span>Vault: <span id="status-vault">–</span></span>
         <button class="refresh-btn" id="btn-refresh" title="Aktualisieren">🔄</button>
       </footer>
+
+      <!-- Export-Ergebnis-Dialog -->
+      <div class="modal-overlay hidden" id="export-modal-overlay">
+        <div class="modal">
+          <h2 id="export-modal-title">Bericht erstellt</h2>
+          <div id="export-modal-body"></div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="export-modal-ok">OK</button>
+          </div>
+          <button class="modal-close" id="export-modal-close" title="Schließen">✕</button>
+        </div>
+      </div>
 
       <!-- Session-Dialog -->
       <div class="modal-overlay hidden" id="modal-session">
