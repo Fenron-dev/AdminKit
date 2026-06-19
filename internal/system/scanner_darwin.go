@@ -58,17 +58,26 @@ type spHardware struct {
 	} `json:"SPHardwareDataType"`
 }
 
+// spMemoryEntry deckt beide Fälle ab:
+// - Apple Silicon: ein Eintrag mit SPMemoryDataType="16 GB", dimm_type="LPDDR5"
+// - Intel Macs: _items[] mit individuellen DIMM-Slots
+type spMemoryEntry struct {
+	// Apple Silicon — Gesamt-RAM direkt als Feldwert
+	TotalCapacity string `json:"SPMemoryDataType"`
+	MemType       string `json:"dimm_type"`
+	Manufacturer  string `json:"dimm_manufacturer"`
+	// Intel Macs — individuelle DIMM-Slots
+	Items []struct {
+		Name     string `json:"_name"`
+		Size     string `json:"dimm_size"`
+		Type     string `json:"dimm_type"`
+		Speed    string `json:"dimm_speed"`
+		Vendor   string `json:"dimm_manufacturer"`
+	} `json:"_items"`
+}
+
 type spMemory struct {
-	SPMemoryDataType []struct {
-		Items []struct {
-			Name     string `json:"_name"`
-			Size     string `json:"dimm_size"`
-			Type     string `json:"dimm_type"`
-			Speed    string `json:"dimm_speed"`
-			Status   string `json:"dimm_status"`
-			Vendor   string `json:"dimm_manufacturer"`
-		} `json:"_items"`
-	} `json:"SPMemoryDataType"`
+	SPMemoryDataType []spMemoryEntry `json:"SPMemoryDataType"`
 }
 
 func scanHardware() (HardwareInfo, []ScanError) {
@@ -132,18 +141,31 @@ func scanHardware() (HardwareInfo, []ScanError) {
 	} else {
 		var ramData spMemory
 		if jsonErr := json.Unmarshal(ramOut, &ramData); jsonErr == nil && len(ramData.SPMemoryDataType) > 0 {
-			for _, slot := range ramData.SPMemoryDataType[0].Items {
-				if strings.ToLower(slot.Size) == "empty" {
-					continue
+			entry := ramData.SPMemoryDataType[0]
+			if len(entry.Items) > 0 {
+				// Intel Mac: klassische DIMM-Slots
+				for _, slot := range entry.Items {
+					if strings.ToLower(slot.Size) == "empty" {
+						continue
+					}
+					gb := parseSize(slot.Size)
+					speed := parseFreq(slot.Speed)
+					hw.RAM = append(hw.RAM, RAMModule{
+						CapacityGB:   gb,
+						SpeedMHz:     uint32(speed),
+						MemoryType:   slot.Type,
+						BankLabel:    slot.Name,
+						Manufacturer: slot.Vendor,
+					})
 				}
-				gb := parseSize(slot.Size)
-				speed := parseFreq(slot.Speed)
+			} else if entry.TotalCapacity != "" {
+				// Apple Silicon: Unified Memory — ein einzelner Eintrag
+				gb := parseSize(entry.TotalCapacity)
 				hw.RAM = append(hw.RAM, RAMModule{
 					CapacityGB:   gb,
-					SpeedMHz:     uint32(speed),
-					MemoryType:   slot.Type,
-					BankLabel:    slot.Name,
-					Manufacturer: slot.Vendor,
+					MemoryType:   entry.MemType,
+					BankLabel:    "Unified Memory",
+					Manufacturer: entry.Manufacturer,
 				})
 			}
 		}
@@ -158,14 +180,19 @@ func scanHardware() (HardwareInfo, []ScanError) {
 	return hw, errs
 }
 
+// spDisplayEntry: Jeder Eintrag im Array ist direkt eine GPU (kein _items-Wrapper).
+// Apple Silicon nutzt sppci_model + sppci_cores (kein separates VRAM-Feld).
+type spDisplayEntry struct {
+	Name       string `json:"_name"`        // z.B. "Apple M4"
+	Model      string `json:"sppci_model"`  // z.B. "Apple M4"
+	VRAM       string `json:"sppci_vram"`   // z.B. "8192 MB" (Intel) oder leer (Apple Silicon)
+	Cores      string `json:"sppci_cores"`  // z.B. "10" (Apple Silicon GPU-Kerne)
+	DeviceType string `json:"sppci_device_type"` // "spdisplays_gpu"
+	Vendor     string `json:"spdisplays_vendor"`
+}
+
 type spDisplay struct {
-	SPDisplaysDataType []struct {
-		Items []struct {
-			Name   string `json:"sppci_model"`
-			VRAM   string `json:"sppci_vram"`
-			Vendor string `json:"sppci_vendor"`
-		} `json:"_items"`
-	} `json:"SPDisplaysDataType"`
+	SPDisplaysDataType []spDisplayEntry `json:"SPDisplaysDataType"`
 }
 
 func scanGPU(errs *[]ScanError) []GPUInfo {
@@ -176,33 +203,59 @@ func scanGPU(errs *[]ScanError) []GPUInfo {
 		return gpus
 	}
 	var data spDisplay
-	if json.Unmarshal(out, &data) == nil && len(data.SPDisplaysDataType) > 0 {
-		for _, item := range data.SPDisplaysDataType[0].Items {
-			if item.Name == "" {
-				continue
-			}
-			vramGB := parseSize(item.VRAM)
-			gpus = append(gpus, GPUInfo{
-				Name:   item.Name,
-				VRAMGB: vramGB,
-			})
+	if json.Unmarshal(out, &data) != nil {
+		return gpus
+	}
+	seen := make(map[string]bool)
+	for _, entry := range data.SPDisplaysDataType {
+		// Nur GPU-Einträge — Displays/Monitore überspringen
+		if entry.DeviceType != "" && !strings.Contains(entry.DeviceType, "gpu") {
+			continue
 		}
+		name := entry.Model
+		if name == "" {
+			name = entry.Name
+		}
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+
+		vramGB := parseSize(entry.VRAM)
+		// Apple Silicon: VRAM nicht separat ausgewiesen — Cores als Info nutzen
+		gpu := GPUInfo{Name: name, VRAMGB: vramGB}
+		// Cores-Zahl in den Namen einbauen wenn vorhanden (Apple Silicon)
+		if entry.Cores != "" && vramGB == 0 {
+			gpu.Name = name + " (" + entry.Cores + "-Core GPU)"
+		}
+		gpus = append(gpus, gpu)
 	}
 	return gpus
 }
 
+// spStorageEntry bildet einen Eintrag aus `system_profiler SPStorageDataType -json` ab.
+// Jeder Eintrag ist ein APFS-Volume; physische Daten stecken in physical_drive.
+type spStorageEntry struct {
+	Name      string `json:"_name"`
+	BSDName   string `json:"bsd_name"`
+	SizeBytes uint64 `json:"size_in_bytes"`
+	MountPoint string `json:"mount_point"`
+	PhysicalDrive struct {
+		DeviceName  string `json:"device_name"`  // z.B. "APPLE SSD AP0256Z"
+		IsInternal  string `json:"is_internal_disk"` // "yes"/"no"
+		MediumType  string `json:"medium_type"`  // "ssd", "rotational"
+		Protocol    string `json:"protocol"`     // "Apple Fabric", "SATA", "NVMe"
+		SmartStatus string `json:"smart_status"` // "Verified", "Failing"
+	} `json:"physical_drive"`
+}
+
 type spStorage struct {
-	SPStorageDataType []struct {
-		Name      string `json:"_name"`
-		BSDName   string `json:"bsd_name"`
-		MediaType string `json:"spstorage_media_type"`
-		SizeBytes uint64 `json:"spstorage_volume_size_in_bytes"`
-	} `json:"SPStorageDataType"`
+	SPStorageDataType []spStorageEntry `json:"SPStorageDataType"`
 }
 
 func scanDisks(errs *[]ScanError) []DiskInfo {
 	var disks []DiskInfo
-	out, err := exec.Command("system_profiler", "SPNVMeDataType", "SPStorageDataType", "-json").Output()
+	out, err := exec.Command("system_profiler", "SPStorageDataType", "-json").Output()
 	if err != nil {
 		*errs = append(*errs, ScanError{"hardware.disks", err.Error()})
 		return disks
@@ -211,23 +264,41 @@ func scanDisks(errs *[]ScanError) []DiskInfo {
 	if json.Unmarshal(out, &data) != nil {
 		return disks
 	}
+
+	// Deduplizieren nach physischem Gerät (viele APFS-Volumes zeigen auf dieselbe SSD)
 	seen := make(map[string]bool)
-	for _, d := range data.SPStorageDataType {
-		if seen[d.Name] || d.SizeBytes == 0 {
+	for _, vol := range data.SPStorageDataType {
+		pd := vol.PhysicalDrive
+		// Externe Disk Images und nicht-interne Geräte überspringen
+		if pd.IsInternal != "yes" {
 			continue
 		}
-		seen[d.Name] = true
-		mediaType := "HDD"
-		if strings.Contains(strings.ToLower(d.MediaType), "solid") || strings.Contains(strings.ToLower(d.BSDName), "nvme") {
-			mediaType = "NVMe"
-		} else if strings.Contains(strings.ToLower(d.MediaType), "ssd") {
-			mediaType = "SSD"
+		devName := pd.DeviceName
+		if devName == "" {
+			devName = vol.Name
 		}
-		sizeGB := math.Round(float64(d.SizeBytes)/(1024*1024*1024)*10) / 10
+		if seen[devName] || vol.SizeBytes == 0 {
+			continue
+		}
+		seen[devName] = true
+
+		mediaType := "HDD"
+		med := strings.ToLower(pd.MediumType)
+		proto := strings.ToLower(pd.Protocol)
+		switch {
+		case strings.Contains(proto, "nvme") || strings.Contains(proto, "apple fabric"):
+			mediaType = "NVMe"
+		case med == "ssd" || strings.Contains(proto, "ssd"):
+			mediaType = "SSD"
+		case med == "rotational":
+			mediaType = "HDD"
+		}
+
 		disks = append(disks, DiskInfo{
-			Model:     d.Name,
-			SizeGB:    sizeGB,
-			MediaType: mediaType,
+			Model:         devName,
+			SizeGB:        math.Round(float64(vol.SizeBytes)/(1024*1024*1024)*10) / 10,
+			MediaType:     mediaType,
+			InterfaceType: pd.Protocol,
 		})
 	}
 	return disks
@@ -270,54 +341,53 @@ func scanOS() (OSInfo, []ScanError) {
 
 // ─── SMART ────────────────────────────────────────────────────────────────────
 
+// scanSmart liest SMART-Status aus system_profiler SPStorageDataType.
+// Das spart einen zweiten diskutil-Aufruf und nutzt die bereits vorhandenen Daten.
 func scanSmart() ([]DiskSmart, []ScanError) {
 	var results []DiskSmart
 	var errs []ScanError
 
-	// diskutil list -plist für alle Disks
-	out, err := exec.Command("diskutil", "list", "-plist").Output()
+	out, err := exec.Command("system_profiler", "SPStorageDataType", "-json").Output()
 	if err != nil {
 		errs = append(errs, ScanError{"smart", err.Error()})
 		return results, errs
 	}
+	var data spStorage
+	if json.Unmarshal(out, &data) != nil {
+		return results, errs
+	}
 
-	// Parsen mit einfachem String-Matching (vollständiges plist-Parsing wäre aufwändiger)
-	diskLines := extractPlistStrings(string(out), "DeviceIdentifier")
-	for _, disk := range diskLines {
-		if strings.Contains(disk, "s") {
-			continue // Partitionen überspringen, nur ganze Disks (disk0, disk1, …)
-		}
-		info, err2 := exec.Command("diskutil", "info", "-plist", "/dev/"+disk).Output()
-		if err2 != nil {
+	seen := make(map[string]bool)
+	for _, vol := range data.SPStorageDataType {
+		pd := vol.PhysicalDrive
+		if pd.IsInternal != "yes" || pd.SmartStatus == "" {
 			continue
 		}
-		model := extractPlistValue(string(info), "MediaName")
-		if model == "" {
-			model = disk
+		devName := pd.DeviceName
+		if devName == "" {
+			devName = vol.Name
 		}
-		// macOS gibt SMART-Status direkt aus
-		smartStatus := extractPlistValue(string(info), "SMARTStatus")
+		if seen[devName] {
+			continue
+		}
+		seen[devName] = true
+
 		status := SmartUnknown
-		switch strings.ToLower(smartStatus) {
-		case "verified":
+		switch strings.ToLower(pd.SmartStatus) {
+		case "verified", "not supported": // Apple Silicon NVMe-Chips melden "Not Supported"
 			status = SmartOK
-		case "failing":
+		case "failing", "failed":
 			status = SmartCritical
 		case "about to fail":
 			status = SmartWarning
 		}
-		sizeStr := extractPlistValue(string(info), "TotalSize")
-		sizeBytes, _ := strconv.ParseUint(sizeStr, 10, 64)
-		sizeGB := math.Round(float64(sizeBytes)/(1024*1024*1024)*10) / 10
 
 		results = append(results, DiskSmart{
-			Model:           model,
+			Model:           devName,
 			Status:          status,
-			LifeLeftPercent: -1, // erfordert IOKit-Zugriff
+			LifeLeftPercent: -1, // erfordert IOKit — nicht via CLI verfügbar
 		})
-		_ = sizeGB // wird in DiskInfo verwendet, nicht hier
 	}
-
 	return results, errs
 }
 
@@ -438,57 +508,6 @@ func execOutput(name string, args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// extractPlistValue liest einen Wert aus einem einfachen plist-String.
-func extractPlistValue(plist, key string) string {
-	marker := "<key>" + key + "</key>"
-	idx := strings.Index(plist, marker)
-	if idx < 0 {
-		return ""
-	}
-	rest := plist[idx+len(marker):]
-	start := strings.Index(rest, "<string>")
-	intStart := strings.Index(rest, "<integer>")
-	if start < 0 && intStart < 0 {
-		return ""
-	}
-	if intStart >= 0 && (start < 0 || intStart < start) {
-		end := strings.Index(rest[intStart:], "</integer>")
-		if end < 0 {
-			return ""
-		}
-		return rest[intStart+9 : intStart+end]
-	}
-	end := strings.Index(rest[start:], "</string>")
-	if end < 0 {
-		return ""
-	}
-	return rest[start+8 : start+end]
-}
-
-// extractPlistStrings liest alle Werte eines Keys aus einer plist-Liste.
-func extractPlistStrings(plist, key string) []string {
-	var results []string
-	marker := "<key>" + key + "</key>"
-	rest := plist
-	for {
-		idx := strings.Index(rest, marker)
-		if idx < 0 {
-			break
-		}
-		rest = rest[idx+len(marker):]
-		start := strings.Index(rest, "<string>")
-		if start < 0 {
-			break
-		}
-		end := strings.Index(rest[start:], "</string>")
-		if end < 0 {
-			break
-		}
-		results = append(results, rest[start+8:start+end])
-		rest = rest[start+end:]
-	}
-	return results
-}
 
 // parseSize parst "16 GB", "512 MB" etc. und gibt GB zurück.
 func parseSize(s string) float64 {
