@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"adminkit/internal/config"
 	"adminkit/internal/logging"
@@ -66,7 +67,7 @@ func (a *App) Startup(ctx context.Context) {
 	}
 
 	// Konfiguration speichern (erstellt config.yaml falls nicht vorhanden)
-	if !v.ExistsConfig() {
+	if a.vault != nil && !a.vault.ExistsConfig() {
 		if saveErr := config.Save(cfg, vaultPath); saveErr != nil {
 			logging.Warnf("App", "config.yaml konnte nicht gespeichert werden: %v", saveErr)
 		}
@@ -243,16 +244,21 @@ func (a *App) GetUptime() (string, error) {
 }
 
 // resolveVaultPath sucht den Vault-Pfad in dieser Reihenfolge:
-// 1. Neben der Binary (portabler Betrieb auf USB-Stick)
-// 2. Arbeitsverzeichnis
+// 1. Neben der Binary (portabler Betrieb auf USB-Stick, Windows .exe)
+// 2. Home-Verzeichnis (macOS .app aus Finder, read-only Bundle-Pfad)
+// 3. Relatives Fallback ./adminkit_vault
 func resolveVaultPath() string {
-	// Pfad zur aktuell laufenden Binary
 	exe, err := os.Executable()
 	if err == nil {
-		candidate := filepath.Join(filepath.Dir(exe), "adminkit_vault")
-		if isWritable(filepath.Dir(exe)) {
-			return candidate
+		dir := filepath.Dir(exe)
+		// Auf macOS nicht in den .app-Bundle schreiben — Pfad enthält .app/Contents/
+		if !strings.Contains(dir, ".app"+string(filepath.Separator)+"Contents") && isWritable(dir) {
+			return filepath.Join(dir, "adminkit_vault")
 		}
+	}
+	// Fallback: ~/adminkit_vault (funktioniert immer: macOS, Windows, Linux)
+	if home, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(home, "adminkit_vault")
 	}
 	return defaultVaultPath
 }
