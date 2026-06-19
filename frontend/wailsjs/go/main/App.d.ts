@@ -5,5 +5,11 @@ export function GetAppVersion(): Promise<string>;
 export function GetConfig(): Promise<any>;
 export function GetVaultPath(): Promise<string>;
 export function NewSession(customerName: string): Promise<string>;
+
+// Phase 2: System-Scan
 export function ScanSystem(): Promise<any>;
 export function SaveSystemScan(result: any, sessionPath: string): Promise<void>;
+
+// Phase 3: Netzwerk-Scan
+export function ScanNetwork(): Promise<any>;
+export function SaveNetworkScan(result: any, sessionPath: string): Promise<void>;

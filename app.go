@@ -7,6 +7,7 @@ import (
 
 	"adminkit/internal/config"
 	"adminkit/internal/logging"
+	"adminkit/internal/network"
 	"adminkit/internal/system"
 	"adminkit/internal/vault"
 )
@@ -132,6 +133,41 @@ func (a *App) SaveSystemScan(result *system.ScanResult, sessionPath string) erro
 		return err
 	}
 	logging.Infof("System", "Scan gespeichert: %s", sessionPath)
+	return nil
+}
+
+// ScanNetwork führt einen Netzwerk-Scan durch.
+// WiFi-Passwörter werden nur gelesen wenn die Konfiguration include_wifi_passwords=true hat.
+// Passwörter werden niemals geloggt — nur im Rückgabewert enthalten.
+func (a *App) ScanNetwork() (*network.ScanResult, error) {
+	includePasswords := a.cfg != nil && a.cfg.Defaults.IncludeWifiPasswords
+	logging.Info("Network", "Netzwerk-Scan gestartet")
+
+	result, err := network.Scan(includePasswords)
+	if err != nil {
+		logging.Errorf("Network", "Scan fehlgeschlagen: %v", err)
+		return nil, err
+	}
+	for _, e := range result.Errors {
+		logging.Warnf("Network", "[%s] %s", e.Module, e.Message)
+	}
+	// WiFi-Passwörter bewusst NICHT loggen
+	logging.Infof("Network", "Netzwerk-Scan abgeschlossen: %d Adapter, %d Shares, %d WiFi-Profile",
+		len(result.Adapters), len(result.Shares), len(result.WiFi))
+	return result, nil
+}
+
+// SaveNetworkScan speichert ein Netzwerk-Scan-Ergebnis im Session-Ordner.
+func (a *App) SaveNetworkScan(result *network.ScanResult, sessionPath string) error {
+	if sessionPath == "" {
+		return nil
+	}
+	includePasswords := a.cfg != nil && a.cfg.Defaults.IncludeWifiPasswords
+	if err := network.SaveToVault(result, sessionPath, includePasswords); err != nil {
+		logging.Errorf("Network", "Vault-Speicherung fehlgeschlagen: %v", err)
+		return err
+	}
+	logging.Infof("Network", "Scan gespeichert: %s", sessionPath)
 	return nil
 }
 

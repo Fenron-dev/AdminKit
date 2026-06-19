@@ -8,6 +8,7 @@ import './style.css';
 import {
   GetAppVersion, GetVaultPath, GetConfig, NewSession,
   ScanSystem, SaveSystemScan,
+  ScanNetwork, SaveNetworkScan,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -17,7 +18,8 @@ const state = {
   activeTab: 'dashboard',
   currentSession: null,        // Name der aktiven Session
   currentSessionPath: null,    // Absoluter Pfad zur Session im Vault
-  lastScanResult: null,        // Letztes ScanResult-Objekt
+  lastScanResult: null,        // Letztes System-ScanResult
+  lastNetworkResult: null,     // Letztes Netzwerk-ScanResult
   isScanning: false,
 };
 
@@ -99,25 +101,29 @@ async function loadAppInfo() {
 // ─── Scan-Buttons ─────────────────────────────────────────────────────────────
 
 function initScanButtons() {
-  document.getElementById('btn-full-scan')?.addEventListener('click', () => runScan(true));
-  document.getElementById('btn-scan-system')?.addEventListener('click', () => runScan(false));
+  document.getElementById('btn-full-scan')?.addEventListener('click', () => runFullScan());
+  document.getElementById('btn-scan-system')?.addEventListener('click', () => runSystemScan());
+  document.getElementById('btn-scan-network')?.addEventListener('click', () => runNetworkScan());
   document.getElementById('btn-refresh')?.addEventListener('click', () => loadAppInfo());
 }
 
-async function runScan(switchToSystem = false) {
+/** Vollständiger Scan: System + Netzwerk nacheinander */
+async function runFullScan() {
+  switchTab('system');
+  await runSystemScan();
+  await runNetworkScan();
+}
+
+async function runSystemScan() {
   if (state.isScanning) return;
   state.isScanning = true;
-
-  setStatus('Scan läuft…');
+  setStatus('System-Scan läuft…');
   setScanButtonsDisabled(true);
   addAction('System-Scan gestartet', 'info');
 
-  if (switchToSystem) switchTab('system');
-
-  // Lade-Platzhalter zeigen
-  setPlaceholder('hw-info',     'Scanne Hardware…');
-  setPlaceholder('os-info',     'Scanne Betriebssystem…');
-  setPlaceholder('smart-info',  'Scanne Festplatten (SMART)…');
+  setPlaceholder('hw-info',    'Scanne Hardware…');
+  setPlaceholder('os-info',    'Scanne Betriebssystem…');
+  setPlaceholder('smart-info', 'Scanne Festplatten (SMART)…');
 
   try {
     const result = await ScanSystem();
@@ -128,32 +134,72 @@ async function runScan(switchToSystem = false) {
     renderSmart(result.smart);
     updateDashboardBadges(result);
 
-    // Scan im Vault speichern wenn Session aktiv
     if (state.currentSessionPath) {
       await SaveSystemScan(result, state.currentSessionPath);
-      addAction('Scan in Vault gespeichert', 'success');
+      addAction('System-Scan in Vault gespeichert', 'success');
     }
 
-    const warnCount = result.errors?.length ?? 0;
-    if (warnCount > 0) {
-      addAction(`Scan abgeschlossen (${warnCount} Warnungen)`, 'warning');
-      result.errors.forEach(e => addAction(`⚠ [${e.module}] ${e.message}`, 'warning'));
-    } else {
-      addAction('Scan abgeschlossen', 'success');
-    }
-    setStatus('Scan abgeschlossen');
+    logScanErrors(result.errors, 'System-Scan');
+    setStatus('System-Scan abgeschlossen');
   } catch (err) {
-    console.error('Scan fehlgeschlagen:', err);
-    addAction('Scan fehlgeschlagen: ' + err, 'error');
-    setStatus('Fehler beim Scan');
+    console.error('System-Scan fehlgeschlagen:', err);
+    addAction('System-Scan fehlgeschlagen: ' + err, 'error');
+    setStatus('Fehler beim System-Scan');
   } finally {
     state.isScanning = false;
     setScanButtonsDisabled(false);
   }
 }
 
+async function runNetworkScan() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  setStatus('Netzwerk-Scan läuft…');
+  setScanButtonsDisabled(true);
+  addAction('Netzwerk-Scan gestartet', 'info');
+
+  setPlaceholder('adapter-info', 'Scanne Netzwerkadapter…');
+  setPlaceholder('shares-info',  'Scanne Netzlaufwerke…');
+  setPlaceholder('wifi-info',    'Scanne WiFi-Profile…');
+
+  try {
+    const result = await ScanNetwork();
+    state.lastNetworkResult = result;
+
+    renderAdapters(result.adapters);
+    renderShares(result.shares);
+    renderWiFi(result.wifi);
+    updateNetworkBadge(result);
+
+    if (state.currentSessionPath) {
+      await SaveNetworkScan(result, state.currentSessionPath);
+      addAction('Netzwerk-Scan in Vault gespeichert', 'success');
+    }
+
+    logScanErrors(result.errors, 'Netzwerk-Scan');
+    setStatus('Netzwerk-Scan abgeschlossen');
+  } catch (err) {
+    console.error('Netzwerk-Scan fehlgeschlagen:', err);
+    addAction('Netzwerk-Scan fehlgeschlagen: ' + err, 'error');
+    setStatus('Fehler beim Netzwerk-Scan');
+  } finally {
+    state.isScanning = false;
+    setScanButtonsDisabled(false);
+  }
+}
+
+function logScanErrors(errors, label) {
+  const count = errors?.length ?? 0;
+  if (count > 0) {
+    addAction(`${label} abgeschlossen (${count} Warnungen)`, 'warning');
+    errors.forEach(e => addAction(`⚠ [${e.module}] ${e.message}`, 'warning'));
+  } else {
+    addAction(`${label} abgeschlossen`, 'success');
+  }
+}
+
 function setScanButtonsDisabled(disabled) {
-  ['btn-full-scan', 'btn-scan-system'].forEach(id => {
+  ['btn-full-scan', 'btn-scan-system', 'btn-scan-network'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = disabled;
   });
@@ -249,6 +295,143 @@ function renderSmart(smarts) {
     wrapper.appendChild(grid);
     container.appendChild(wrapper);
   });
+}
+
+// ─── Netzwerk-Tab Rendering ──────────────────────────────────────────────────
+
+function renderAdapters(adapters) {
+  const container = document.getElementById('adapter-info');
+  if (!container) return;
+  if (!adapters?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine Netzwerkadapter gefunden.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  adapters.forEach(a => {
+    const connIcon = a.is_connected ? '🟢' : (a.is_enabled ? '🟡' : '⚫');
+    const rows = [
+      ['Typ', a.type],
+      ['Beschreibung', a.description],
+      ['MAC-Adresse', a.mac_address],
+      ['Status', a.is_connected ? 'Verbunden' : (a.is_enabled ? 'Aktiviert (nicht verbunden)' : 'Deaktiviert')],
+    ];
+    if (a.ipv4?.length) rows.push(['IPv4', a.ipv4.join(', ')]);
+    if (a.subnet_masks?.length) rows.push(['Subnetzmaske', a.subnet_masks.join(', ')]);
+    if (a.gateway) rows.push(['Gateway', a.gateway]);
+    if (a.dns_servers?.length) rows.push(['DNS-Server', a.dns_servers.join(', ')]);
+    if (a.ipv6?.length) rows.push(['IPv6', a.ipv6.join(', ')]);
+    if (a.speed) rows.push(['Geschwindigkeit', a.speed]);
+
+    const block = document.createElement('div');
+    block.className = 'smart-disk';
+    block.innerHTML = `<div class="smart-disk-title">${connIcon} ${escapeHtml(a.name || a.description)}</div>`;
+    block.appendChild(buildInfoGrid(rows, false));
+    container.appendChild(block);
+  });
+}
+
+function renderShares(shares) {
+  const container = document.getElementById('shares-info');
+  if (!container) return;
+  if (!shares?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine Netzlaufwerke verbunden.</div>';
+    return;
+  }
+
+  const table = document.createElement('table');
+  table.className = 'data-table';
+  table.innerHTML = `
+    <thead><tr>
+      <th>Laufwerk</th>
+      <th>Netzwerkpfad</th>
+      <th>Status</th>
+    </tr></thead>`;
+  const tbody = document.createElement('tbody');
+  shares.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(s.drive_letter)}</td>
+      <td style="font-family:var(--font-mono);font-size:12px">${escapeHtml(s.unc_path)}</td>
+      <td>${s.status === 'Connected' ? '🟢 Verbunden' : '🔴 Getrennt'}</td>`;
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.innerHTML = '';
+  container.appendChild(table);
+}
+
+/** Rendert WiFi-Profile mit maskierten Passwörtern.
+ *  Passwort wird erst per Klick auf das Auge-Symbol sichtbar gemacht. */
+function renderWiFi(profiles) {
+  const container = document.getElementById('wifi-info');
+  if (!container) return;
+  if (!profiles?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine WiFi-Profile gefunden (Admin-Rechte nötig).</div>';
+    return;
+  }
+
+  const table = document.createElement('table');
+  table.className = 'data-table';
+  table.innerHTML = `
+    <thead><tr>
+      <th>SSID</th>
+      <th>Sicherheit</th>
+      <th>Verbunden</th>
+      <th>Passwort</th>
+    </tr></thead>`;
+  const tbody = document.createElement('tbody');
+
+  profiles.forEach((w, idx) => {
+    const tr = document.createElement('tr');
+    const conn = w.is_connected ? '✓ Aktiv' : '–';
+
+    let pwCell = '<span class="text-muted">–</span>';
+    if (w.has_password) {
+      if (w.password) {
+        // Passwort vorhanden: maskiert anzeigen, Toggle-Button
+        const pwId = `wifi-pw-${idx}`;
+        pwCell = `
+          <span class="pw-mask" id="${pwId}-mask">••••••••</span>
+          <span class="pw-text hidden" id="${pwId}-text" style="font-family:var(--font-mono)">${escapeHtml(w.password)}</span>
+          <button class="pw-toggle" data-target="${pwId}" title="Passwort einblenden">👁</button>`;
+      } else {
+        pwCell = '<span class="text-muted">Vorhanden (Admin nötig)</span>';
+      }
+    }
+
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(w.ssid)}</strong></td>
+      <td>${escapeHtml(w.security || '–')}</td>
+      <td>${conn}</td>
+      <td>${pwCell}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  container.innerHTML = '';
+  container.appendChild(table);
+
+  // Toggle-Buttons für Passwörter verdrahten
+  container.querySelectorAll('.pw-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.target;
+      const mask = document.getElementById(id + '-mask');
+      const text = document.getElementById(id + '-text');
+      if (!mask || !text) return;
+      const visible = !text.classList.contains('hidden');
+      mask.classList.toggle('hidden', visible);
+      text.classList.toggle('hidden', !visible);
+      btn.textContent = visible ? '👁' : '🙈';
+    });
+  });
+}
+
+function updateNetworkBadge(result) {
+  const connected = result.adapters?.filter(a => a.is_connected).length ?? 0;
+  const total = result.adapters?.length ?? 0;
+  const status = connected > 0 ? 'OK' : 'UNKNOWN';
+  setBadge('badge-network', 'detail-network', status,
+    `${connected}/${total} Adapter verbunden`);
 }
 
 // ─── Dashboard-Badges aktualisieren ──────────────────────────────────────────

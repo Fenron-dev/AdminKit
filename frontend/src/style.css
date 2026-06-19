@@ -419,6 +419,20 @@ html, body {
   padding: 30px !important;
 }
 
+/* ── WiFi-Passwort Toggle ── */
+.pw-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  opacity: .6;
+  transition: opacity .15s;
+  vertical-align: middle;
+}
+.pw-toggle:hover { opacity: 1; }
+.pw-mask, .pw-text { vertical-align: middle; font-size: 13px; }
+
 /* ── SMART-Disk-Blöcke im System-Tab ── */
 .smart-disk {
   border: 1px solid var(--color-border);
