@@ -26,6 +26,7 @@ type HardwareInfo struct {
 	Motherboard MotherboardInfo `json:"motherboard"`
 	GPUs        []GPUInfo       `json:"gpus"`
 	Disks       []DiskInfo      `json:"disks"`
+	Volumes     []VolumeInfo    `json:"volumes"`
 }
 
 type CPUInfo struct {
@@ -63,6 +64,16 @@ type DiskInfo struct {
 	MediaType     string `json:"media_type"`     // SSD, HDD, NVMe, Unknown
 	InterfaceType string `json:"interface_type"` // SATA, NVMe, USB, …
 	SerialNumber  string `json:"serial_number"`
+}
+
+// VolumeInfo beschreibt eine gemountete Partition mit Speichernutzung.
+type VolumeInfo struct {
+	Letter     string  `json:"letter"`       // Laufwerksbuchstabe (C:) oder Volume-Name
+	MountPoint string  `json:"mount_point"`  // Einhängepunkt (/  oder C:\)
+	TotalGB    float64 `json:"total_gb"`
+	UsedGB     float64 `json:"used_gb"`
+	FreeGB     float64 `json:"free_gb"`
+	FileSystem string  `json:"file_system"`  // NTFS, APFS, ext4 …
 }
 
 // ─── Betriebssystem ───────────────────────────────────────────────────────────

@@ -80,6 +80,13 @@ type wmiDiskDrive struct {
 	SerialNumber  string
 }
 
+type wmiLogicalDisk struct {
+	DeviceID   string
+	Size       uint64
+	FreeSpace  uint64
+	FileSystem string
+}
+
 func scanHardware() (HardwareInfo, []ScanError) {
 	hw := HardwareInfo{}
 	var errs []ScanError
@@ -161,6 +168,26 @@ func scanHardware() (HardwareInfo, []ScanError) {
 				MediaType:     wmiMediaTypeName(d.MediaType),
 				InterfaceType: strings.TrimSpace(d.InterfaceType),
 				SerialNumber:  strings.TrimSpace(d.SerialNumber),
+			})
+		}
+	}
+
+	// Laufwerk-Nutzung (logische Laufwerke)
+	var ldisks []wmiLogicalDisk
+	if err := wmi.Query("SELECT DeviceID, Size, FreeSpace, FileSystem FROM Win32_LogicalDisk WHERE DriveType=3", &ldisks); err != nil {
+		errs = append(errs, ScanError{"hardware.volumes", err.Error()})
+	} else {
+		for _, ld := range ldisks {
+			totalGB := float64(ld.Size) / (1024 * 1024 * 1024)
+			freeGB := float64(ld.FreeSpace) / (1024 * 1024 * 1024)
+			usedGB := totalGB - freeGB
+			hw.Volumes = append(hw.Volumes, VolumeInfo{
+				Letter:     ld.DeviceID,
+				MountPoint: ld.DeviceID,
+				TotalGB:    math.Round(totalGB*10) / 10,
+				UsedGB:     math.Round(usedGB*10) / 10,
+				FreeGB:     math.Round(freeGB*10) / 10,
+				FileSystem: ld.FileSystem,
 			})
 		}
 	}

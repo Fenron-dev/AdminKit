@@ -50,6 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initSettings();
   initDashboardCardNav();
   initPrinterScan();
+  initCollapsibleSections();
+  initBackToTop();
+  applyPlatformClass();
   loadAppInfo();
 });
 
@@ -72,6 +75,43 @@ function initThemeToggle() {
   document.getElementById('btn-theme')?.addEventListener('click', () => {
     state.theme = state.theme === 'dark' ? 'light' : 'dark';
     applyTheme(state.theme);
+  });
+}
+
+// ─── Platform-Erkennung ──────────────────────────────────────────────────────
+
+function applyPlatformClass() {
+  if (navigator.platform.includes('Mac') || navigator.userAgent.includes('Mac OS')) {
+    document.body.classList.add('platform-mac');
+  }
+}
+
+// ─── Zusammenklappbare Sektionen ──────────────────────────────────────────────
+
+function initCollapsibleSections() {
+  // Event-Delegation für alle .section-title – auch dynamisch hinzugefügte
+  document.addEventListener('click', (e) => {
+    const title = e.target.closest('.info-section > .section-title');
+    if (!title) return;
+    title.closest('.info-section').classList.toggle('collapsed');
+  });
+}
+
+// ─── Zurück-nach-oben ────────────────────────────────────────────────────────
+
+function initBackToTop() {
+  const btn = document.getElementById('btn-back-to-top');
+  if (!btn) return;
+
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.addEventListener('scroll', () => {
+      btn.classList.toggle('visible', panel.scrollTop > 200);
+    });
+  });
+
+  btn.addEventListener('click', () => {
+    const active = document.querySelector('.tab-panel.active');
+    if (active) active.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
 
@@ -602,6 +642,37 @@ function renderHardware(hw) {
   }
 
   setInfoGrid('hw-info', rows);
+
+  // Speichernutzung (Volume-Balken unterhalb der Info-Grid)
+  if (hw.volumes?.length > 0) {
+    const container = document.getElementById('hw-info');
+    const section = document.createElement('div');
+    section.className = 'hw-volumes';
+
+    const title = document.createElement('div');
+    title.className = 'hw-volumes-title';
+    title.textContent = 'Speichernutzung';
+    section.appendChild(title);
+
+    hw.volumes.forEach(vol => {
+      const pct = vol.total_gb > 0 ? Math.round((vol.used_gb / vol.total_gb) * 100) : 0;
+      const fillClass = pct > 90 ? 'fill-critical' : pct > 75 ? 'fill-warning' : 'fill-ok';
+      const item = document.createElement('div');
+      item.className = 'hw-volume-item';
+      item.innerHTML = `
+        <div class="hw-volume-label">
+          <span class="hw-volume-name">${escapeHtml(vol.letter)}</span>
+          <span class="hw-volume-stats">${vol.used_gb} GB belegt &middot; ${vol.free_gb} GB frei &middot; ${vol.total_gb} GB gesamt</span>
+        </div>
+        <div class="hw-volume-bar-bg">
+          <div class="hw-volume-bar-fill ${fillClass}" style="width:${Math.min(pct, 100)}%"></div>
+        </div>
+        <span class="hw-volume-pct">${pct}%</span>`;
+      section.appendChild(item);
+    });
+
+    container.appendChild(section);
+  }
 }
 
 function renderOS(os) {

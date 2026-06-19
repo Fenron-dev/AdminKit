@@ -178,6 +178,9 @@ func scanHardware() (HardwareInfo, []ScanError) {
 	// Festplatten
 	hw.Disks = scanDisks(&errs)
 
+	// Volumes (Speichernutzung)
+	hw.Volumes = scanVolumes(&errs)
+
 	return hw, errs
 }
 
@@ -303,6 +306,71 @@ func scanDisks(errs *[]ScanError) []DiskInfo {
 		})
 	}
 	return disks
+}
+
+// scanVolumes liest die Speichernutzung aller gemounteten Volumes via `df -kP`.
+// Systemvolumes (/System/Volumes/*) und temporäre Mounts werden übersprungen.
+func scanVolumes(errs *[]ScanError) []VolumeInfo {
+	var vols []VolumeInfo
+	out, err := exec.Command("df", "-kP").Output()
+	if err != nil {
+		*errs = append(*errs, ScanError{"hardware.volumes", err.Error()})
+		return vols
+	}
+
+	skipPrefixes := []string{
+		"/System/Volumes/",
+		"/private/var/",
+		"/private/tmp",
+		"/.vol",
+	}
+
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines[1:] { // Header überspringen
+		fields := strings.Fields(line)
+		if len(fields) < 6 {
+			continue
+		}
+		dev := fields[0]
+		if !strings.HasPrefix(dev, "/dev/") {
+			continue
+		}
+
+		totalKB, _ := strconv.ParseInt(fields[1], 10, 64)
+		usedKB, _ := strconv.ParseInt(fields[2], 10, 64)
+		availKB, _ := strconv.ParseInt(fields[3], 10, 64)
+		mp := strings.Join(fields[5:], " ")
+
+		if totalKB == 0 {
+			continue
+		}
+
+		skip := false
+		for _, pfx := range skipPrefixes {
+			if strings.HasPrefix(mp, pfx) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+
+		label := mp
+		if mp == "/" {
+			label = "Macintosh HD"
+		}
+
+		vols = append(vols, VolumeInfo{
+			Letter:     label,
+			MountPoint: mp,
+			TotalGB:    math.Round(float64(totalKB)/1024/1024*10) / 10,
+			UsedGB:     math.Round(float64(usedKB)/1024/1024*10) / 10,
+			FreeGB:     math.Round(float64(availKB)/1024/1024*10) / 10,
+			FileSystem: "APFS",
+		})
+	}
+	return vols
 }
 
 // ─── Betriebssystem ───────────────────────────────────────────────────────────
