@@ -1,0 +1,124 @@
+name: Build AdminKit
+
+on:
+  push:
+    branches: [main]
+    tags:    ['v*']
+  pull_request:
+    branches: [main]
+
+# Verhindert parallele Runs auf demselben Branch (spart Minuten)
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Windows ────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows (.exe)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Go einrichten
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Wails CLI installieren
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Frontend-Abhängigkeiten installieren
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build (Windows)
+        run: wails build -platform windows/amd64
+
+      - name: Artifact hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdminKit-Windows
+          path: build/bin/AdminKit.exe
+          if-no-files-found: error
+
+  # ─── macOS ──────────────────────────────────────────────────────────────────
+  build-macos:
+    name: macOS (.app)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Go einrichten
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Wails CLI installieren
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Frontend-Abhängigkeiten installieren
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build (macOS Universal)
+        # Universal Binary: läuft nativ auf Intel und Apple Silicon
+        run: wails build -platform darwin/universal
+
+      - name: .app zu ZIP packen
+        run: cd build/bin && zip -r AdminKit-macOS.zip AdminKit.app
+
+      - name: Artifact hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdminKit-macOS
+          path: build/bin/AdminKit-macOS.zip
+          if-no-files-found: error
+
+  # ─── GitHub Release (nur bei Git-Tags) ──────────────────────────────────────
+  release:
+    name: GitHub Release erstellen
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    # Nur bei v*-Tags ausführen
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Windows-Artifact herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          name: AdminKit-Windows
+          path: dist/
+
+      - name: macOS-Artifact herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          name: AdminKit-macOS
+          path: dist/
+
+      - name: Release veröffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/AdminKit.exe
+            dist/AdminKit-macOS.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
