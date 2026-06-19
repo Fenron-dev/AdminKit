@@ -13,6 +13,8 @@ import {
   RunConsoleTool, BackupVault, GetClipboard, GetUptime,
   ExportSession,
   SaveConfig,
+  PickLogoFile,
+  GetLogoBase64,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -99,6 +101,7 @@ async function loadAppInfo() {
     setEl('status-vault', shortenPath(vaultPath));
 
     state.config = cfg;
+    updateBrandingBar();
 
     if (cfg?.ui?.theme && !localStorage.getItem('adminkit-theme') && cfg.ui.theme !== 'system') {
       state.theme = cfg.ui.theme;
@@ -1006,7 +1009,6 @@ function closeExportModal() {
 function initSettings() {
   const overlay = document.getElementById('settings-modal-overlay');
 
-  // Einstellungen-Button öffnet das Modal und befüllt die Felder
   document.getElementById('btn-settings')?.addEventListener('click', openSettings);
   document.getElementById('settings-modal-close')?.addEventListener('click', closeSettings);
   document.getElementById('settings-cancel')?.addEventListener('click', closeSettings);
@@ -1014,6 +1016,28 @@ function initSettings() {
     if (e.target.id === 'settings-modal-overlay') closeSettings();
   });
   document.getElementById('settings-save')?.addEventListener('click', saveSettings);
+
+  // Logo-Picker: nativer Datei-Dialog, Datei wird in Vault kopiert
+  document.getElementById('btn-pick-logo')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-pick-logo');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    try {
+      const path = await PickLogoFile();
+      if (path) {
+        document.getElementById('setting-logo-path').value = path;
+        // Config sofort aktualisieren damit updateBrandingBar das neue Logo lädt
+        if (state.config) {
+          if (!state.config.branding) state.config.branding = {};
+          state.config.branding.logo_path = path;
+        }
+        updateBrandingBar();
+      }
+    } catch (err) {
+      addAction('Logo konnte nicht ausgewählt werden: ' + err, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📁 Auswählen'; }
+    }
+  });
 }
 
 function openSettings() {
@@ -1022,7 +1046,7 @@ function openSettings() {
   if (cfg) {
     document.getElementById('setting-company').value  = cfg.branding?.company_name    ?? '';
     document.getElementById('setting-technician').value = cfg.branding?.technician_name ?? '';
-    document.getElementById('setting-logo').value     = cfg.branding?.logo_path        ?? '';
+    document.getElementById('setting-logo-path').value = cfg.branding?.logo_path       ?? '';
     document.getElementById('setting-wifi-passwords').checked =
       cfg.defaults?.include_wifi_passwords ?? false;
   }
@@ -1033,18 +1057,57 @@ function closeSettings() {
   document.getElementById('settings-modal-overlay')?.classList.add('hidden');
 }
 
-async function saveSettings() {
-  const cfg = state.config;
-  if (!cfg) {
-    addAction('Einstellungen konnten nicht gespeichert werden: keine Config geladen', 'error');
+// Aktualisiert die Branding-Zeile über der Tab-Navigation anhand state.config
+async function updateBrandingBar() {
+  const branding = state.config?.branding;
+  const bar  = document.getElementById('branding-bar');
+  const logo = document.getElementById('branding-logo');
+  const name = document.getElementById('branding-company');
+  const tech = document.getElementById('branding-technician');
+  const sep  = document.getElementById('branding-sep');
+  if (!bar) return;
+
+  const company    = branding?.company_name    ?? '';
+  const technician = branding?.technician_name ?? '';
+
+  if (!company && !technician) {
+    bar.classList.add('hidden');
     return;
   }
 
-  // Branding-Felder übernehmen
+  bar.classList.remove('hidden');
+  if (name) name.textContent = company;
+  if (tech) tech.textContent = technician ? '👤 ' + technician : '';
+  if (sep)  sep.classList.toggle('hidden', !company || !technician);
+
+  // Logo asynchron laden
+  if (logo) {
+    try {
+      const uri = await GetLogoBase64();
+      if (uri) {
+        logo.src = uri;
+        logo.classList.remove('hidden');
+      } else {
+        logo.classList.add('hidden');
+      }
+    } catch {
+      logo.classList.add('hidden');
+    }
+  }
+}
+
+async function saveSettings() {
+  // Sicherheitsnetz: wenn config noch nicht geladen ist, Fallback-Objekt aufbauen
+  if (!state.config) {
+    state.config = { branding: {}, defaults: {}, ui: {}, logging: {}, backup: {} };
+  }
+  const cfg = state.config;
   if (!cfg.branding) cfg.branding = {};
+  if (!cfg.defaults) cfg.defaults = {};
+
   cfg.branding.company_name    = document.getElementById('setting-company').value.trim();
   cfg.branding.technician_name = document.getElementById('setting-technician').value.trim();
-  cfg.branding.logo_path       = document.getElementById('setting-logo').value.trim();
+  cfg.branding.logo_path       = document.getElementById('setting-logo-path').value.trim();
   cfg.defaults.include_wifi_passwords =
     document.getElementById('setting-wifi-passwords').checked;
 
@@ -1054,12 +1117,14 @@ async function saveSettings() {
   try {
     await SaveConfig(cfg);
     state.config = cfg;
-    closeSettings();
     addAction('Einstellungen gespeichert', 'success');
   } catch (err) {
-    addAction('Einstellungen konnten nicht gespeichert werden: ' + err, 'error');
+    // Auch im Fehlerfall schließen — Nutzer soll nicht stecken bleiben
+    addAction('Einstellungen konnten nicht dauerhaft gespeichert werden: ' + err, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Speichern'; }
+    closeSettings();
+    updateBrandingBar();
   }
 }
 

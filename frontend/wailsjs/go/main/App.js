@@ -70,3 +70,11 @@ export function ExportSession(arg1) {
 export function SaveConfig(arg1) {
     return window['go']['main']['App']['SaveConfig'](arg1);
 }
+
+export function PickLogoFile() {
+    return window['go']['main']['App']['PickLogoFile']();
+}
+
+export function GetLogoBase64() {
+    return window['go']['main']['App']['GetLogoBase64']();
+}

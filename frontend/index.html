@@ -35,6 +35,16 @@
         </div>
       </header>
 
+      <!-- Branding-Zeile (nur sichtbar wenn Firma/Techniker konfiguriert) -->
+      <div class="branding-bar hidden" id="branding-bar">
+        <img class="branding-logo hidden" id="branding-logo" src="" alt="Logo">
+        <div class="branding-info">
+          <span class="branding-company" id="branding-company"></span>
+          <span class="branding-sep hidden" id="branding-sep">·</span>
+          <span class="branding-technician" id="branding-technician"></span>
+        </div>
+      </div>
+
       <!-- Tab-Navigation -->
       <nav class="tab-nav">
         <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
@@ -280,10 +290,13 @@
               <label for="setting-technician">Techniker</label>
               <input type="text" id="setting-technician" placeholder="z.B. Max Mustermann">
             </div>
-            <div class="settings-row">
-              <label for="setting-logo">Logo (Dateipfad)</label>
-              <input type="text" id="setting-logo" placeholder="z.B. /Users/max/logo.png">
-              <span class="settings-hint">PNG, JPG oder SVG • wird im Bericht eingebettet</span>
+            <div class="settings-row settings-row-logo">
+              <label>Firmen-Logo</label>
+              <div class="logo-picker">
+                <input type="text" id="setting-logo-path" placeholder="Noch kein Logo gewählt" readonly>
+                <button class="btn btn-secondary btn-sm" id="btn-pick-logo">📁 Auswählen</button>
+              </div>
+              <span class="settings-hint">PNG, JPG oder SVG • wird in die Vault kopiert &amp; in Berichte eingebettet</span>
             </div>
           </div>
 

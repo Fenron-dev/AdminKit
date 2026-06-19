@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"adminkit/internal/system"
 	"adminkit/internal/tools"
 	"adminkit/internal/vault"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // defaultVaultPath ist der Standard-Speicherort der Vault relativ zur Binary.
@@ -124,6 +126,60 @@ func (a *App) SaveConfig(cfg *config.Config) error {
 	}
 	logging.Info("Config", "Konfiguration gespeichert")
 	return nil
+}
+
+// PickLogoFile öffnet einen nativen Datei-Dialog, kopiert die gewählte Bild-Datei
+// in vault/branding/ und gibt den vault-relativen Pfad zurück.
+// Gibt "" zurück wenn der Dialog abgebrochen wird.
+func (a *App) PickLogoFile() (string, error) {
+	chosen, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Firmen-Logo auswählen",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Bilder (PNG, JPG, SVG)", Pattern: "*.png;*.jpg;*.jpeg;*.svg;*.gif;*.webp"},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("Datei-Dialog: %w", err)
+	}
+	if chosen == "" {
+		return "", nil // abgebrochen
+	}
+
+	// Datei in vault/branding/ kopieren, damit sie immer verfügbar ist
+	if a.vault != nil {
+		brandingDir := filepath.Join(a.vault.RootPath, "branding")
+		if mkErr := os.MkdirAll(brandingDir, 0755); mkErr == nil {
+			ext := strings.ToLower(filepath.Ext(chosen))
+			dest := filepath.Join(brandingDir, "logo"+ext)
+			if copyErr := copyFile(chosen, dest); copyErr == nil {
+				// Vault-relativer Pfad — leichter zu portieren
+				return filepath.Join("branding", "logo"+ext), nil
+			}
+		}
+	}
+	// Fallback: originaler Pfad
+	return chosen, nil
+}
+
+// GetLogoBase64 gibt das konfigurierte Logo als Data-URI zurück (für die App-Anzeige).
+func (a *App) GetLogoBase64() string {
+	return a.readLogoBase64()
+}
+
+// copyFile kopiert eine Datei von src nach dst.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
 }
 
 // NewSession erstellt eine neue Kunden-Session im Vault und speichert den Namen für den Export.

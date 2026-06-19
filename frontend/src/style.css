@@ -728,6 +728,75 @@ html, body {
   padding: 4px 10px;
 }
 
+/* ── Branding-Zeile ──────────────────────────────────────────────────────── */
+.branding-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 20px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 13px;
+  min-height: 34px;
+}
+
+.branding-logo {
+  max-height: 22px;
+  max-width: 80px;
+  object-fit: contain;
+  border-radius: 2px;
+}
+
+.branding-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.branding-company {
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+
+.branding-sep {
+  opacity: .5;
+}
+
+.branding-technician {
+  opacity: .85;
+  font-size: 12px;
+}
+
+/* ── Logo-Picker im Einstellungen-Modal ──────────────────────────────────── */
+.settings-row-logo {
+  grid-template-columns: 140px 1fr;
+}
+
+.logo-picker {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.logo-picker input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  outline: none;
+  cursor: default;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* ============================================================
    Lade-Spinner
    ============================================================ */
