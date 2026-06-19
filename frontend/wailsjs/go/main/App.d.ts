@@ -17,3 +17,9 @@ export function SaveNetworkScan(result: any, sessionPath: string): Promise<void>
 // Phase 4: Software-Inventarisierung
 export function ScanSoftware(): Promise<any>;
 export function SaveSoftwareScan(result: any, sessionPath: string): Promise<void>;
+
+// Phase 5: Tools & Konsolen-Tools
+export function RunConsoleTool(tool: string, target: string): Promise<string>;
+export function BackupVault(): Promise<string>;
+export function GetClipboard(): Promise<string>;
+export function GetUptime(): Promise<string>;

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -10,6 +11,7 @@ import (
 	"adminkit/internal/network"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
+	"adminkit/internal/tools"
 	"adminkit/internal/vault"
 )
 
@@ -199,6 +201,45 @@ func (a *App) SaveSoftwareScan(result *software.ScanResult, sessionPath string) 
 	}
 	logging.Infof("Software", "Scan gespeichert: %s", sessionPath)
 	return nil
+}
+
+// RunConsoleTool führt ein Konsolen-Diagnose-Tool aus und gibt die Ausgabe zurück.
+// tool: "ping", "traceroute", "dns", "netstat", "arp", "portscan", "drivers"
+// target: Ziel-Host / IP / Port-Liste (abhängig vom Tool)
+func (a *App) RunConsoleTool(tool, target string) (string, error) {
+	logging.Infof("Tools", "Konsolen-Tool '%s' gestartet (Ziel: %s)", tool, target)
+	out, err := tools.RunCommand(tool, target)
+	if err != nil {
+		logging.Warnf("Tools", "'%s' fehlgeschlagen: %v", tool, err)
+		return "", err
+	}
+	return out, nil
+}
+
+// BackupVault erstellt ein ZIP-Archiv der gesamten Vault.
+// Das Archiv wird in vaultPath/exports/backups/ abgelegt.
+func (a *App) BackupVault() (string, error) {
+	if a.vault == nil {
+		return "", fmt.Errorf("keine Vault initialisiert")
+	}
+	logging.Info("Tools", "Vault-Backup gestartet")
+	path, err := tools.BackupVault(a.vault.RootPath)
+	if err != nil {
+		logging.Errorf("Tools", "Vault-Backup fehlgeschlagen: %v", err)
+		return "", err
+	}
+	logging.Infof("Tools", "Vault-Backup erstellt: %s", path)
+	return path, nil
+}
+
+// GetClipboard liest den aktuellen Inhalt der Zwischenablage.
+func (a *App) GetClipboard() (string, error) {
+	return tools.GetClipboard()
+}
+
+// GetUptime gibt die Zeit seit dem letzten Systemstart als formatierten String zurück.
+func (a *App) GetUptime() (string, error) {
+	return tools.GetUptime()
 }
 
 // resolveVaultPath sucht den Vault-Pfad in dieser Reihenfolge:

@@ -44,3 +44,20 @@ export function ScanSoftware() {
 export function SaveSoftwareScan(arg1, arg2) {
     return window['go']['main']['App']['SaveSoftwareScan'](arg1, arg2);
 }
+
+// ── Phase 5: Tools & Konsolen-Tools ──
+export function RunConsoleTool(arg1, arg2) {
+    return window['go']['main']['App']['RunConsoleTool'](arg1, arg2);
+}
+
+export function BackupVault() {
+    return window['go']['main']['App']['BackupVault']();
+}
+
+export function GetClipboard() {
+    return window['go']['main']['App']['GetClipboard']();
+}
+
+export function GetUptime() {
+    return window['go']['main']['App']['GetUptime']();
+}

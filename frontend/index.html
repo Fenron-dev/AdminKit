@@ -231,9 +231,11 @@
                     <option value="netstat">Netstat</option>
                     <option value="arp">ARP-Tabelle</option>
                     <option value="portscan">Port-Scan</option>
+                    <option value="drivers">Treiber/Extensions</option>
                   </select>
-                  <input class="console-input" type="text" id="console-target" placeholder="Ziel (Host / IP / Port)…" />
+                  <input class="console-input" type="text" id="console-target" placeholder="Ziel: Host / IP / host:80,443 …" />
                   <button class="btn btn-primary" id="btn-console-run">▶ Ausführen</button>
+                  <button class="btn btn-secondary" id="btn-console-clear" title="Ausgabe leeren">✕</button>
                 </div>
                 <div class="console-output" id="console-output">
                   <span class="console-placeholder">Wähle ein Werkzeug und gib ein Ziel ein…</span>

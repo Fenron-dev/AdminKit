@@ -10,6 +10,7 @@ import {
   ScanSystem, SaveSystemScan,
   ScanNetwork, SaveNetworkScan,
   ScanSoftware, SaveSoftwareScan,
+  RunConsoleTool, BackupVault, GetClipboard, GetUptime,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSessionModal();
   initScanButtons();
   initSoftwareTab();
+  initToolsTab();
   loadAppInfo();
 });
 
@@ -780,6 +782,142 @@ function calcUptime(bootTimeStr) {
 
 function formatTime(date) {
   return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// ─── Tools-Tab ────────────────────────────────────────────────────────────────
+
+function initToolsTab() {
+  // ── Diagnose-Werkzeuge ────────────────────────────────────────────────────
+  document.getElementById('tool-full-scan')?.addEventListener('click', () => {
+    switchTab('dashboard');
+    runFullScan();
+  });
+
+  document.getElementById('tool-clipboard')?.addEventListener('click', async () => {
+    try {
+      const text = await GetClipboard();
+      consoleWrite('Zwischenablage:', text || '(leer)');
+    } catch (err) {
+      consoleWrite('Zwischenablage:', 'Fehler: ' + err);
+    }
+  });
+
+  document.getElementById('tool-vault-backup')?.addEventListener('click', async () => {
+    const btn = document.getElementById('tool-vault-backup');
+    if (btn) btn.style.opacity = '0.5';
+    try {
+      consoleWrite('Vault-Backup', 'Erstelle Backup…');
+      const path = await BackupVault();
+      consoleWrite('Vault-Backup', 'Backup erstellt:\n' + path);
+      addAction('Vault-Backup erstellt: ' + shortenPath(path), 'success');
+    } catch (err) {
+      consoleWrite('Vault-Backup', 'Fehler: ' + err);
+      addAction('Vault-Backup fehlgeschlagen: ' + err, 'error');
+    } finally {
+      if (btn) btn.style.opacity = '';
+    }
+  });
+
+  document.getElementById('tool-wifi-pw')?.addEventListener('click', () => {
+    switchTab('network');
+    // Ggf. Netzwerk-Scan starten wenn noch keine Daten
+    if (!state.lastNetworkResult) runNetworkScan();
+  });
+
+  document.getElementById('tool-uptime')?.addEventListener('click', async () => {
+    // Zuerst aus letztem Scan, sonst vom Backend lesen
+    if (state.lastScanResult?.os?.last_boot_time) {
+      const uptime = calcUptime(state.lastScanResult.os.last_boot_time);
+      consoleWrite('Uptime (letzter Scan)', uptime);
+      return;
+    }
+    try {
+      const uptime = await GetUptime();
+      consoleWrite('Uptime', uptime);
+    } catch (err) {
+      consoleWrite('Uptime', 'Fehler: ' + err + '\nTipp: Starte zuerst einen System-Scan.');
+    }
+  });
+
+  document.getElementById('tool-drivers')?.addEventListener('click', () => {
+    // Treiber-Export über Konsolen-Tool
+    document.getElementById('console-tool').value = 'drivers';
+    document.getElementById('console-target').value = '';
+    runConsoleTool();
+  });
+
+  // ── Konsolen-Tools ────────────────────────────────────────────────────────
+  document.getElementById('btn-console-run')?.addEventListener('click', runConsoleTool);
+  document.getElementById('btn-console-clear')?.addEventListener('click', () => {
+    const out = document.getElementById('console-output');
+    if (out) out.innerHTML = '<span class="console-placeholder">Ausgabe geleert.</span>';
+  });
+
+  // Enter-Taste im Target-Input löst Ausführung aus
+  document.getElementById('console-target')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') runConsoleTool();
+  });
+
+  // Placeholder-Text je nach Tool anpassen
+  document.getElementById('console-tool')?.addEventListener('change', updateConsolePlaceholder);
+  updateConsolePlaceholder();
+}
+
+function updateConsolePlaceholder() {
+  const tool = document.getElementById('console-tool')?.value;
+  const input = document.getElementById('console-target');
+  if (!input) return;
+  const placeholders = {
+    ping:        'Hostname oder IP (z.B. google.com)',
+    traceroute:  'Hostname oder IP (z.B. 8.8.8.8)',
+    dns:         'Hostname (z.B. example.com)',
+    netstat:     '(kein Ziel nötig)',
+    arp:         '(kein Ziel nötig)',
+    portscan:    'host oder host:80,443,3389 oder host:80-1024',
+    drivers:     '(kein Ziel nötig)',
+  };
+  input.placeholder = placeholders[tool] ?? 'Ziel eingeben…';
+}
+
+async function runConsoleTool() {
+  const tool   = document.getElementById('console-tool')?.value;
+  const target = document.getElementById('console-target')?.value?.trim() ?? '';
+  if (!tool) return;
+
+  const runBtn = document.getElementById('btn-console-run');
+  if (runBtn) { runBtn.disabled = true; runBtn.textContent = '⏳ Läuft…'; }
+
+  const label = document.getElementById('console-tool')?.options[
+    document.getElementById('console-tool')?.selectedIndex
+  ]?.text ?? tool;
+
+  consoleWrite(`${label}${target ? ': ' + target : ''}`, '');
+
+  try {
+    const result = await RunConsoleTool(tool, target);
+    consoleAppend(result);
+  } catch (err) {
+    consoleAppend('Fehler: ' + err);
+  } finally {
+    if (runBtn) { runBtn.disabled = false; runBtn.textContent = '▶ Ausführen'; }
+  }
+}
+
+/** Schreibt einen Header + optionalen Text in die Konsolen-Ausgabe. */
+function consoleWrite(header, body) {
+  const out = document.getElementById('console-output');
+  if (!out) return;
+  const line = '═'.repeat(40);
+  out.textContent = `${line}\n  ${header}\n${line}\n${body ? body + '\n' : ''}`;
+  out.scrollTop = out.scrollHeight;
+}
+
+/** Hängt Text an die bestehende Konsolen-Ausgabe an. */
+function consoleAppend(text) {
+  const out = document.getElementById('console-output');
+  if (!out) return;
+  out.textContent += text;
+  out.scrollTop = out.scrollHeight;
 }
 
 function escapeHtml(str) {
