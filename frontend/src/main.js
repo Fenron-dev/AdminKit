@@ -29,7 +29,7 @@ import {
   GetOpenRouterModels,
   RunRawCommand,
   GetProcesses,
-  GetVTWhitelist, AddToVTWhitelist, RemoveFromVTWhitelist,
+  GetVTWhitelist, AddToVTWhitelist, RemoveFromVTWhitelist, SaveVTAuditLog,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -1521,6 +1521,11 @@ async function runVTCheck() {
     });
   }
 
+  const auditLog = [];
+  // item_id = "type:name:path" → lookup table path→type for audit
+  const pathToType = {};
+  vtRequests.forEach(r => { pathToType[r.path] = r.item_type; });
+
   try {
     // Wails-Event: vt:progress wird vom Backend emittiert
     if (window.runtime?.EventsOn) {
@@ -1533,8 +1538,13 @@ async function runVTCheck() {
           const cls = r.status === 'malicious' ? 'vt-malicious' : r.status === 'suspicious' ? 'vt-suspicious' : r.status === 'clean' ? 'vt-clean' : 'vt-unknown';
           const icon = r.status === 'malicious' ? '⛔' : r.status === 'suspicious' ? '⚠' : r.status === 'clean' ? '✓' : '–';
           results.innerHTML += `<div class="vt-progress-item ${cls}">${icon} ${escapeHtml(r.name)}: ${escapeHtml(r.status)}${r.detections > 0 ? ` (${r.detections}/${r.engines} Engines)` : ''}</div>`;
-          // Badge in der Tabelle setzen
           injectVTBadge(r);
+          auditLog.push({
+            name: r.name, path: r.path ?? '', item_type: pathToType[r.path] ?? '',
+            status: r.status, sha256: r.sha256 ?? '',
+            detections: r.detections ?? 0, engines: r.engines ?? 0,
+            checked_at: new Date().toISOString(),
+          });
         }
       });
     }
@@ -1543,6 +1553,10 @@ async function runVTCheck() {
 
     if (text) text.textContent = `Abgeschlossen: ${vtRequests.length} geprüft.`;
     if (bar) bar.style.width = '100%';
+
+    if (auditLog.length > 0) {
+      try { await SaveVTAuditLog(JSON.stringify(auditLog)); } catch {}
+    }
   } catch (err) {
     if (text) text.textContent = 'Fehler: ' + err;
     addAction('VT-Scan fehlgeschlagen: ' + err, 'error');

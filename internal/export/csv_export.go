@@ -128,6 +128,59 @@ func GenerateCSV(data *SessionExport) string {
 		}
 	}
 
+	// ── Browser-Extensions ───────────────────────────────────────────────────
+	if data.BrowserExt != nil && len(data.BrowserExt.Extensions) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# Browser-Erweiterungen\r\n")
+		sb.WriteString("Browser,Name,ID,Version,Aktiviert\r\n")
+		for _, e := range data.BrowserExt.Extensions {
+			fmt.Fprintf(sb, "%s,%s,%s,%s,%s\r\n",
+				csvField(e.Browser),
+				csvField(e.Name),
+				csvField(e.ID),
+				csvField(e.Version),
+				boolStr(e.Enabled),
+			)
+		}
+	}
+
+	// ── Laufende Prozesse ─────────────────────────────────────────────────────
+	if len(data.Processes) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# Laufende Prozesse\r\n")
+		sb.WriteString("PID,Name,Pfad,Benutzer,CPU (%),RAM (MB),System\r\n")
+		for _, p := range data.Processes {
+			fmt.Fprintf(sb, "%d,%s,%s,%s,%.1f,%.1f,%s\r\n",
+				p.PID,
+				csvField(p.Name),
+				csvField(p.Path),
+				csvField(p.User),
+				p.CPUPct,
+				p.MemoryMB,
+				boolStr(p.IsSystem),
+			)
+		}
+	}
+
+	// ── VirusTotal-Audit-Log ──────────────────────────────────────────────────
+	if len(data.VTAuditLog) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# VirusTotal-Prüfergebnisse\r\n")
+		sb.WriteString("Name,Pfad,Typ,Status,SHA256,Erkennungen,Engines,Geprüft am\r\n")
+		for _, v := range data.VTAuditLog {
+			fmt.Fprintf(sb, "%s,%s,%s,%s,%s,%d,%d,%s\r\n",
+				csvField(v.Name),
+				csvField(v.Path),
+				csvField(v.ItemType),
+				csvField(v.Status),
+				csvField(v.SHA256),
+				v.Detections,
+				v.Engines,
+				csvField(v.CheckedAt),
+			)
+		}
+	}
+
 	// ── Systemereignisse ──────────────────────────────────────────────────────
 	if data.Events != nil && len(data.Events.Events) > 0 {
 		sb.WriteString("\r\n")

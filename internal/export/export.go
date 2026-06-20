@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"adminkit/internal/autostart"
+	"adminkit/internal/browserext"
 	"adminkit/internal/events"
 	"adminkit/internal/network"
 	"adminkit/internal/printers"
@@ -16,6 +17,18 @@ import (
 	"adminkit/internal/software"
 	"adminkit/internal/system"
 )
+
+// VTAuditEntry ist ein einzelnes VT-Prüfergebnis für den Export.
+type VTAuditEntry struct {
+	Name       string `json:"name"`
+	Path       string `json:"path"`
+	ItemType   string `json:"item_type"`
+	Status     string `json:"status"`
+	SHA256     string `json:"sha256"`
+	Detections int    `json:"detections"`
+	Engines    int    `json:"engines"`
+	CheckedAt  string `json:"checked_at"`
+}
 
 // SessionExport bündelt alle Scan-Ergebnisse einer Session für den Export.
 type SessionExport struct {
@@ -29,13 +42,16 @@ type SessionExport struct {
 	// LogoBase64: vollständige Data-URI ("data:image/png;base64,...") oder leer.
 	LogoBase64 string
 
-	System    *system.ScanResult
-	Network   *network.ScanResult
-	Software  *software.ScanResult
-	Printers  *printers.ScanResult
-	Autostart *autostart.ScanResult
-	Services  *services.ScanResult
-	Events    *events.ScanResult
+	System          *system.ScanResult
+	Network         *network.ScanResult
+	Software        *software.ScanResult
+	Printers        *printers.ScanResult
+	Autostart       *autostart.ScanResult
+	Services        *services.ScanResult
+	Events          *events.ScanResult
+	BrowserExt      *browserext.ScanResult
+	Processes       []system.RunningProcess
+	VTAuditLog      []VTAuditEntry
 }
 
 // ExportHTML erzeugt einen selbst-enthaltenen HTML-Bericht und speichert ihn

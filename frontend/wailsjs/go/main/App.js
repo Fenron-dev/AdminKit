@@ -195,6 +195,10 @@ export function RemoveFromVTWhitelist(arg1) {
     return window['go']['main']['App']['RemoveFromVTWhitelist'](arg1);
 }
 
+export function SaveVTAuditLog(arg1) {
+    return window['go']['main']['App']['SaveVTAuditLog'](arg1);
+}
+
 // ── Terminal Log ──
 export function SaveTerminalLog(arg1) {
     return window['go']['main']['App']['SaveTerminalLog'](arg1);

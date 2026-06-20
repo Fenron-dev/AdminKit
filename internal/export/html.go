@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"adminkit/internal/autostart"
+	"adminkit/internal/browserext"
 	"adminkit/internal/events"
 	"adminkit/internal/network"
 	"adminkit/internal/printers"
@@ -90,6 +91,15 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if data.Events != nil && len(data.Events.Events) > 0 {
 		sb.WriteString("  <a href=\"#sec-events\">📋 Ereignisse</a>\n")
 	}
+	if data.BrowserExt != nil && len(data.BrowserExt.Extensions) > 0 {
+		sb.WriteString("  <a href=\"#sec-browserext\">🧩 Extensions</a>\n")
+	}
+	if len(data.Processes) > 0 {
+		sb.WriteString("  <a href=\"#sec-processes\">🔄 Prozesse</a>\n")
+	}
+	if len(data.VTAuditLog) > 0 {
+		sb.WriteString("  <a href=\"#sec-vtaudit\">🔬 VirusTotal</a>\n")
+	}
 	sb.WriteString("</nav>\n")
 
 	// ── Übersichtskarten ─────────────────────────────────────────────────────
@@ -153,6 +163,27 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if data.Events != nil && len(data.Events.Events) > 0 {
 		sb.WriteString("<section id=\"sec-events\">\n<h2 class=\"sec-title\">📋 Systemereignisse</h2>\n")
 		writeEventsSection(sb, data.Events)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Browser-Extensions ───────────────────────────────────────────────────
+	if data.BrowserExt != nil && len(data.BrowserExt.Extensions) > 0 {
+		sb.WriteString("<section id=\"sec-browserext\">\n<h2 class=\"sec-title\">🧩 Browser-Erweiterungen</h2>\n")
+		writeBrowserExtSection(sb, data.BrowserExt)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Prozesse ─────────────────────────────────────────────────────────────
+	if len(data.Processes) > 0 {
+		sb.WriteString("<section id=\"sec-processes\">\n<h2 class=\"sec-title\">🔄 Laufende Prozesse</h2>\n")
+		writeProcessesSection(sb, data.Processes)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── VirusTotal Audit-Log ─────────────────────────────────────────────────
+	if len(data.VTAuditLog) > 0 {
+		sb.WriteString("<section id=\"sec-vtaudit\">\n<h2 class=\"sec-title\">🔬 VirusTotal-Ergebnisse</h2>\n")
+		writeVTAuditSection(sb, data.VTAuditLog)
 		sb.WriteString("</section>\n")
 	}
 
@@ -805,6 +836,64 @@ func fmtUptime(boot time.Time) string {
 		return fmt.Sprintf("%d Tag(e), %d Std., %d Min.", days, hours, mins)
 	}
 	return fmt.Sprintf("%d Std., %d Min.", hours, mins)
+}
+
+func writeBrowserExtSection(sb *strings.Builder, r *browserext.ScanResult) {
+	sb.WriteString("<table class=\"data-table\">\n<thead><tr><th>Browser</th><th>Name</th><th>Version</th><th>ID</th><th>Status</th></tr></thead>\n<tbody>\n")
+	for _, e := range r.Extensions {
+		status := "Aktiv"
+		if !e.Enabled {
+			status = "Deaktiviert"
+		}
+		fmt.Fprintf(sb, "<tr><td>%s</td><td>%s</td><td>%s</td><td class=\"mono\">%s</td><td>%s</td></tr>\n",
+			h(e.Browser), h(e.Name), h(e.Version), h(e.ID), h(status))
+	}
+	sb.WriteString("</tbody></table>\n")
+	fmt.Fprintf(sb, "<p class=\"section-meta\">%d Erweiterungen</p>\n", len(r.Extensions))
+}
+
+func writeProcessesSection(sb *strings.Builder, procs []system.RunningProcess) {
+	sb.WriteString("<table class=\"data-table\">\n<thead><tr><th>PID</th><th>Name</th><th>Benutzer</th><th>CPU%</th><th>RAM (MB)</th><th>Pfad</th></tr></thead>\n<tbody>\n")
+	for _, p := range procs {
+		cls := ""
+		if p.CPUPct > 20 || p.MemoryMB > 500 {
+			cls = " class=\"row-warn\""
+		}
+		fmt.Fprintf(sb, "<tr%s><td>%d</td><td>%s</td><td>%s</td><td>%.1f</td><td>%.0f</td><td class=\"mono\" style=\"font-size:11px\">%s</td></tr>\n",
+			cls, p.PID, h(p.Name), h(p.User), p.CPUPct, p.MemoryMB, h(p.Path))
+	}
+	sb.WriteString("</tbody></table>\n")
+	fmt.Fprintf(sb, "<p class=\"section-meta\">%d Prozesse</p>\n", len(procs))
+}
+
+func writeVTAuditSection(sb *strings.Builder, entries []VTAuditEntry) {
+	statusColors := map[string]string{
+		"malicious":  "#dc2626", "suspicious": "#ca8a04",
+		"clean":      "#16a34a", "not_found":  "#64748b",
+	}
+	sb.WriteString("<table class=\"data-table\">\n<thead><tr><th>Status</th><th>Name</th><th>Typ</th><th>Erkennungen</th><th>SHA256</th><th>Geprüft</th></tr></thead>\n<tbody>\n")
+	for _, e := range entries {
+		color := statusColors[e.Status]
+		detect := "–"
+		if e.Engines > 0 {
+			detect = fmt.Sprintf("%d / %d", e.Detections, e.Engines)
+		}
+		fmt.Fprintf(sb, "<tr><td><strong style=\"color:%s\">%s</strong></td><td>%s</td><td>%s</td><td>%s</td><td class=\"mono\" style=\"font-size:10px\">%s</td><td>%s</td></tr>\n",
+			color, h(e.Status), h(e.Name), h(e.ItemType), detect,
+			h(e.SHA256), h(e.CheckedAt))
+	}
+	sb.WriteString("</tbody></table>\n")
+	malCount := 0
+	for _, e := range entries {
+		if e.Status == "malicious" || e.Status == "suspicious" {
+			malCount++
+		}
+	}
+	if malCount > 0 {
+		fmt.Fprintf(sb, "<p class=\"section-meta\" style=\"color:#dc2626\">⚠ %d auffällige Einträge gefunden!</p>\n", malCount)
+	} else {
+		fmt.Fprintf(sb, "<p class=\"section-meta\">%d Einträge geprüft — keine Bedrohungen erkannt.</p>\n", len(entries))
+	}
 }
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────

@@ -50,6 +50,8 @@ type App struct {
 	lastServicesScan    *services.ScanResult
 	lastEventsScan      *events.ScanResult
 	lastBrowserExtScan  *browserext.ScanResult
+	lastProcessScan     []system.RunningProcess
+	lastVTAuditLog      []export.VTAuditEntry
 	lastSessionName     string
 	lastSessionPath     string
 
@@ -243,7 +245,20 @@ func (a *App) NewSession(customerName string) (string, error) {
 	a.lastServicesScan = nil
 	a.lastEventsScan = nil
 	a.lastBrowserExtScan = nil
+	a.lastProcessScan = nil
+	a.lastVTAuditLog = nil
 	return path, nil
+}
+
+// SaveVTAuditLog speichert VT-Ergebnisse für die aktuelle Session (für Export).
+// jsonResults ist ein JSON-Array von VT-Ergebnissen aus dem Frontend.
+func (a *App) SaveVTAuditLog(jsonResults string) error {
+	var entries []export.VTAuditEntry
+	if err := json.Unmarshal([]byte(jsonResults), &entries); err != nil {
+		return fmt.Errorf("ungültiges JSON: %w", err)
+	}
+	a.lastVTAuditLog = append(a.lastVTAuditLog, entries...)
+	return nil
 }
 
 // ScanSystem führt einen vollständigen System-Scan durch und gibt das Ergebnis zurück.
@@ -265,7 +280,11 @@ func (a *App) ScanSystem() (*system.ScanResult, error) {
 
 // GetProcesses gibt alle laufenden Prozesse zurück (PID, Name, User, CPU%, RAM).
 func (a *App) GetProcesses() ([]system.RunningProcess, error) {
-	return system.ScanProcesses()
+	procs, err := system.ScanProcesses()
+	if err == nil {
+		a.lastProcessScan = procs
+	}
+	return procs, err
 }
 
 // SaveSystemScan speichert ein Scan-Ergebnis im aktuellen Session-Ordner als Markdown.
@@ -566,6 +585,9 @@ func (a *App) ExportSession(format string) (string, error) {
 		Autostart:      a.lastAutostartScan,
 		Services:       a.lastServicesScan,
 		Events:         a.lastEventsScan,
+		BrowserExt:     a.lastBrowserExtScan,
+		Processes:      a.lastProcessScan,
+		VTAuditLog:     a.lastVTAuditLog,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
 		LogoBase64:     a.readLogoBase64(),
@@ -619,6 +641,9 @@ func (a *App) ExportCSV() (string, error) {
 		Autostart:      a.lastAutostartScan,
 		Services:       a.lastServicesScan,
 		Events:         a.lastEventsScan,
+		BrowserExt:     a.lastBrowserExtScan,
+		Processes:      a.lastProcessScan,
+		VTAuditLog:     a.lastVTAuditLog,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
 	}
