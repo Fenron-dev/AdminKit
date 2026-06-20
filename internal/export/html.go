@@ -11,10 +11,11 @@ import (
 	"adminkit/internal/events"
 	"adminkit/internal/network"
 	"adminkit/internal/printers"
+	"adminkit/internal/profiles"
+	"adminkit/internal/scoring"
 	"adminkit/internal/services"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
-	"adminkit/internal/profiles"
 	"adminkit/internal/tasks"
 	"adminkit/internal/usbhistory"
 	"adminkit/internal/users"
@@ -45,6 +46,14 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 		"<title>AdminKit – %s</title>\n<style>%s</style>\n</head>\n<body>\n",
 		h(title), reportCSS)
 
+	// ── Health Score berechnen ────────────────────────────────────────────────
+	score := scoring.Compute(data.System, data.Autostart, data.Events)
+	scoreColor := map[string]string{
+		"green":  "#16A34A",
+		"yellow": "#D97706",
+		"red":    "#DC2626",
+	}[score.Color]
+
 	// ── Kopfzeile ────────────────────────────────────────────────────────────
 	sb.WriteString("<header>\n")
 	if data.LogoBase64 != "" {
@@ -64,8 +73,14 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if data.TechnicianName != "" {
 		fmt.Fprintf(sb, "      <span>Techniker: <strong>%s</strong></span>\n", h(data.TechnicianName))
 	}
-	sb.WriteString("    </div>\n  </div>\n" +
-		"  <div class=\"hdr-actions\"><button class=\"print-btn\" onclick=\"window.print()\">🖨 Drucken / PDF</button></div>\n" +
+	sb.WriteString("    </div>\n  </div>\n")
+	fmt.Fprintf(sb,
+		"  <div class=\"hdr-score\" style=\"border-color:%s\" title=\"Health Score\">\n"+
+			"    <span class=\"hdr-score-val\" style=\"color:%s\">%d</span>\n"+
+			"    <span class=\"hdr-score-lbl\">%s</span>\n"+
+			"  </div>\n",
+		scoreColor, scoreColor, score.Score, h(score.Label))
+	sb.WriteString("  <div class=\"hdr-actions\"><button class=\"print-btn\" onclick=\"window.print()\">🖨 Drucken / PDF</button></div>\n" +
 		"</header>\n")
 
 	// ── Anker-Navigation ─────────────────────────────────────────────────────
@@ -1078,7 +1093,11 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;background:va
 color:var(--text);padding:0;line-height:1.5}
 header{display:flex;align-items:center;gap:16px;padding:20px 32px;
 background:var(--surface);border-bottom:2px solid var(--primary);print-color-adjust:exact}
-.hdr-actions{margin-left:auto}
+.hdr-score{flex-shrink:0;width:68px;height:68px;border-radius:50%;border:5px solid #ccc;
+display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;margin-left:auto}
+.hdr-score-val{font-size:22px;font-weight:700;line-height:1}
+.hdr-score-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase}
+.hdr-actions{}
 .print-btn{padding:7px 14px;background:var(--primary);color:#fff;border:none;border-radius:6px;
 font-size:13px;cursor:pointer;font-weight:500}
 .print-btn:hover{opacity:.85}

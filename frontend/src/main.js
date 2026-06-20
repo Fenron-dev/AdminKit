@@ -38,6 +38,7 @@ import {
   ScanUSBDevices,
   PickArchiveDirectory,
   ArchiveVault,
+  GetHealthScore,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -265,6 +266,39 @@ function setFullscanProgress(step, total, label) {
   }
 }
 
+async function updateHealthScore() {
+  try {
+    const result = await GetHealthScore();
+    const ring  = document.getElementById('health-score-ring');
+    const value = document.getElementById('health-score-value');
+    const label = document.getElementById('health-score-label');
+    const deductList = document.getElementById('health-deductions');
+    if (!ring) return;
+
+    ring.classList.remove('score-green', 'score-yellow', 'score-red');
+    ring.classList.add('score-' + result.color);
+
+    value.textContent = result.score;
+
+    label.className = 'health-score-label score-' + result.color;
+    label.textContent = result.label + ' (' + result.score + '/100)';
+
+    deductList.innerHTML = '';
+    if (result.deductions && result.deductions.length > 0) {
+      deductList.classList.remove('hidden');
+      for (const d of result.deductions) {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${d.label}</span><span class="ded-pts">−${d.points}</span>`;
+        deductList.appendChild(li);
+      }
+    } else {
+      deductList.classList.add('hidden');
+    }
+  } catch (e) {
+    // Score nicht verfügbar — still ignorieren
+  }
+}
+
 async function runFullScan() {
   switchTab('system');
   // Alte Ergebnisse löschen damit die Zusammenfassung nur den aktuellen Scan zeigt
@@ -288,6 +322,7 @@ async function runFullScan() {
 
   setFullscanProgress(total, total, null);
   showScanSummary();
+  await updateHealthScore();
 
   if (state.config?.defaults?.auto_vt_scan) {
     const vtKey = state.config?.api_keys?.virustotal ?? '';

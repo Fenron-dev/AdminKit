@@ -27,6 +27,7 @@ import (
 	"adminkit/internal/usbhistory"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
+	"adminkit/internal/scoring"
 	"adminkit/internal/tasks"
 	"adminkit/internal/tools"
 	"adminkit/internal/users"
@@ -671,6 +672,11 @@ func (a *App) OpenFile(path string) error {
 // RevealFile zeigt eine Datei im Finder (macOS) bzw. Windows Explorer an.
 func (a *App) RevealFile(path string) error {
 	return revealFilePlatform(path)
+}
+
+// GetHealthScore berechnet den System-Health-Score aus den gecachten Scan-Ergebnissen.
+func (a *App) GetHealthScore() *scoring.ScoreResult {
+	return scoring.Compute(a.lastSystemScan, a.lastAutostartScan, a.lastEventsScan)
 }
 
 // ExportSession exportiert alle bisher durchgeführten Scans der aktuellen Session.

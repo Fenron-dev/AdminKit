@@ -1783,3 +1783,77 @@ body.platform-mac .titlebar {
 }
 .tab-nav::-webkit-scrollbar { display: none; }
 
+/* ── Health Score Karte ─────────────────────────────────────────────────── */
+.card-health {
+  grid-column: span 2;
+}
+.health-score-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.health-score-ring {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 6px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color .4s;
+}
+.health-score-ring.score-green  { border-color: #16A34A; }
+.health-score-ring.score-yellow { border-color: #D97706; }
+.health-score-ring.score-red    { border-color: #DC2626; }
+
+[data-theme="dark"] .health-score-ring.score-green  { border-color: #4ADE80; }
+[data-theme="dark"] .health-score-ring.score-yellow { border-color: #FDE047; }
+[data-theme="dark"] .health-score-ring.score-red    { border-color: #FCA5A5; }
+
+.health-score-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+}
+.health-score-meta {
+  flex: 1;
+  min-width: 0;
+}
+.health-score-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+.health-score-label.score-green  { color: #16A34A; }
+.health-score-label.score-yellow { color: #D97706; }
+.health-score-label.score-red    { color: #DC2626; }
+
+[data-theme="dark"] .health-score-label.score-green  { color: #4ADE80; }
+[data-theme="dark"] .health-score-label.score-yellow { color: #FDE047; }
+[data-theme="dark"] .health-score-label.score-red    { color: #FCA5A5; }
+
+.health-deductions {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.health-deductions li {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.health-deductions li .ded-pts {
+  font-weight: 600;
+  color: #DC2626;
+  flex-shrink: 0;
+}
+[data-theme="dark"] .health-deductions li .ded-pts { color: #FCA5A5; }
+

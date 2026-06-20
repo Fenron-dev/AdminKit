@@ -239,3 +239,8 @@ export function ArchiveVault(arg1) {
 export function SaveTerminalLog(arg1) {
     return window['go']['main']['App']['SaveTerminalLog'](arg1);
 }
+
+// ── Health Score ──
+export function GetHealthScore() {
+    return window['go']['main']['App']['GetHealthScore']();
+}
