@@ -27,6 +27,7 @@ type HardwareInfo struct {
 	GPUs        []GPUInfo       `json:"gpus"`
 	Disks       []DiskInfo      `json:"disks"`
 	Volumes     []VolumeInfo    `json:"volumes"`
+	Battery     *BatteryInfo    `json:"battery,omitempty"` // nil = kein Akku
 }
 
 type CPUInfo struct {
@@ -64,6 +65,14 @@ type DiskInfo struct {
 	MediaType     string `json:"media_type"`     // SSD, HDD, NVMe, Unknown
 	InterfaceType string `json:"interface_type"` // SATA, NVMe, USB, …
 	SerialNumber  string `json:"serial_number"`
+}
+
+// BatteryInfo beschreibt den Akku-Status eines Geräts (nil = kein Akku vorhanden).
+type BatteryInfo struct {
+	Present          bool   `json:"present"`
+	ChargePct        int    `json:"charge_pct"`        // 0–100 %
+	Status           string `json:"status"`             // "Lädt", "Entlädt", "Voll (Netz)", "Netz"
+	RemainingMinutes int    `json:"remaining_minutes"`  // -1 = unbekannt
 }
 
 // VolumeInfo beschreibt eine gemountete Partition mit Speichernutzung.

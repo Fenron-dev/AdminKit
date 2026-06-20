@@ -104,3 +104,33 @@ export function PickLogoFile() {
 export function GetLogoBase64() {
     return window['go']['main']['App']['GetLogoBase64']();
 }
+
+// ── Datei-Operationen ──
+export function OpenFile(arg1) {
+    return window['go']['main']['App']['OpenFile'](arg1);
+}
+
+export function RevealFile(arg1) {
+    return window['go']['main']['App']['RevealFile'](arg1);
+}
+
+// ── Neuere Scanner (nach initialem Setup hinzugefügt) ──
+export function ScanBrowserExtensions() {
+    return window['go']['main']['App']['ScanBrowserExtensions']();
+}
+
+export function ScanNetworkBasic() {
+    return window['go']['main']['App']['ScanNetworkBasic']();
+}
+
+export function GetSessions() {
+    return window['go']['main']['App']['GetSessions']();
+}
+
+export function StartService(arg1) {
+    return window['go']['main']['App']['StartService'](arg1);
+}
+
+export function StopService(arg1) {
+    return window['go']['main']['App']['StopService'](arg1);
+}

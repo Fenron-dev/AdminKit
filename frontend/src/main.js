@@ -22,6 +22,7 @@ import {
   SaveConfig,
   PickLogoFile,
   GetLogoBase64,
+  OpenFile, RevealFile,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initBackToTop();
   initQRModal();
   initScanSummaryModal();
+  initActionLog();
   applyPlatformClass();
   loadAppInfo();
 });
@@ -747,6 +749,17 @@ function renderHardware(hw) {
     hw.disks.forEach((d, i) => {
       rows.push([`Disk ${i + 1}`, `${d.model} — ${d.size_gb} GB ${d.media_type} (${d.interface_type || '–'})`]);
     });
+  }
+
+  // Akku-Zeile am Ende der Info-Grid einfügen
+  if (hw.battery?.present) {
+    const bat = hw.battery;
+    const pct = bat.charge_pct ?? 0;
+    const icon = pct > 80 ? '🔋' : pct > 30 ? '🪫' : '🔴';
+    const remaining = bat.remaining_minutes > 0
+      ? ` · ${Math.floor(bat.remaining_minutes / 60)}:${String(bat.remaining_minutes % 60).padStart(2, '0')} verbleibend`
+      : '';
+    rows.push(['Akku', `${icon} ${pct}% – ${bat.status}${remaining}`]);
   }
 
   setInfoGrid('hw-info', rows);
@@ -1462,19 +1475,36 @@ async function createSession(name) {
 
 // ─── Aktions-Log ──────────────────────────────────────────────────────────────
 
-function addAction(text, type = 'info') {
+function addAction(text, type = 'info', meta = null) {
   const list = document.getElementById('action-list');
   if (!list) return;
   list.querySelector('.empty-state')?.remove();
   const icons = { info: 'ℹ', success: '✓', warning: '⚠', error: '✗' };
   const el = document.createElement('div');
   el.className = 'action-entry';
+  if (meta?.filePath) {
+    el.dataset.filePath = meta.filePath;
+    el.classList.add('action-has-file');
+    el.title = 'Klicken zum Öffnen der Datei';
+  }
   el.innerHTML = `
     <span>${icons[type] ?? 'ℹ'}</span>
     <span>${escapeHtml(text)}</span>
     <span class="action-time">${formatTime(new Date())}</span>
   `;
   list.prepend(el);
+}
+
+function initActionLog() {
+  document.getElementById('action-list')?.addEventListener('click', async e => {
+    const entry = e.target.closest('.action-has-file');
+    if (!entry?.dataset.filePath) return;
+    try {
+      await OpenFile(entry.dataset.filePath);
+    } catch (err) {
+      addAction('Datei konnte nicht geöffnet werden: ' + err, 'error');
+    }
+  });
 }
 
 // ─── Hilfs-Funktionen ─────────────────────────────────────────────────────────
@@ -2002,7 +2032,7 @@ async function runExport(format) {
   try {
     const path = await ExportSession(format);
     showExportModal(format, path);
-    addAction(`Bericht exportiert (${format.toUpperCase()}): ${shortenPath(path)}`, 'success');
+    addAction(`Bericht exportiert (${format.toUpperCase()}): ${shortenPath(path)}`, 'success', { filePath: path });
   } catch (err) {
     showExportModal(format, null, String(err));
     addAction(`Export fehlgeschlagen: ${err}`, 'error');
@@ -2020,7 +2050,7 @@ async function runExportCSV() {
   try {
     const path = await ExportCSV();
     showExportModal('CSV', path);
-    addAction(`CSV exportiert: ${shortenPath(path)}`, 'success');
+    addAction(`CSV exportiert: ${shortenPath(path)}`, 'success', { filePath: path });
   } catch (err) {
     showExportModal('CSV', null, String(err));
     addAction(`CSV-Export fehlgeschlagen: ${err}`, 'error');
@@ -2039,12 +2069,22 @@ function showExportModal(format, path, error) {
     title.textContent = 'Export fehlgeschlagen';
     body.innerHTML = `<p class="export-error">⚠️ ${escapeHtml(error)}</p>`;
   } else {
-    title.textContent = `Bericht erstellt (${format.toUpperCase()})`;
+    title.textContent = `✓ Bericht erstellt (${format.toUpperCase()})`;
     body.innerHTML = `
       <p>Die Datei wurde erfolgreich gespeichert:</p>
       <div class="export-path">${escapeHtml(path)}</div>
-      <p class="export-hint">Öffne die Datei mit dem Datei-Manager oder dem Browser.</p>
+      <div class="export-file-actions">
+        <button class="btn btn-primary btn-sm" id="btn-open-file">📄 Datei öffnen</button>
+        <button class="btn btn-secondary btn-sm" id="btn-reveal-file">📂 Im Finder anzeigen</button>
+      </div>
     `;
+    // Buttons verdrahten
+    document.getElementById('btn-open-file')?.addEventListener('click', async () => {
+      try { await OpenFile(path); } catch (e) { addAction('Datei konnte nicht geöffnet werden: ' + e, 'error'); }
+    });
+    document.getElementById('btn-reveal-file')?.addEventListener('click', async () => {
+      try { await RevealFile(path); } catch (e) { addAction('Datei konnte nicht angezeigt werden: ' + e, 'error'); }
+    });
   }
   overlay.classList.remove('hidden');
 }

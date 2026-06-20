@@ -192,8 +192,45 @@ func scanHardware() (HardwareInfo, []ScanError) {
 		}
 	}
 
+	hw.Battery = scanBattery()
+
 	return hw, errs
 }
+
+type wmiBattery struct {
+	EstimatedChargeRemaining int
+	BatteryStatus            int
+	EstimatedRunTime         int
+}
+
+func scanBattery() *BatteryInfo {
+	var raw []wmiBattery
+	if err := wmi.Query("SELECT EstimatedChargeRemaining,BatteryStatus,EstimatedRunTime FROM Win32_Battery", &raw); err != nil || len(raw) == 0 {
+		return nil
+	}
+	b := raw[0]
+	statusMap := map[int]string{
+		1: "Entlädt", 2: "Netz", 3: "Voll (Netz)",
+		4: "Entlädt (niedrig)", 5: "Entlädt (kritisch)",
+		6: "Lädt", 7: "Lädt (hoch)", 8: "Lädt (niedrig)",
+		9: "Lädt (kritisch)",
+	}
+	status := statusMap[b.BatteryStatus]
+	if status == "" {
+		status = "Unbekannt"
+	}
+	remaining := b.EstimatedRunTime
+	if remaining >= 71582788 || remaining < 0 {
+		remaining = -1
+	}
+	return &BatteryInfo{
+		Present:          true,
+		ChargePct:        b.EstimatedChargeRemaining,
+		Status:           status,
+		RemainingMinutes: remaining,
+	}
+}
+
 
 // ─── Betriebssystem ───────────────────────────────────────────────────────────
 

@@ -181,7 +181,75 @@ func scanHardware() (HardwareInfo, []ScanError) {
 	// Volumes (Speichernutzung)
 	hw.Volumes = scanVolumes(&errs)
 
+	// Akku-Status
+	hw.Battery = scanBattery()
+
 	return hw, errs
+}
+
+func scanBattery() *BatteryInfo {
+	out, err := exec.Command("pmset", "-g", "batt").Output()
+	if err != nil {
+		return nil
+	}
+	text := string(out)
+
+	// Suche Akku-Zeile (enthält "%" und "Battery")
+	var battLine string
+	for _, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, "%") {
+			battLine = line
+			break
+		}
+	}
+	if battLine == "" {
+		return nil // Kein Akku (Desktop-Mac)
+	}
+
+	b := &BatteryInfo{Present: true, RemainingMinutes: -1}
+
+	// Ladestand: "87%"
+	if idx := strings.Index(battLine, "%"); idx > 0 {
+		numStr := ""
+		for i := idx - 1; i >= 0 && battLine[i] >= '0' && battLine[i] <= '9'; i-- {
+			numStr = string(battLine[i]) + numStr
+		}
+		if n, err := strconv.Atoi(numStr); err == nil {
+			b.ChargePct = n
+		}
+	}
+
+	// Status
+	lower := strings.ToLower(battLine)
+	switch {
+	case strings.Contains(lower, "discharging"):
+		b.Status = "Entlädt"
+	case strings.Contains(lower, "finishing charge"):
+		b.Status = "Lädt (fast voll)"
+	case strings.Contains(lower, "charging"):
+		b.Status = "Lädt"
+	case strings.Contains(lower, "charged"):
+		b.Status = "Voll (Netz)"
+	default:
+		b.Status = "Netz"
+	}
+
+	// Verbleibende Zeit: "1:42 remaining"
+	if idx := strings.Index(battLine, " remaining"); idx > 0 {
+		timePart := strings.TrimSpace(battLine[:idx])
+		if i := strings.LastIndex(timePart, "\t"); i >= 0 {
+			timePart = strings.TrimSpace(timePart[i+1:])
+		}
+		if i := strings.LastIndex(timePart, " "); i >= 0 {
+			timePart = timePart[i+1:]
+		}
+		var h, m int
+		if n, err := fmt.Sscanf(timePart, "%d:%d", &h, &m); n == 2 && err == nil && (h > 0 || m > 0) {
+			b.RemainingMinutes = h*60 + m
+		}
+	}
+
+	return b
 }
 
 // spDisplayEntry: Jeder Eintrag im Array ist direkt eine GPU (kein _items-Wrapper).

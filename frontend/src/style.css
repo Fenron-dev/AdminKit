@@ -290,6 +290,13 @@ html, body {
   background: var(--color-surface-2);
   font-size: 12px;
 }
+.action-entry.action-has-file {
+  cursor: pointer;
+}
+.action-entry.action-has-file:hover {
+  background: var(--color-surface);
+  outline: 1px solid var(--color-primary);
+}
 .action-time { color: var(--color-text-muted); font-family: var(--font-mono); }
 
 .empty-state {
@@ -1018,6 +1025,17 @@ html, body {
   font-size: 12px;
   color: var(--color-text-muted);
   margin-top: 6px;
+}
+
+.export-file-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-sm {
+  padding: 5px 12px;
+  font-size: 12px;
 }
 
 .export-error {

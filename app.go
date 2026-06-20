@@ -490,6 +490,16 @@ func (a *App) GetUptime() (string, error) {
 	return tools.GetUptime()
 }
 
+// OpenFile öffnet eine Datei mit der Standard-Anwendung des Betriebssystems.
+func (a *App) OpenFile(path string) error {
+	return openFilePlatform(path)
+}
+
+// RevealFile zeigt eine Datei im Finder (macOS) bzw. Windows Explorer an.
+func (a *App) RevealFile(path string) error {
+	return revealFilePlatform(path)
+}
+
 // ExportSession exportiert alle bisher durchgeführten Scans der aktuellen Session.
 // format: "html" oder "json"
 // Gibt den absoluten Pfad der erzeugten Datei zurück.
