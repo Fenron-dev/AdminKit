@@ -287,8 +287,29 @@
               </div>
             </div>
 
+            <!-- VirusTotal Datei-Scanner -->
             <div class="tools-group">
-              <h3 class="tools-group-title">Konsolen-Tools</h3>
+              <h3 class="tools-group-title">VirusTotal Datei-Scanner</h3>
+              <div class="vt-file-scanner">
+                <div
+                  id="vt-drop-zone"
+                  class="vt-drop-zone"
+                  title="Datei ablegen oder auswählen"
+                >
+                  <span class="vt-drop-icon">🛡</span>
+                  <span class="vt-drop-hint">Datei hier ablegen oder auswählen</span>
+                  <button class="btn btn-secondary btn-sm" id="btn-vt-pick-file">📁 Datei auswählen</button>
+                </div>
+                <div id="vt-file-result" class="vt-file-result hidden"></div>
+                <p class="settings-hint" style="margin-top:6px">
+                  Hash wird berechnet, dann auf virustotal.com geprüft — Datei verlässt das System nie.
+                  Mit API-Key direkt im App, sonst Browser-Redirect.
+                </p>
+              </div>
+            </div>
+
+            <div class="tools-group tools-group-full">
+              <h3 class="tools-group-title">Netzwerk-Konsole</h3>
               <div class="console-tools">
                 <div class="console-input-row">
                   <select class="console-select" id="console-tool">
@@ -298,14 +319,44 @@
                     <option value="netstat">Netstat</option>
                     <option value="arp">ARP-Tabelle</option>
                     <option value="portscan">Port-Scan</option>
+                    <option value="curl">HTTP/Curl</option>
                     <option value="drivers">Treiber/Extensions</option>
                   </select>
-                  <input class="console-input" type="text" id="console-target" placeholder="Ziel: Host / IP / host:80,443 …" />
+                  <!-- Preset-Dropdown je nach Tool -->
+                  <select class="console-select console-preset" id="console-preset" style="min-width:160px">
+                    <option value="">– Vorschlag –</option>
+                  </select>
+                  <input class="console-input" type="text" id="console-target" placeholder="Ziel: Host / IP / URL …" />
                   <button class="btn btn-primary" id="btn-console-run">▶ Ausführen</button>
                   <button class="btn btn-secondary" id="btn-console-clear" title="Ausgabe leeren">✕</button>
                 </div>
                 <div class="console-output" id="console-output">
                   <span class="console-placeholder">Wähle ein Werkzeug und gib ein Ziel ein…</span>
+                </div>
+                <div class="console-actions-row">
+                  <button class="btn btn-sm btn-secondary" id="btn-console-ai" title="Ausgabe an KI senden">🤖 An KI senden</button>
+                  <button class="btn btn-sm btn-secondary" id="btn-console-copy" title="Ausgabe kopieren">📋 Kopieren</button>
+                  <span class="console-hint">↑↓ für Verlauf</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Terminal (freie Eingabe) -->
+            <div class="tools-group tools-group-full">
+              <h3 class="tools-group-title">Terminal <span class="count-badge">Freie Eingabe</span></h3>
+              <div class="terminal-wrap">
+                <div class="terminal-output" id="terminal-output">
+                  <span class="console-placeholder">Befehle direkt eingeben (z.B. ls, whoami, ipconfig)…</span>
+                </div>
+                <div class="terminal-actions-row">
+                  <button class="btn btn-sm btn-secondary" id="btn-terminal-ai">🤖 An KI senden</button>
+                  <button class="btn btn-sm btn-secondary" id="btn-terminal-copy">📋 Kopieren</button>
+                  <button class="btn btn-sm btn-secondary" id="btn-terminal-clear">✕ Leeren</button>
+                </div>
+                <div class="terminal-input-row">
+                  <span class="terminal-prompt">$</span>
+                  <input class="terminal-input" type="text" id="terminal-input" placeholder="Befehl eingeben…" autocomplete="off" spellcheck="false" />
+                  <button class="btn btn-primary btn-sm" id="btn-terminal-run">↵</button>
                 </div>
               </div>
             </div>
@@ -392,6 +443,16 @@
                 <button class="btn btn-secondary btn-sm api-key-toggle" data-target="setting-groq-key">👁</button>
               </div>
             </div>
+            <div class="settings-row">
+              <label for="setting-openrouter-key">OpenRouter</label>
+              <div class="api-key-row">
+                <input type="password" id="setting-openrouter-key" placeholder="sk-or-..." autocomplete="off">
+                <button class="btn btn-secondary btn-sm api-key-toggle" data-target="setting-openrouter-key">👁</button>
+              </div>
+            </div>
+            <p class="settings-hint" style="grid-column:1/-1;margin-top:6px">
+              OpenRouter: kostenlose Modelle verfügbar — kein Key für Free-Tier nötig? Nein, Key ist erforderlich (kostenlos auf openrouter.ai)
+            </p>
           </div>
 
           <div class="settings-section">
@@ -416,6 +477,23 @@
             <div class="settings-row">
               <label for="setting-model-lmstudio">LM Studio</label>
               <input type="text" id="setting-model-lmstudio" placeholder="local-model">
+            </div>
+            <div class="settings-row">
+              <label for="setting-model-openrouter">OpenRouter</label>
+              <div style="display:flex;gap:6px;align-items:center;flex:1">
+                <input type="text" id="setting-model-openrouter" placeholder="meta-llama/llama-3.3-70b-instruct:free" style="flex:1">
+                <button class="btn btn-secondary btn-sm" id="btn-load-or-models" title="Modelle laden">🔄</button>
+              </div>
+            </div>
+            <!-- OpenRouter Modell-Suche (wird eingeblendet wenn Modelle geladen) -->
+            <div id="or-model-picker" class="hidden" style="margin-top:8px">
+              <div style="display:flex;gap:6px;margin-bottom:6px">
+                <input type="text" id="or-model-search" placeholder="Modell suchen…" style="flex:1;padding:5px 8px;border:1px solid var(--color-border);border-radius:var(--radius);background:var(--color-surface-2);color:var(--color-text);font-size:12px">
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap">
+                  <input type="checkbox" id="or-only-free"> Nur kostenlos
+                </label>
+              </div>
+              <div id="or-model-list" class="or-model-list"></div>
             </div>
           </div>
 
@@ -501,6 +579,7 @@
               <option value="openai">OpenAI</option>
               <option value="anthropic">Anthropic</option>
               <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
             </optgroup>
           </select>
         </div>

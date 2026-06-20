@@ -24,7 +24,10 @@ import {
   GetLogoBase64,
   OpenFile, RevealFile,
   CheckVirusTotalItems,
+  HashFileForVT, OpenVTInBrowser, PickFileForVTScan,
   CallAI, CallLocalAI, GetAvailableAIProviders,
+  GetOpenRouterModels,
+  RunRawCommand,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -49,6 +52,11 @@ const state = {
   // VT / KI Auswahl
   selectedItems: new Map(),       // key → {name, path, type, extra}
   vtAbortController: null,        // Für Abbrechen des VT-Scans
+  // Terminal
+  terminalHistory: [],            // Befehlsverlauf
+  terminalHistoryIdx: -1,         // Aktueller Verlaufsindex
+  consoleHistory: [],             // Konsolen-Verlauf (für Presets)
+  consoleHistoryIdx: -1,
 };
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
@@ -73,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initScanSummaryModal();
   initActionLog();
   initActionBar();
+  initToolsExtended();
   applyPlatformClass();
   loadAppInfo();
 });
@@ -2032,25 +2041,48 @@ function initToolsTab() {
     if (e.key === 'Enter') runConsoleTool();
   });
 
-  // Placeholder-Text je nach Tool anpassen
+  // Placeholder-Text + Presets je nach Tool anpassen
   document.getElementById('console-tool')?.addEventListener('change', updateConsolePlaceholder);
   updateConsolePlaceholder();
 }
 
+// Presets pro Tool
+const CONSOLE_PRESETS = {
+  ping:       ['google.com', '8.8.8.8', '1.1.1.1', 'cloudflare.com', 'microsoft.com'],
+  traceroute: ['google.com', '8.8.8.8', '1.1.1.1'],
+  dns:        ['google.com', 'github.com', 'microsoft.com', 'apple.com'],
+  netstat:    [],
+  arp:        [],
+  portscan:   ['localhost:80,443,22,3389', 'localhost:1-1024', '192.168.1.1:22,80,443'],
+  curl:       ['https://api.ipify.org', 'https://ifconfig.me/ip', 'https://httpbin.org/ip', 'https://httpbin.org/get'],
+  drivers:    [],
+};
+
 function updateConsolePlaceholder() {
   const tool = document.getElementById('console-tool')?.value;
   const input = document.getElementById('console-target');
+  const preset = document.getElementById('console-preset');
   if (!input) return;
+
   const placeholders = {
-    ping:        'Hostname oder IP (z.B. google.com)',
-    traceroute:  'Hostname oder IP (z.B. 8.8.8.8)',
-    dns:         'Hostname (z.B. example.com)',
-    netstat:     '(kein Ziel nötig)',
-    arp:         '(kein Ziel nötig)',
-    portscan:    'host oder host:80,443,3389 oder host:80-1024',
-    drivers:     '(kein Ziel nötig)',
+    ping:       'Hostname oder IP (z.B. google.com)',
+    traceroute: 'Hostname oder IP (z.B. 8.8.8.8)',
+    dns:        'Hostname (z.B. example.com)',
+    netstat:    '(kein Ziel nötig)',
+    arp:        '(kein Ziel nötig)',
+    portscan:   'host oder host:80,443,3389 oder host:80-1024',
+    curl:       'URL (z.B. https://api.ipify.org)',
+    drivers:    '(kein Ziel nötig)',
   };
   input.placeholder = placeholders[tool] ?? 'Ziel eingeben…';
+
+  // Presets befüllen
+  if (preset) {
+    const options = CONSOLE_PRESETS[tool] ?? [];
+    preset.innerHTML = '<option value="">– Vorschlag –</option>' +
+      options.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    preset.style.display = options.length > 0 ? '' : 'none';
+  }
 }
 
 async function runConsoleTool() {
@@ -2092,6 +2124,300 @@ function consoleAppend(text) {
   if (!out) return;
   out.textContent += text;
   out.scrollTop = out.scrollHeight;
+}
+
+// ─── Erweiterte Tools-Features ────────────────────────────────────────────────
+
+function initToolsExtended() {
+  // ── Preset-Dropdown → Target-Feld befüllen ─────────────────────────────────
+  document.getElementById('console-preset')?.addEventListener('change', e => {
+    if (e.target.value) {
+      document.getElementById('console-target').value = e.target.value;
+    }
+  });
+
+  // ── Konsolen-Aktions-Buttons ───────────────────────────────────────────────
+  document.getElementById('btn-console-ai')?.addEventListener('click', () => {
+    const text = document.getElementById('console-output')?.textContent ?? '';
+    if (!text.trim()) return;
+    sendOutputToAI('Konsolen-Ausgabe', text);
+  });
+  document.getElementById('btn-console-copy')?.addEventListener('click', () => {
+    const text = document.getElementById('console-output')?.textContent ?? '';
+    navigator.clipboard.writeText(text).catch(() => {});
+    showToast('Ausgabe in Zwischenablage kopiert');
+  });
+
+  // Konsolen-Verlauf (↑/↓) im target-input
+  document.getElementById('console-target')?.addEventListener('keydown', e => {
+    if (e.key === 'ArrowUp') {
+      if (state.consoleHistory.length === 0) return;
+      state.consoleHistoryIdx = Math.max(0, state.consoleHistoryIdx - 1);
+      e.target.value = state.consoleHistory[state.consoleHistoryIdx] ?? '';
+      e.preventDefault();
+    } else if (e.key === 'ArrowDown') {
+      state.consoleHistoryIdx = Math.min(state.consoleHistory.length, state.consoleHistoryIdx + 1);
+      e.target.value = state.consoleHistory[state.consoleHistoryIdx] ?? '';
+      e.preventDefault();
+    }
+  });
+
+  // ── Terminal (freie Eingabe) ───────────────────────────────────────────────
+  const termInput = document.getElementById('terminal-input');
+  const termOutput = document.getElementById('terminal-output');
+
+  const runTerminalCmd = async () => {
+    const cmd = termInput?.value?.trim() ?? '';
+    if (!cmd) return;
+
+    // Verlauf aktualisieren
+    state.terminalHistory.push(cmd);
+    state.terminalHistoryIdx = state.terminalHistory.length;
+    if (termInput) termInput.value = '';
+
+    // Befehl in Ausgabe anzeigen
+    termWrite(`$ ${cmd}`, '');
+    try {
+      const result = await RunRawCommand(cmd);
+      termAppend(result);
+    } catch (err) {
+      termAppend('Fehler: ' + err);
+    }
+  };
+
+  document.getElementById('btn-terminal-run')?.addEventListener('click', runTerminalCmd);
+  termInput?.addEventListener('keydown', async e => {
+    if (e.key === 'Enter') { await runTerminalCmd(); }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      state.terminalHistoryIdx = Math.max(0, state.terminalHistoryIdx - 1);
+      if (termInput) termInput.value = state.terminalHistory[state.terminalHistoryIdx] ?? '';
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      state.terminalHistoryIdx = Math.min(state.terminalHistory.length, state.terminalHistoryIdx + 1);
+      if (termInput) termInput.value = state.terminalHistory[state.terminalHistoryIdx] ?? '';
+    }
+  });
+
+  document.getElementById('btn-terminal-clear')?.addEventListener('click', () => {
+    if (termOutput) termOutput.innerHTML = '<span class="console-placeholder">Terminal geleert.</span>';
+  });
+  document.getElementById('btn-terminal-copy')?.addEventListener('click', () => {
+    const text = termOutput?.textContent ?? '';
+    navigator.clipboard.writeText(text).catch(() => {});
+    showToast('Terminal-Ausgabe kopiert');
+  });
+  document.getElementById('btn-terminal-ai')?.addEventListener('click', () => {
+    const text = termOutput?.textContent ?? '';
+    if (!text.trim()) return;
+    sendOutputToAI('Terminal-Ausgabe', text);
+  });
+
+  // ── VT Datei-Scanner ──────────────────────────────────────────────────────
+  document.getElementById('btn-vt-pick-file')?.addEventListener('click', async () => {
+    try {
+      const path = await PickFileForVTScan();
+      if (path) scanFileWithVT(path);
+    } catch (err) {
+      showVTFileResult('error', 'Datei-Dialog: ' + err);
+    }
+  });
+
+  // Drag & Drop auf der Drop-Zone
+  const dropZone = document.getElementById('vt-drop-zone');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', async e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const files = e.dataTransfer?.files;
+      if (files?.length > 0) {
+        // In Wails WebView haben wir leider nur den Dateinamen, nicht den Pfad.
+        // Falls der Pfad verfügbar ist (macOS WebKit gibt ihn manchmal), nutzen wir ihn.
+        const file = files[0];
+        const path = file.path || ''; // Electron-/Wails-Erweiterung
+        if (path) {
+          scanFileWithVT(path);
+        } else {
+          // Fallback: Hash des Datei-Inhalts berechnen (browser-seitig)
+          scanFileContentWithVT(file);
+        }
+      }
+    });
+  }
+
+  // ── OpenRouter Modell-Picker ───────────────────────────────────────────────
+  document.getElementById('btn-load-or-models')?.addEventListener('click', loadOpenRouterModels);
+  document.getElementById('or-model-search')?.addEventListener('input', filterORModels);
+  document.getElementById('or-only-free')?.addEventListener('change', filterORModels);
+}
+
+function termWrite(header, body) {
+  const out = document.getElementById('terminal-output');
+  if (!out) return;
+  out.querySelector('.console-placeholder')?.remove();
+  const block = document.createElement('div');
+  block.className = 'terminal-block';
+  block.innerHTML = `<span class="terminal-cmd">${escapeHtml(header)}</span>`;
+  if (body) block.innerHTML += `\n<span class="terminal-result">${escapeHtml(body)}</span>`;
+  out.appendChild(block);
+  out.scrollTop = out.scrollHeight;
+}
+
+function termAppend(text) {
+  const out = document.getElementById('terminal-output');
+  if (!out) return;
+  const last = out.querySelector('.terminal-block:last-child .terminal-result');
+  if (last) {
+    last.textContent = text;
+  } else {
+    const span = document.createElement('span');
+    span.className = 'terminal-result';
+    span.textContent = text;
+    out.querySelector('.terminal-block:last-child')?.appendChild(span);
+  }
+  out.scrollTop = out.scrollHeight;
+}
+
+async function scanFileWithVT(filePath) {
+  const vtKey = state.config?.api_keys?.virustotal ?? '';
+  showVTFileResult('loading', `Berechne SHA256 für: ${filePath}`);
+  try {
+    const hash = await HashFileForVT(filePath);
+    if (vtKey) {
+      // Mit API-Key: direkte Prüfung
+      showVTFileResult('info', `SHA256: ${hash}\nPrüfe per API…`);
+      const result = await CheckVirusTotalItems([{ name: filePath.split('/').pop().split('\\').pop(), path: filePath, item_type: 'file' }]);
+      const r = result?.results?.[0];
+      if (r) showVTFileResult(r.status === 'malicious' ? 'error' : r.status === 'clean' ? 'ok' : 'info',
+        `${filePath}\nSHA256: ${hash}\nStatus: ${r.status}${r.detections > 0 ? ` (${r.detections}/${r.engines})` : ''}`);
+    } else {
+      // Ohne API-Key: Browser öffnen
+      showVTFileResult('info', `SHA256: ${hash}\nÖffne virustotal.com im Browser…`);
+      OpenVTInBrowser(hash);
+      addAction('VT Browser-Check gestartet: ' + hash.slice(0, 12) + '…', 'info');
+    }
+  } catch (err) {
+    showVTFileResult('error', 'Fehler: ' + err);
+  }
+}
+
+async function scanFileContentWithVT(file) {
+  // Browser-seitige SHA256 Berechnung wenn Pfad nicht verfügbar
+  try {
+    showVTFileResult('loading', `Lese Datei: ${file.name}`);
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    showVTFileResult('info', `${file.name}\nSHA256: ${hash}\nÖffne virustotal.com…`);
+    OpenVTInBrowser(hash);
+  } catch (err) {
+    showVTFileResult('error', 'Fehler: ' + err);
+  }
+}
+
+function showVTFileResult(type, text) {
+  const el = document.getElementById('vt-file-result');
+  if (!el) return;
+  el.classList.remove('hidden');
+  const icons = { ok: '✓', error: '⛔', info: 'ℹ', loading: '⏳' };
+  const cls = { ok: 'vt-file-ok', error: 'vt-file-error', info: 'vt-file-info', loading: 'vt-file-info' };
+  el.className = `vt-file-result ${cls[type] ?? 'vt-file-info'}`;
+  el.innerHTML = `<span>${icons[type] ?? 'ℹ'} ${escapeHtml(text).replace(/\n/g, '<br>')}</span>`;
+}
+
+async function sendOutputToAI(context, text) {
+  const provider = document.getElementById('ai-provider-select')?.value ?? 'chatgpt';
+  const prompt = `=== AdminKit: ${context} ===\n\n${text}\n\n=== Frage ===\nBitte analysiere diese Ausgabe. Gibt es Auffälligkeiten, Fehler oder Sicherheitsrisiken? Kurze Antwort auf Deutsch.`;
+
+  if (AI_BROWSER_URLS[provider]) {
+    try { await navigator.clipboard.writeText(prompt); } catch {}
+    if (window.runtime?.BrowserOpenURL) window.runtime.BrowserOpenURL(AI_BROWSER_URLS[provider]);
+    showToast('Ausgabe kopiert — füge sie im Browser ein.');
+    return;
+  }
+
+  const modal = document.getElementById('modal-ai-response');
+  const title = document.getElementById('ai-response-title');
+  const pre   = document.getElementById('ai-response-text');
+  if (!modal || !pre) return;
+  title.textContent = `🤖 KI-Analyse (${provider})`;
+  pre.textContent = 'Anfrage läuft…';
+  modal.classList.remove('hidden');
+
+  try {
+    let response;
+    if (provider === 'ollama' || provider === 'lmstudio') {
+      const baseURL = provider === 'ollama' ? 'http://localhost:11434' : 'http://localhost:1234';
+      const model = provider === 'ollama' ? (state.config?.ai_models?.ollama || 'llama3.2') : (state.config?.ai_models?.lmstudio || 'local-model');
+      response = await CallLocalAI(baseURL, model, prompt);
+    } else {
+      const model = state.config?.ai_models?.[provider] || defaultModelFor(provider);
+      response = await CallAI(provider, model, prompt);
+    }
+    pre.textContent = response;
+  } catch (err) {
+    pre.textContent = 'Fehler: ' + err;
+  }
+}
+
+// ─── OpenRouter Modell-Picker ─────────────────────────────────────────────────
+
+let orModelsCache = [];
+
+async function loadOpenRouterModels() {
+  const btn = document.getElementById('btn-load-or-models');
+  const picker = document.getElementById('or-model-picker');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  try {
+    const onlyFree = document.getElementById('or-only-free')?.checked ?? false;
+    orModelsCache = await GetOpenRouterModels(onlyFree);
+    picker?.classList.remove('hidden');
+    renderORModels(orModelsCache);
+  } catch (err) {
+    showToast('OpenRouter-Modelle konnten nicht geladen werden: ' + err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
+  }
+}
+
+function filterORModels() {
+  const query = (document.getElementById('or-model-search')?.value ?? '').toLowerCase();
+  const onlyFree = document.getElementById('or-only-free')?.checked ?? false;
+  const filtered = orModelsCache.filter(m =>
+    (!onlyFree || m.is_free) &&
+    (!query || m.name.toLowerCase().includes(query) || m.id.toLowerCase().includes(query))
+  );
+  renderORModels(filtered);
+}
+
+function renderORModels(models) {
+  const list = document.getElementById('or-model-list');
+  if (!list) return;
+  if (models.length === 0) {
+    list.innerHTML = '<p class="info-placeholder" style="font-size:12px">Keine Modelle gefunden.</p>';
+    return;
+  }
+  list.innerHTML = models.slice(0, 50).map(m => `
+    <div class="or-model-item" data-id="${escapeHtml(m.id)}" title="${escapeHtml(m.description || m.id)}">
+      <span class="or-model-name">${escapeHtml(m.name)}</span>
+      ${m.is_free ? '<span class="or-badge-free">kostenlos</span>' : `<span class="or-badge-paid">$${m.price_prompt > 0 ? m.price_prompt.toFixed(7) : '?'}/token</span>`}
+    </div>`).join('');
+
+  list.querySelectorAll('.or-model-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const id = item.dataset.id;
+      const modelInput = document.getElementById('setting-model-openrouter');
+      if (modelInput) modelInput.value = id;
+      document.getElementById('or-model-picker')?.classList.add('hidden');
+      showToast(`Modell gewählt: ${id}`);
+    });
+  });
 }
 
 // ─── System-Tab Suche ─────────────────────────────────────────────────────────
@@ -2539,16 +2865,18 @@ function openSettings() {
       if (el) el.value = val ? '••••••••' : '';
       el?.setAttribute('data-has-value', val ? '1' : '0');
     };
-    setKeyField('setting-vt-key',       cfg.api_keys?.virustotal);
+    setKeyField('setting-vt-key',        cfg.api_keys?.virustotal);
     setKeyField('setting-openai-key',    cfg.api_keys?.openai);
     setKeyField('setting-anthropic-key', cfg.api_keys?.anthropic);
     setKeyField('setting-groq-key',      cfg.api_keys?.groq);
+    setKeyField('setting-openrouter-key', cfg.api_keys?.openrouter);
     // Modell-Felder
-    document.getElementById('setting-model-openai').value    = cfg.ai_models?.openai    ?? '';
-    document.getElementById('setting-model-anthropic').value = cfg.ai_models?.anthropic ?? '';
-    document.getElementById('setting-model-groq').value      = cfg.ai_models?.groq      ?? '';
-    document.getElementById('setting-model-ollama').value    = cfg.ai_models?.ollama    ?? '';
-    document.getElementById('setting-model-lmstudio').value  = cfg.ai_models?.lmstudio  ?? '';
+    document.getElementById('setting-model-openai').value      = cfg.ai_models?.openai     ?? '';
+    document.getElementById('setting-model-anthropic').value   = cfg.ai_models?.anthropic  ?? '';
+    document.getElementById('setting-model-groq').value        = cfg.ai_models?.groq       ?? '';
+    document.getElementById('setting-model-ollama').value      = cfg.ai_models?.ollama     ?? '';
+    document.getElementById('setting-model-lmstudio').value    = cfg.ai_models?.lmstudio   ?? '';
+    document.getElementById('setting-model-openrouter').value  = cfg.ai_models?.openrouter ?? '';
   }
   document.getElementById('settings-modal-overlay')?.classList.remove('hidden');
 }
@@ -2620,17 +2948,19 @@ async function saveSettings() {
     if (!v || v === '••••••••') return existingVal ?? '';
     return v;
   };
-  cfg.api_keys.virustotal = readKeyField('setting-vt-key',       cfg.api_keys.virustotal);
-  cfg.api_keys.openai     = readKeyField('setting-openai-key',    cfg.api_keys.openai);
-  cfg.api_keys.anthropic  = readKeyField('setting-anthropic-key', cfg.api_keys.anthropic);
-  cfg.api_keys.groq       = readKeyField('setting-groq-key',      cfg.api_keys.groq);
+  cfg.api_keys.virustotal  = readKeyField('setting-vt-key',        cfg.api_keys.virustotal);
+  cfg.api_keys.openai      = readKeyField('setting-openai-key',    cfg.api_keys.openai);
+  cfg.api_keys.anthropic   = readKeyField('setting-anthropic-key', cfg.api_keys.anthropic);
+  cfg.api_keys.groq        = readKeyField('setting-groq-key',      cfg.api_keys.groq);
+  cfg.api_keys.openrouter  = readKeyField('setting-openrouter-key', cfg.api_keys.openrouter);
 
   // Modell-Felder
-  cfg.ai_models.openai    = document.getElementById('setting-model-openai')?.value.trim()    || '';
-  cfg.ai_models.anthropic = document.getElementById('setting-model-anthropic')?.value.trim() || '';
-  cfg.ai_models.groq      = document.getElementById('setting-model-groq')?.value.trim()      || '';
-  cfg.ai_models.ollama    = document.getElementById('setting-model-ollama')?.value.trim()    || '';
-  cfg.ai_models.lmstudio  = document.getElementById('setting-model-lmstudio')?.value.trim()  || '';
+  cfg.ai_models.openai      = document.getElementById('setting-model-openai')?.value.trim()      || '';
+  cfg.ai_models.anthropic   = document.getElementById('setting-model-anthropic')?.value.trim()   || '';
+  cfg.ai_models.groq        = document.getElementById('setting-model-groq')?.value.trim()        || '';
+  cfg.ai_models.ollama      = document.getElementById('setting-model-ollama')?.value.trim()      || '';
+  cfg.ai_models.lmstudio    = document.getElementById('setting-model-lmstudio')?.value.trim()    || '';
+  cfg.ai_models.openrouter  = document.getElementById('setting-model-openrouter')?.value.trim()  || '';
 
   const btn = document.getElementById('settings-save');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Speichere…'; }

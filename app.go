@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -692,6 +694,59 @@ func (a *App) CheckVirusTotalItems(items []virustotal.CheckRequest) (*virustotal
 	return result, nil
 }
 
+// HashFileForVT berechnet den SHA256-Hash einer Datei und gibt ihn zurück.
+// Wird für den VT-Browser-Redirect ohne API-Key verwendet.
+func (a *App) HashFileForVT(filePath string) (string, error) {
+	hash, err := virustotal.SHA256File(filePath)
+	if err != nil {
+		logging.Warnf("VT", "Hash-Fehler (%s): %v", filePath, err)
+		return "", fmt.Errorf("Datei kann nicht gelesen werden: %w", err)
+	}
+	logging.Infof("VT", "SHA256 berechnet: %s → %s", filePath, hash[:8]+"…")
+	return hash, nil
+}
+
+// OpenVTInBrowser öffnet eine VirusTotal-Seite für den angegebenen SHA256-Hash
+// ohne API-Key im Standard-Browser.
+func (a *App) OpenVTInBrowser(sha256Hash string) {
+	url := "https://www.virustotal.com/gui/file/" + sha256Hash
+	runtime.BrowserOpenURL(a.ctx, url)
+}
+
+// PickFileForVTScan öffnet einen nativen Datei-Dialog und gibt den gewählten Pfad zurück.
+func (a *App) PickFileForVTScan() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Datei für VirusTotal-Prüfung auswählen",
+	})
+	if err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// RunRawCommand führt einen beliebigen Shell-Befehl aus und gibt stdout+stderr zurück.
+// Wird für die erweiterte Konsole (freie Eingabe) verwendet.
+func (a *App) RunRawCommand(command string) (string, error) {
+	logging.Infof("Console", "Befehl: %s", command)
+	return tools.RunRaw(command)
+}
+
+// GetOpenRouterModels lädt die verfügbaren Modelle von OpenRouter.
+// Gibt eine gefilterte Liste zurück; wenn onlyFree=true, nur kostenlose Modelle.
+func (a *App) GetOpenRouterModels(onlyFree bool) ([]OpenRouterModel, error) {
+	return fetchOpenRouterModels(onlyFree)
+}
+
+// OpenRouterModel beschreibt ein OpenRouter-Modell.
+type OpenRouterModel struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	IsFree      bool    `json:"is_free"`
+	ContextLen  int     `json:"context_length"`
+	PricePrompt float64 `json:"price_prompt"`
+}
+
 // ─── KI-Analyse ──────────────────────────────────────────────────────────────
 
 // AIProviderInfo beschreibt einen verfügbaren KI-Anbieter.
@@ -709,11 +764,12 @@ func (a *App) GetAvailableAIProviders() []AIProviderInfo {
 		keys = a.cfg.APIKeys
 	}
 	return []AIProviderInfo{
-		{ID: "openai",    Name: "OpenAI",    HasKey: keys.OpenAI != "",    IsLocal: false},
-		{ID: "anthropic", Name: "Anthropic", HasKey: keys.Anthropic != "", IsLocal: false},
-		{ID: "groq",      Name: "Groq",      HasKey: keys.Groq != "",      IsLocal: false},
-		{ID: "ollama",    Name: "Ollama",    HasKey: true,                  IsLocal: true},
-		{ID: "lmstudio",  Name: "LM Studio", HasKey: true,                 IsLocal: true},
+		{ID: "openai",     Name: "OpenAI",     HasKey: keys.OpenAI != "",     IsLocal: false},
+		{ID: "anthropic",  Name: "Anthropic",  HasKey: keys.Anthropic != "",  IsLocal: false},
+		{ID: "groq",       Name: "Groq",       HasKey: keys.Groq != "",       IsLocal: false},
+		{ID: "openrouter", Name: "OpenRouter", HasKey: keys.OpenRouter != "", IsLocal: false},
+		{ID: "ollama",     Name: "Ollama",     HasKey: true,                   IsLocal: true},
+		{ID: "lmstudio",   Name: "LM Studio",  HasKey: true,                  IsLocal: true},
 	}
 }
 
@@ -750,6 +806,15 @@ func (a *App) CallAI(provider, model, prompt string) (string, error) {
 		}
 		return aiassist.CallOpenAICompat("https://api.groq.com/openai/v1", keys.Groq, model, prompt)
 
+	case "openrouter":
+		if keys.OpenRouter == "" {
+			return "", fmt.Errorf("kein OpenRouter-API-Key konfiguriert")
+		}
+		if model == "" {
+			model = "meta-llama/llama-3.3-70b-instruct:free"
+		}
+		return aiassist.CallOpenAICompat("https://openrouter.ai/api/v1", keys.OpenRouter, model, prompt)
+
 	default:
 		return "", fmt.Errorf("unbekannter Anbieter: %s", provider)
 	}
@@ -762,6 +827,54 @@ func (a *App) CallLocalAI(baseURL, model, prompt string) (string, error) {
 		baseURL = aiassist.OllamaBaseURL
 	}
 	return aiassist.CallOpenAICompat(baseURL, "", model, prompt)
+}
+
+// fetchOpenRouterModels lädt Modelle von der öffentlichen OpenRouter-API.
+func fetchOpenRouterModels(onlyFree bool) ([]OpenRouterModel, error) {
+	type orPricing struct {
+		Prompt     string `json:"prompt"`
+		Completion string `json:"completion"`
+	}
+	type orModel struct {
+		ID          string    `json:"id"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
+		ContextLen  int       `json:"context_length"`
+		Pricing     orPricing `json:"pricing"`
+	}
+	type orResponse struct {
+		Data []orModel `json:"data"`
+	}
+
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Get("https://openrouter.ai/api/v1/models")
+	if err != nil {
+		return nil, fmt.Errorf("OpenRouter API nicht erreichbar: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var raw orResponse
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, fmt.Errorf("OpenRouter JSON: %w", err)
+	}
+
+	var out []OpenRouterModel
+	for _, m := range raw.Data {
+		isFree := m.Pricing.Prompt == "0" && m.Pricing.Completion == "0"
+		if onlyFree && !isFree {
+			continue
+		}
+		pricePrompt := 0.0
+		fmt.Sscanf(m.Pricing.Prompt, "%f", &pricePrompt)
+		out = append(out, OpenRouterModel{
+			ID:          m.ID,
+			Name:        m.Name,
+			Description: m.Description,
+			IsFree:      isFree,
+			ContextLen:  m.ContextLen,
+			PricePrompt: pricePrompt,
+		})
+	}
+	return out, nil
 }
 
 // isWritable prüft, ob in einem Verzeichnis geschrieben werden kann.

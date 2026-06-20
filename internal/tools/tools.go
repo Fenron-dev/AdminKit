@@ -4,11 +4,15 @@ package tools
 
 import (
 	"archive/zip"
+	"bytes"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -213,6 +217,62 @@ func formatPortList(ports []int) string {
 		parts[i] = strconv.Itoa(p)
 	}
 	return strings.Join(parts, ", ")
+}
+
+// RunRaw führt einen beliebigen Shell-Befehl aus (sh -c / cmd /c) und gibt
+// stdout+stderr als String zurück. Für die freie Terminal-Eingabe.
+func RunRaw(command string) (string, error) {
+	if strings.TrimSpace(command) == "" {
+		return "", fmt.Errorf("leerer Befehl")
+	}
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd", "/c", command)
+	} else {
+		cmd = exec.Command("sh", "-c", command)
+	}
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	_ = cmd.Run() // Fehlercode ignorieren — Ausgabe enthält Details
+	result := strings.TrimRight(buf.String(), "\n")
+	if result == "" {
+		result = "(keine Ausgabe)"
+	}
+	return result, nil
+}
+
+// RunCurl führt eine HTTP-GET-Anfrage an die URL aus und gibt Status + Body zurück.
+// Wird für den "curl"-Tool-Typ in der Konsole verwendet.
+func RunCurl(rawURL string) (string, error) {
+	if rawURL == "" {
+		return "", fmt.Errorf("keine URL angegeben")
+	}
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+		rawURL = "https://" + rawURL
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("ungültige URL: %w", err)
+	}
+	req.Header.Set("User-Agent", "AdminKit/1.0")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("Verbindungsfehler: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024)) // max 64 KB
+	result := fmt.Sprintf("HTTP %s\n", resp.Status)
+	// Relevante Header ausgeben
+	for _, h := range []string{"Content-Type", "Server", "X-Powered-By", "CF-RAY"} {
+		if v := resp.Header.Get(h); v != "" {
+			result += fmt.Sprintf("%s: %s\n", h, v)
+		}
+	}
+	result += "\n" + strings.TrimSpace(string(body))
+	return result, nil
 }
 
 // knownService gibt den bekannten Dienstnamen für häufige Ports zurück.

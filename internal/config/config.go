@@ -28,19 +28,21 @@ type Config struct {
 // APIKeys enthält API-Schlüssel für externe Dienste.
 // Gespeichert in adminkit_vault/config.yaml — niemals ins Git-Repo.
 type APIKeys struct {
-	VirusTotal string `yaml:"virustotal,omitempty"`
-	OpenAI     string `yaml:"openai,omitempty"`
-	Anthropic  string `yaml:"anthropic,omitempty"`
-	Groq       string `yaml:"groq,omitempty"`
+	VirusTotal  string `yaml:"virustotal,omitempty"`
+	OpenAI      string `yaml:"openai,omitempty"`
+	Anthropic   string `yaml:"anthropic,omitempty"`
+	Groq        string `yaml:"groq,omitempty"`
+	OpenRouter  string `yaml:"openrouter,omitempty"`
 }
 
 // AIModels speichert das bevorzugte Modell pro Anbieter.
 type AIModels struct {
-	OpenAI    string `yaml:"openai,omitempty"`    // z.B. "gpt-4o"
-	Anthropic string `yaml:"anthropic,omitempty"` // z.B. "claude-opus-4-8"
-	Groq      string `yaml:"groq,omitempty"`      // z.B. "llama-3.3-70b-versatile"
-	Ollama    string `yaml:"ollama,omitempty"`    // z.B. "llama3.2"
-	LMStudio  string `yaml:"lmstudio,omitempty"`  // z.B. "local-model"
+	OpenAI     string `yaml:"openai,omitempty"`
+	Anthropic  string `yaml:"anthropic,omitempty"`
+	Groq       string `yaml:"groq,omitempty"`
+	Ollama     string `yaml:"ollama,omitempty"`
+	LMStudio   string `yaml:"lmstudio,omitempty"`
+	OpenRouter string `yaml:"openrouter,omitempty"`
 }
 
 // Branding enthält Firmen- und Technikerinformationen für Berichte.

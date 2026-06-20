@@ -140,6 +140,18 @@ export function CheckVirusTotalItems(arg1) {
     return window['go']['main']['App']['CheckVirusTotalItems'](arg1);
 }
 
+export function HashFileForVT(arg1) {
+    return window['go']['main']['App']['HashFileForVT'](arg1);
+}
+
+export function OpenVTInBrowser(arg1) {
+    return window['go']['main']['App']['OpenVTInBrowser'](arg1);
+}
+
+export function PickFileForVTScan() {
+    return window['go']['main']['App']['PickFileForVTScan']();
+}
+
 // ── KI-Analyse ──
 export function GetAvailableAIProviders() {
     return window['go']['main']['App']['GetAvailableAIProviders']();
@@ -151,4 +163,13 @@ export function CallAI(arg1, arg2, arg3) {
 
 export function CallLocalAI(arg1, arg2, arg3) {
     return window['go']['main']['App']['CallLocalAI'](arg1, arg2, arg3);
+}
+
+export function GetOpenRouterModels(arg1) {
+    return window['go']['main']['App']['GetOpenRouterModels'](arg1);
+}
+
+// ── Terminal / Raw-Befehl ──
+export function RunRawCommand(arg1) {
+    return window['go']['main']['App']['RunRawCommand'](arg1);
 }

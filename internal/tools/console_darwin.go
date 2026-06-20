@@ -30,6 +30,8 @@ func RunCommand(tool, target string) (string, error) {
 		out, err = RunPortScan(target)
 	case "drivers":
 		out, err = runKexts()
+	case "curl":
+		out, err = RunCurl(target)
 	default:
 		return "", fmt.Errorf("unbekanntes Tool: %s", tool)
 	}
