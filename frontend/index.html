@@ -229,6 +229,7 @@
             <table class="data-table sortable-table" id="software-table">
               <thead>
                 <tr>
+                  <th class="cb-col"><input type="checkbox" id="software-check-all" title="Alle auswählen"></th>
                   <th data-sort="name">Name <span class="sort-icon">↕</span></th>
                   <th data-sort="version">Version <span class="sort-icon">↕</span></th>
                   <th data-sort="publisher">Hersteller <span class="sort-icon">↕</span></th>
@@ -238,7 +239,7 @@
                 </tr>
               </thead>
               <tbody id="software-tbody">
-                <tr><td colspan="6" class="table-placeholder">Scan starten um Software zu laden…</td></tr>
+                <tr><td colspan="7" class="table-placeholder">Scan starten um Software zu laden…</td></tr>
               </tbody>
             </table>
           </div>
@@ -360,6 +361,64 @@
             </div>
           </div>
 
+          <div class="settings-section">
+            <h3 class="settings-section-title">API-Schlüssel</h3>
+            <p class="settings-hint" style="margin-bottom:10px">Schlüssel werden lokal in der Vault gespeichert – nie im Code oder Git-Repo.</p>
+            <div class="settings-row">
+              <label for="setting-vt-key">VirusTotal</label>
+              <div class="api-key-row">
+                <input type="password" id="setting-vt-key" placeholder="VT-API-Key (kostenlos auf virustotal.com)" autocomplete="off">
+                <button class="btn btn-secondary btn-sm api-key-toggle" data-target="setting-vt-key">👁</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <label for="setting-openai-key">OpenAI</label>
+              <div class="api-key-row">
+                <input type="password" id="setting-openai-key" placeholder="sk-..." autocomplete="off">
+                <button class="btn btn-secondary btn-sm api-key-toggle" data-target="setting-openai-key">👁</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <label for="setting-anthropic-key">Anthropic</label>
+              <div class="api-key-row">
+                <input type="password" id="setting-anthropic-key" placeholder="sk-ant-..." autocomplete="off">
+                <button class="btn btn-secondary btn-sm api-key-toggle" data-target="setting-anthropic-key">👁</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <label for="setting-groq-key">Groq</label>
+              <div class="api-key-row">
+                <input type="password" id="setting-groq-key" placeholder="gsk_..." autocomplete="off">
+                <button class="btn btn-secondary btn-sm api-key-toggle" data-target="setting-groq-key">👁</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">KI-Modelle</h3>
+            <p class="settings-hint" style="margin-bottom:10px">Bevorzugtes Modell pro Anbieter (leer = Standard).</p>
+            <div class="settings-row">
+              <label for="setting-model-openai">OpenAI</label>
+              <input type="text" id="setting-model-openai" placeholder="gpt-4o">
+            </div>
+            <div class="settings-row">
+              <label for="setting-model-anthropic">Anthropic</label>
+              <input type="text" id="setting-model-anthropic" placeholder="claude-opus-4-8">
+            </div>
+            <div class="settings-row">
+              <label for="setting-model-groq">Groq</label>
+              <input type="text" id="setting-model-groq" placeholder="llama-3.3-70b-versatile">
+            </div>
+            <div class="settings-row">
+              <label for="setting-model-ollama">Ollama</label>
+              <input type="text" id="setting-model-ollama" placeholder="llama3.2">
+            </div>
+            <div class="settings-row">
+              <label for="setting-model-lmstudio">LM Studio</label>
+              <input type="text" id="setting-model-lmstudio" placeholder="local-model">
+            </div>
+          </div>
+
           <div class="modal-actions">
             <button class="btn btn-secondary" id="settings-cancel">Abbrechen</button>
             <button class="btn btn-primary" id="settings-save">Speichern</button>
@@ -417,6 +476,77 @@
           <p id="qr-modal-hint" style="font-size:12px;color:var(--color-text-muted);text-align:center"></p>
           <div class="modal-actions">
             <button class="btn btn-secondary" id="btn-qr-cancel">Schließen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Floating Action Bar (VT / KI Auswahl) -->
+      <div class="action-bar hidden" id="vt-action-bar">
+        <span class="action-bar-count" id="action-bar-count">0 ausgewählt</span>
+        <button class="btn btn-sm btn-vt" id="btn-vt-check">🔬 VT prüfen</button>
+        <div class="ai-provider-wrap">
+          <button class="btn btn-sm btn-ai" id="btn-ai-analyze">🤖 KI analysieren</button>
+          <select class="ai-provider-select" id="ai-provider-select">
+            <optgroup label="Browser (kein Key nötig)">
+              <option value="chatgpt">ChatGPT</option>
+              <option value="claude">Claude.ai</option>
+              <option value="perplexity">Perplexity</option>
+              <option value="grok">Grok</option>
+            </optgroup>
+            <optgroup label="Lokal (Ollama / LM Studio)">
+              <option value="ollama">Ollama</option>
+              <option value="lmstudio">LM Studio</option>
+            </optgroup>
+            <optgroup label="Cloud API (Key erforderlich)">
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="groq">Groq</option>
+            </optgroup>
+          </select>
+        </div>
+        <button class="btn btn-sm btn-secondary" id="btn-clear-selection">✕ Auswahl löschen</button>
+      </div>
+
+      <!-- VirusTotal Fortschritts-Modal -->
+      <div class="modal-overlay hidden" id="modal-vt-progress">
+        <div class="modal">
+          <h2>🔬 VirusTotal-Prüfung</h2>
+          <div class="vt-progress-bar-wrap">
+            <div class="vt-progress-bar" id="vt-progress-bar" style="width:0%"></div>
+          </div>
+          <p id="vt-progress-text">Wird geprüft…</p>
+          <div id="vt-progress-results"></div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="btn-vt-cancel">Abbrechen</button>
+            <button class="btn btn-primary hidden" id="btn-vt-done">Fertig</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VirusTotal Detail-Modal -->
+      <div class="modal-overlay hidden" id="modal-vt-detail">
+        <div class="modal modal-wide">
+          <button class="modal-close" id="btn-vt-detail-close" title="Schließen">✕</button>
+          <h2 id="vt-detail-title">VT-Ergebnis</h2>
+          <div id="vt-detail-body"></div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="btn-vt-detail-cancel">Schließen</button>
+            <button class="btn btn-primary hidden" id="btn-vt-open-web">🌐 Auf VirusTotal öffnen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KI Antwort-Modal -->
+      <div class="modal-overlay hidden" id="modal-ai-response">
+        <div class="modal modal-wide">
+          <button class="modal-close" id="btn-ai-response-close" title="Schließen">✕</button>
+          <h2 id="ai-response-title">🤖 KI-Analyse</h2>
+          <div id="ai-response-body">
+            <pre id="ai-response-text" class="ai-response-pre"></pre>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="btn-ai-copy">📋 Kopieren</button>
+            <button class="btn btn-primary" id="btn-ai-response-ok">Schließen</button>
           </div>
         </div>
       </div>

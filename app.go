@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"adminkit/internal/aiassist"
 	"adminkit/internal/autostart"
 	"adminkit/internal/browserext"
 	"adminkit/internal/config"
@@ -23,6 +24,7 @@ import (
 	"adminkit/internal/system"
 	"adminkit/internal/tools"
 	"adminkit/internal/vault"
+	"adminkit/internal/virustotal"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -47,6 +49,9 @@ type App struct {
 	lastBrowserExtScan  *browserext.ScanResult
 	lastSessionName     string
 	lastSessionPath     string
+
+	// VirusTotal-Client (lazy-initialisiert wenn API-Key vorhanden)
+	vtClient *virustotal.Client
 }
 
 // NewApp erstellt eine neue App-Instanz.
@@ -646,6 +651,117 @@ func resolveVaultPath() string {
 		return filepath.Join(home, "adminkit_vault")
 	}
 	return defaultVaultPath
+}
+
+// ─── VirusTotal ───────────────────────────────────────────────────────────────
+
+// CheckVirusTotalItems prüft eine Liste von Einträgen via VirusTotal Hash-Lookup.
+// Gibt Fortschritt via Wails-Events ("vt:progress") ans Frontend.
+// Erfordert einen konfigurierten VT-API-Key in den Einstellungen.
+func (a *App) CheckVirusTotalItems(items []virustotal.CheckRequest) (*virustotal.BatchResult, error) {
+	vtKey := ""
+	if a.cfg != nil {
+		vtKey = a.cfg.APIKeys.VirusTotal
+	}
+	if vtKey == "" {
+		return nil, fmt.Errorf("kein VirusTotal-API-Key konfiguriert")
+	}
+
+	// Client neu erstellen wenn Key geändert wurde
+	if a.vtClient == nil {
+		a.vtClient = virustotal.NewClient(vtKey)
+	}
+
+	ctx := a.ctx
+
+	result, err := a.vtClient.CheckBatch(ctx, items, func(current, total int, r virustotal.CheckResult) {
+		runtime.EventsEmit(a.ctx, "vt:progress", map[string]any{
+			"current": current,
+			"total":   total,
+			"result":  r,
+		})
+	})
+
+	if err != nil && err != context.Canceled {
+		logging.Errorf("VT", "Batch-Check fehlgeschlagen: %v", err)
+		return result, err
+	}
+
+	logging.Infof("VT", "Batch-Check abgeschlossen: %d Einträge, %d Fehler, %d Anfragen heute",
+		len(result.Results), result.Errors, a.vtClient.CallsToday())
+	return result, nil
+}
+
+// ─── KI-Analyse ──────────────────────────────────────────────────────────────
+
+// AIProviderInfo beschreibt einen verfügbaren KI-Anbieter.
+type AIProviderInfo struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	HasKey  bool   `json:"has_key"`
+	IsLocal bool   `json:"is_local"`
+}
+
+// GetAvailableAIProviders gibt zurück, welche Anbieter konfiguriert sind.
+func (a *App) GetAvailableAIProviders() []AIProviderInfo {
+	keys := config.APIKeys{}
+	if a.cfg != nil {
+		keys = a.cfg.APIKeys
+	}
+	return []AIProviderInfo{
+		{ID: "openai",    Name: "OpenAI",    HasKey: keys.OpenAI != "",    IsLocal: false},
+		{ID: "anthropic", Name: "Anthropic", HasKey: keys.Anthropic != "", IsLocal: false},
+		{ID: "groq",      Name: "Groq",      HasKey: keys.Groq != "",      IsLocal: false},
+		{ID: "ollama",    Name: "Ollama",    HasKey: true,                  IsLocal: true},
+		{ID: "lmstudio",  Name: "LM Studio", HasKey: true,                 IsLocal: true},
+	}
+}
+
+// CallAI sendet einen Prompt an einen Cloud-KI-Anbieter (OpenAI, Anthropic, Groq).
+// Der API-Key wird aus der Konfiguration gelesen.
+func (a *App) CallAI(provider, model, prompt string) (string, error) {
+	if a.cfg == nil {
+		return "", fmt.Errorf("keine Konfiguration geladen")
+	}
+	keys := a.cfg.APIKeys
+
+	switch provider {
+	case "openai":
+		if keys.OpenAI == "" {
+			return "", fmt.Errorf("kein OpenAI-API-Key konfiguriert")
+		}
+		if model == "" {
+			model = "gpt-4o"
+		}
+		return aiassist.CallOpenAICompat("https://api.openai.com/v1", keys.OpenAI, model, prompt)
+
+	case "anthropic":
+		if keys.Anthropic == "" {
+			return "", fmt.Errorf("kein Anthropic-API-Key konfiguriert")
+		}
+		return aiassist.CallAnthropic(keys.Anthropic, model, prompt)
+
+	case "groq":
+		if keys.Groq == "" {
+			return "", fmt.Errorf("kein Groq-API-Key konfiguriert")
+		}
+		if model == "" {
+			model = "llama-3.3-70b-versatile"
+		}
+		return aiassist.CallOpenAICompat("https://api.groq.com/openai/v1", keys.Groq, model, prompt)
+
+	default:
+		return "", fmt.Errorf("unbekannter Anbieter: %s", provider)
+	}
+}
+
+// CallLocalAI sendet einen Prompt an eine lokale KI-Instanz (Ollama, LM Studio).
+// Verwendet die OpenAI-kompatible Chat-API (kein API-Key erforderlich).
+func (a *App) CallLocalAI(baseURL, model, prompt string) (string, error) {
+	if baseURL == "" {
+		baseURL = aiassist.OllamaBaseURL
+	}
+	return aiassist.CallOpenAICompat(baseURL, "", model, prompt)
 }
 
 // isWritable prüft, ob in einem Verzeichnis geschrieben werden kann.

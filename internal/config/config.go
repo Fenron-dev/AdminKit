@@ -21,6 +21,26 @@ type Config struct {
 	Backup    Backup   `yaml:"backup"`
 	UI        UI       `yaml:"ui"`
 	Logging   Logging  `yaml:"logging"`
+	APIKeys   APIKeys  `yaml:"api_keys,omitempty"`
+	AIModels  AIModels `yaml:"ai_models,omitempty"`
+}
+
+// APIKeys enthält API-Schlüssel für externe Dienste.
+// Gespeichert in adminkit_vault/config.yaml — niemals ins Git-Repo.
+type APIKeys struct {
+	VirusTotal string `yaml:"virustotal,omitempty"`
+	OpenAI     string `yaml:"openai,omitempty"`
+	Anthropic  string `yaml:"anthropic,omitempty"`
+	Groq       string `yaml:"groq,omitempty"`
+}
+
+// AIModels speichert das bevorzugte Modell pro Anbieter.
+type AIModels struct {
+	OpenAI    string `yaml:"openai,omitempty"`    // z.B. "gpt-4o"
+	Anthropic string `yaml:"anthropic,omitempty"` // z.B. "claude-opus-4-8"
+	Groq      string `yaml:"groq,omitempty"`      // z.B. "llama-3.3-70b-versatile"
+	Ollama    string `yaml:"ollama,omitempty"`    // z.B. "llama3.2"
+	LMStudio  string `yaml:"lmstudio,omitempty"`  // z.B. "local-model"
 }
 
 // Branding enthält Firmen- und Technikerinformationen für Berichte.

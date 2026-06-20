@@ -134,3 +134,21 @@ export function StartService(arg1) {
 export function StopService(arg1) {
     return window['go']['main']['App']['StopService'](arg1);
 }
+
+// ── VirusTotal ──
+export function CheckVirusTotalItems(arg1) {
+    return window['go']['main']['App']['CheckVirusTotalItems'](arg1);
+}
+
+// ── KI-Analyse ──
+export function GetAvailableAIProviders() {
+    return window['go']['main']['App']['GetAvailableAIProviders']();
+}
+
+export function CallAI(arg1, arg2, arg3) {
+    return window['go']['main']['App']['CallAI'](arg1, arg2, arg3);
+}
+
+export function CallLocalAI(arg1, arg2, arg3) {
+    return window['go']['main']['App']['CallLocalAI'](arg1, arg2, arg3);
+}

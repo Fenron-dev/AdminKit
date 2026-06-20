@@ -23,6 +23,8 @@ import {
   PickLogoFile,
   GetLogoBase64,
   OpenFile, RevealFile,
+  CheckVirusTotalItems,
+  CallAI, CallLocalAI, GetAvailableAIProviders,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -44,6 +46,9 @@ const state = {
   softwareSortDir: 'asc',         // Sortierrichtung
   isScanning: false,
   config: null,                   // Geladene Konfiguration (config.yaml)
+  // VT / KI Auswahl
+  selectedItems: new Map(),       // key → {name, path, type, extra}
+  vtAbortController: null,        // Für Abbrechen des VT-Scans
 };
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
@@ -67,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initQRModal();
   initScanSummaryModal();
   initActionLog();
+  initActionBar();
   applyPlatformClass();
   loadAppInfo();
 });
@@ -519,7 +525,7 @@ function renderAutostart(entries) {
 
     const table = document.createElement('table');
     table.className = 'data-table';
-    table.innerHTML = '<thead><tr><th>Name</th><th>Pfad / Befehl</th><th>System</th><th>Aktiv</th></tr></thead>';
+    table.innerHTML = `<thead><tr><th class="cb-col"><input type="checkbox" class="check-all" title="Alle auswählen"></th><th>Name</th><th>Pfad / Befehl</th><th>System</th><th>Aktiv</th></tr></thead>`;
     const tbody = document.createElement('tbody');
 
     items.forEach(e => {
@@ -527,7 +533,9 @@ function renderAutostart(entries) {
       if (!e.is_system) tr.classList.add('highlight-third-party');
       const sys = e.is_system ? '✓' : '<span class="text-warning">⚠ Drittanbieter</span>';
       const active = e.is_enabled ? '✓' : '–';
+      const cbId = `autostart:${e.name}:${e.path || ''}`;
       tr.innerHTML = `
+        <td class="cb-col"><input type="checkbox" class="item-check" data-id="${escapeHtml(cbId)}" data-name="${escapeHtml(e.name)}" data-path="${escapeHtml(e.path || '')}" data-type="autostart"></td>
         <td><strong>${escapeHtml(e.name)}</strong></td>
         <td class="mono-cell" style="font-size:11px;word-break:break-all">${escapeHtml(e.path || '–')}</td>
         <td style="text-align:center">${sys}</td>
@@ -538,6 +546,22 @@ function renderAutostart(entries) {
     table.appendChild(tbody);
     section.appendChild(table);
     container.appendChild(section);
+
+    // "Alle auswählen"-Checkbox
+    table.querySelector('.check-all')?.addEventListener('change', e => {
+      table.querySelectorAll('.item-check').forEach(cb => {
+        cb.checked = e.target.checked;
+        toggleItemSelection(cb, e.target.checked);
+      });
+      updateActionBar();
+    });
+    // Einzel-Checkboxen
+    tbody.addEventListener('change', e => {
+      const cb = e.target.closest('.item-check');
+      if (!cb) return;
+      toggleItemSelection(cb, cb.checked);
+      updateActionBar();
+    });
   }
 }
 
@@ -603,7 +627,7 @@ function buildServicesTable(list, title) {
   wrap.innerHTML = `<div class="autostart-group-title">${escapeHtml(title)}</div>`;
   const tbl = document.createElement('table');
   tbl.className = 'data-table';
-  tbl.innerHTML = '<thead><tr><th>Name</th><th>Starttyp</th><th>Status</th><th>Aktion</th></tr></thead>';
+  tbl.innerHTML = '<thead><tr><th class="cb-col"><input type="checkbox" class="check-all" title="Alle auswählen"></th><th>Name</th><th>Starttyp</th><th>Status</th><th>Aktion</th></tr></thead>';
   const tbody = document.createElement('tbody');
   list.forEach(s => {
     const tr = document.createElement('tr');
@@ -616,7 +640,9 @@ function buildServicesTable(list, title) {
     const stopBtn = isRunning
       ? `<button class="svc-btn svc-stop" data-name="${escapeHtml(s.name)}" title="Dienst beenden">■ Beenden</button>`
       : '';
+    const cbId = `service:${s.name}`;
     tr.innerHTML = `
+      <td class="cb-col"><input type="checkbox" class="item-check" data-id="${escapeHtml(cbId)}" data-name="${escapeHtml(s.display_name)}" data-path="${escapeHtml(s.executable_path || '')}" data-type="service"></td>
       <td><strong>${escapeHtml(s.display_name)}</strong><br><span class="text-muted" style="font-size:11px">${escapeHtml(s.name)}</span></td>
       <td>${escapeHtml(s.start_type)}</td>
       <td>${stateIcon} ${escapeHtml(s.state)}</td>
@@ -625,6 +651,21 @@ function buildServicesTable(list, title) {
   });
   tbl.appendChild(tbody);
   wrap.appendChild(tbl);
+
+  // "Alle auswählen"-Checkbox
+  tbl.querySelector('.check-all')?.addEventListener('change', e => {
+    tbl.querySelectorAll('.item-check').forEach(cb => {
+      cb.checked = e.target.checked;
+      toggleItemSelection(cb, e.target.checked);
+    });
+    updateActionBar();
+  });
+  tbody.addEventListener('change', e => {
+    const cb = e.target.closest('.item-check');
+    if (!cb) return;
+    toggleItemSelection(cb, cb.checked);
+    updateActionBar();
+  });
 
   // Start/Stop-Button-Handler
   wrap.addEventListener('click', async (e) => {
@@ -1129,12 +1170,14 @@ function renderBrowserExtensions(extensions) {
 
     const tbl = document.createElement('table');
     tbl.className = 'data-table';
-    tbl.innerHTML = '<thead><tr><th>Name</th><th>Version</th><th>ID</th><th>Status</th></tr></thead>';
+    tbl.innerHTML = `<thead><tr><th class="cb-col"><input type="checkbox" class="check-all" title="Alle auswählen"></th><th>Name</th><th>Version</th><th>ID</th><th>Status</th></tr></thead>`;
     const tbody = document.createElement('tbody');
     exts.forEach(ext => {
       const tr = document.createElement('tr');
       const status = ext.enabled ? '✓ Aktiv' : '– Deaktiviert';
+      const cbId = `ext:${browser}:${ext.id}`;
       tr.innerHTML = `
+        <td class="cb-col"><input type="checkbox" class="item-check" data-id="${escapeHtml(cbId)}" data-name="${escapeHtml(ext.name)}" data-path="${escapeHtml(ext.id || '')}" data-type="ext" data-extra="${escapeHtml(browser)}"></td>
         <td><strong>${escapeHtml(ext.name)}</strong>${ext.description ? '<br><span class="text-muted" style="font-size:11px">' + escapeHtml(ext.description.slice(0, 80)) + (ext.description.length > 80 ? '…' : '') + '</span>' : ''}</td>
         <td class="mono-cell" style="font-size:11px">${escapeHtml(ext.version || '–')}</td>
         <td class="mono-cell" style="font-size:10px;color:var(--color-text-muted)">${escapeHtml(ext.id?.slice(0, 16) || '–')}…</td>
@@ -1142,6 +1185,22 @@ function renderBrowserExtensions(extensions) {
       tbody.appendChild(tr);
     });
     tbl.appendChild(tbody);
+
+    // Checkbox-Handler
+    tbl.querySelector('.check-all')?.addEventListener('change', e => {
+      tbl.querySelectorAll('.item-check').forEach(cb => {
+        cb.checked = e.target.checked;
+        toggleItemSelection(cb, e.target.checked);
+      });
+      updateActionBar();
+    });
+    tbody.addEventListener('change', e => {
+      const cb = e.target.closest('.item-check');
+      if (!cb) return;
+      toggleItemSelection(cb, cb.checked);
+      updateActionBar();
+    });
+
     wrap.appendChild(tbl);
     container.appendChild(wrap);
   }
@@ -1240,6 +1299,315 @@ function escapeWifiString(s) {
 
 // ─── Software-Tab ────────────────────────────────────────────────────────────
 
+// ─── VT / KI Auswahl-Mechanismus ─────────────────────────────────────────────
+
+function toggleItemSelection(cb, selected) {
+  const id = cb.dataset.id;
+  if (!id) return;
+  if (selected) {
+    state.selectedItems.set(id, {
+      name: cb.dataset.name || id,
+      path: cb.dataset.path || '',
+      type: cb.dataset.type || 'unknown',
+      extra: cb.dataset.extra || '',
+    });
+  } else {
+    state.selectedItems.delete(id);
+  }
+}
+
+function updateActionBar() {
+  const bar   = document.getElementById('vt-action-bar');
+  const count = document.getElementById('action-bar-count');
+  if (!bar) return;
+  const n = state.selectedItems.size;
+  bar.classList.toggle('hidden', n === 0);
+  if (count) count.textContent = `${n} ausgewählt`;
+}
+
+function clearSelection() {
+  state.selectedItems.clear();
+  document.querySelectorAll('.item-check').forEach(cb => { cb.checked = false; });
+  document.querySelectorAll('.check-all').forEach(cb => { cb.checked = false; });
+  document.getElementById('software-check-all') && (document.getElementById('software-check-all').checked = false);
+  updateActionBar();
+}
+
+function initActionBar() {
+  // Software "Alle auswählen"
+  document.getElementById('software-check-all')?.addEventListener('change', e => {
+    document.querySelectorAll('#software-tbody .item-check').forEach(cb => {
+      cb.checked = e.target.checked;
+      toggleItemSelection(cb, e.target.checked);
+    });
+    updateActionBar();
+  });
+
+  document.getElementById('btn-clear-selection')?.addEventListener('click', clearSelection);
+
+  document.getElementById('btn-vt-check')?.addEventListener('click', () => {
+    if (state.selectedItems.size === 0) return;
+    runVTCheck();
+  });
+
+  document.getElementById('btn-ai-analyze')?.addEventListener('click', () => {
+    if (state.selectedItems.size === 0) return;
+    const provider = document.getElementById('ai-provider-select')?.value ?? 'chatgpt';
+    runAIAnalyze(provider);
+  });
+
+  // VT Fortschritts-Modal
+  document.getElementById('btn-vt-cancel')?.addEventListener('click', () => {
+    if (state.vtAbortController) state.vtAbortController.abort();
+    document.getElementById('modal-vt-progress')?.classList.add('hidden');
+  });
+  document.getElementById('btn-vt-done')?.addEventListener('click', () => {
+    document.getElementById('modal-vt-progress')?.classList.add('hidden');
+  });
+
+  // VT Detail-Modal
+  document.getElementById('btn-vt-detail-close')?.addEventListener('click', () => {
+    document.getElementById('modal-vt-detail')?.classList.add('hidden');
+  });
+  document.getElementById('btn-vt-detail-cancel')?.addEventListener('click', () => {
+    document.getElementById('modal-vt-detail')?.classList.add('hidden');
+  });
+
+  // KI Antwort-Modal
+  document.getElementById('btn-ai-response-close')?.addEventListener('click', () => {
+    document.getElementById('modal-ai-response')?.classList.add('hidden');
+  });
+  document.getElementById('btn-ai-response-ok')?.addEventListener('click', () => {
+    document.getElementById('modal-ai-response')?.classList.add('hidden');
+  });
+  document.getElementById('btn-ai-copy')?.addEventListener('click', () => {
+    const text = document.getElementById('ai-response-text')?.textContent ?? '';
+    navigator.clipboard.writeText(text).catch(() => {});
+    const btn = document.getElementById('btn-ai-copy');
+    if (btn) { const orig = btn.textContent; btn.textContent = '✓ Kopiert'; setTimeout(() => { btn.textContent = orig; }, 1500); }
+  });
+}
+
+// ─── VT-Check ────────────────────────────────────────────────────────────────
+
+async function runVTCheck() {
+  const modal    = document.getElementById('modal-vt-progress');
+  const bar      = document.getElementById('vt-progress-bar');
+  const text     = document.getElementById('vt-progress-text');
+  const results  = document.getElementById('vt-progress-results');
+  const doneBtn  = document.getElementById('btn-vt-done');
+  if (!modal) return;
+
+  // VT-Key prüfen
+  const vtKey = state.config?.api_keys?.virustotal ?? '';
+  if (!vtKey) {
+    alert('Kein VirusTotal-API-Key konfiguriert.\nBitte in Einstellungen → API-Schlüssel eintragen.');
+    return;
+  }
+
+  const items = [...state.selectedItems.values()];
+  modal.classList.remove('hidden');
+  if (bar) bar.style.width = '0%';
+  if (text) text.textContent = `0 / ${items.length} geprüft…`;
+  if (results) results.innerHTML = '';
+  if (doneBtn) doneBtn.classList.add('hidden');
+
+  state.vtAbortController = new AbortController();
+  const vtRequests = items
+    .filter(i => i.path) // nur Einträge mit Pfad
+    .map(i => ({ name: i.name, path: i.path, item_type: i.type }));
+
+  if (vtRequests.length === 0) {
+    if (text) text.textContent = 'Keine prüfbaren Einträge (kein Pfad verfügbar).';
+    if (doneBtn) doneBtn.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    // Wails-Event: vt:progress wird vom Backend emittiert
+    if (window.runtime?.EventsOn) {
+      window.runtime.EventsOn('vt:progress', (data) => {
+        const pct = Math.round((data.current / data.total) * 100);
+        if (bar) bar.style.width = pct + '%';
+        if (text) text.textContent = `${data.current} / ${data.total} geprüft — ${data.result?.name ?? ''}`;
+        if (results && data.result) {
+          const r = data.result;
+          const cls = r.status === 'malicious' ? 'vt-malicious' : r.status === 'suspicious' ? 'vt-suspicious' : r.status === 'clean' ? 'vt-clean' : 'vt-unknown';
+          const icon = r.status === 'malicious' ? '⛔' : r.status === 'suspicious' ? '⚠' : r.status === 'clean' ? '✓' : '–';
+          results.innerHTML += `<div class="vt-progress-item ${cls}">${icon} ${escapeHtml(r.name)}: ${escapeHtml(r.status)}${r.detections > 0 ? ` (${r.detections}/${r.engines} Engines)` : ''}</div>`;
+          // Badge in der Tabelle setzen
+          injectVTBadge(r);
+        }
+      });
+    }
+
+    await CheckVirusTotalItems(vtRequests);
+
+    if (text) text.textContent = `Abgeschlossen: ${vtRequests.length} geprüft.`;
+    if (bar) bar.style.width = '100%';
+  } catch (err) {
+    if (text) text.textContent = 'Fehler: ' + err;
+    addAction('VT-Scan fehlgeschlagen: ' + err, 'error');
+  } finally {
+    if (doneBtn) doneBtn.classList.remove('hidden');
+    if (window.runtime?.EventsOff) window.runtime.EventsOff('vt:progress');
+  }
+}
+
+function injectVTBadge(result) {
+  // Checkbox mit passendem data-id suchen und Badge neben dem Name einfügen
+  const cb = document.querySelector(`.item-check[data-id="${CSS.escape(result.item_id ?? '')}"]`);
+  if (!cb) return;
+  const row = cb.closest('tr');
+  if (!row) return;
+  // Zweite Zelle (Name)
+  const nameCell = row.cells[1];
+  if (!nameCell) return;
+  // Alten Badge entfernen
+  nameCell.querySelector('.vt-badge')?.remove();
+  const cls = result.status === 'malicious' ? 'vt-malicious'
+    : result.status === 'suspicious' ? 'vt-suspicious'
+    : result.status === 'clean' ? 'vt-clean'
+    : result.status === 'not_found' ? 'vt-not-found'
+    : 'vt-error';
+  const label = result.status === 'malicious' ? `⛔ ${result.detections}/${result.engines}`
+    : result.status === 'suspicious' ? `⚠ ${result.detections}/${result.engines}`
+    : result.status === 'clean' ? '✓ Sauber'
+    : result.status === 'not_found' ? '– Kein Eintrag'
+    : '? Fehler';
+  const badge = document.createElement('span');
+  badge.className = `vt-badge ${cls}`;
+  badge.textContent = label;
+  badge.title = `SHA256: ${result.sha256 ?? '–'}`;
+  badge.style.cursor = 'pointer';
+  badge.addEventListener('click', () => showVTDetail(result));
+  nameCell.appendChild(badge);
+}
+
+function showVTDetail(result) {
+  const modal = document.getElementById('modal-vt-detail');
+  const title = document.getElementById('vt-detail-title');
+  const body  = document.getElementById('vt-detail-body');
+  const webBtn = document.getElementById('btn-vt-open-web');
+  if (!modal) return;
+
+  title.textContent = `VT: ${result.name ?? '–'}`;
+
+  const statusClass = result.status === 'malicious' ? 'vt-malicious'
+    : result.status === 'suspicious' ? 'vt-suspicious'
+    : result.status === 'clean' ? 'vt-clean'
+    : 'vt-not-found';
+
+  body.innerHTML = `
+    <div class="vt-detail-grid">
+      <div class="vt-detail-row"><span>Status</span><span class="vt-badge ${statusClass}">${escapeHtml(result.status ?? '–')}</span></div>
+      ${result.detections !== undefined ? `<div class="vt-detail-row"><span>Erkennungen</span><span>${result.detections} / ${result.engines} Engines</span></div>` : ''}
+      ${result.sha256 ? `<div class="vt-detail-row"><span>SHA256</span><span class="mono-cell" style="font-size:11px;word-break:break-all">${escapeHtml(result.sha256)}</span></div>` : ''}
+      ${result.path ? `<div class="vt-detail-row"><span>Pfad</span><span class="mono-cell" style="font-size:11px;word-break:break-all">${escapeHtml(result.path)}</span></div>` : ''}
+      ${result.error_msg ? `<div class="vt-detail-row"><span>Fehler</span><span style="color:var(--color-error)">${escapeHtml(result.error_msg)}</span></div>` : ''}
+    </div>`;
+
+  if (result.permalink && webBtn) {
+    webBtn.classList.remove('hidden');
+    webBtn.onclick = () => { if (window.runtime?.BrowserOpenURL) window.runtime.BrowserOpenURL(result.permalink); };
+  } else if (webBtn) {
+    webBtn.classList.add('hidden');
+  }
+
+  modal.classList.remove('hidden');
+}
+
+// ─── KI-Analyse ───────────────────────────────────────────────────────────────
+
+const AI_BROWSER_URLS = {
+  chatgpt:    'https://chatgpt.com/',
+  claude:     'https://claude.ai/',
+  perplexity: 'https://www.perplexity.ai/',
+  grok:       'https://grok.com/',
+};
+
+function buildAIPrompt() {
+  const items = [...state.selectedItems.values()];
+  const typeLabels = { service: 'Dienst', autostart: 'Autostart', ext: 'Browser-Extension', software: 'Software', unknown: 'Eintrag' };
+
+  let prompt = '=== AdminKit: Analyse ausgewählter Systemeinträge ===\n\n';
+  items.forEach(item => {
+    const label = typeLabels[item.type] ?? 'Eintrag';
+    prompt += `[${label}] Name: ${item.name}`;
+    if (item.path) prompt += ` | Pfad: ${item.path}`;
+    if (item.extra) prompt += ` | Extra: ${item.extra}`;
+    prompt += '\n';
+  });
+  prompt += '\n=== Frage ===\n';
+  prompt += 'Sind diese Einträge verdächtig? Gibt es Sicherheitsrisiken oder Handlungsempfehlungen? Bitte kurz und auf Deutsch antworten.';
+  return prompt;
+}
+
+async function runAIAnalyze(provider) {
+  const prompt = buildAIPrompt();
+
+  // Typ A: Browser-Redirect
+  if (AI_BROWSER_URLS[provider]) {
+    try {
+      await navigator.clipboard.writeText(prompt);
+    } catch { /* kein Clipboard-Zugriff */ }
+    if (window.runtime?.BrowserOpenURL) {
+      window.runtime.BrowserOpenURL(AI_BROWSER_URLS[provider]);
+    }
+    showToast('Prompt wurde in die Zwischenablage kopiert. Füge ihn im geöffneten Browser ein.');
+    return;
+  }
+
+  // Typ B: Direkte API
+  const modal  = document.getElementById('modal-ai-response');
+  const title  = document.getElementById('ai-response-title');
+  const pre    = document.getElementById('ai-response-text');
+  if (!modal || !pre) return;
+
+  title.textContent = `🤖 KI-Analyse (${provider})`;
+  pre.textContent = 'Anfrage läuft…';
+  modal.classList.remove('hidden');
+
+  try {
+    let response;
+    if (provider === 'ollama' || provider === 'lmstudio') {
+      const baseURL = provider === 'ollama'
+        ? 'http://localhost:11434'
+        : 'http://localhost:1234';
+      const model = provider === 'ollama'
+        ? (state.config?.ai_models?.ollama || 'llama3.2')
+        : (state.config?.ai_models?.lmstudio || 'local-model');
+      response = await CallLocalAI(baseURL, model, prompt);
+    } else {
+      const model = state.config?.ai_models?.[provider] || defaultModelFor(provider);
+      response = await CallAI(provider, model, prompt);
+    }
+    pre.textContent = response;
+    addAction(`KI-Analyse (${provider}) abgeschlossen`, 'success');
+  } catch (err) {
+    pre.textContent = 'Fehler: ' + err;
+    addAction(`KI-Analyse fehlgeschlagen (${provider}): ${err}`, 'error');
+  }
+}
+
+function defaultModelFor(provider) {
+  const defaults = { openai: 'gpt-4o', anthropic: 'claude-opus-4-8', groq: 'llama-3.3-70b-versatile' };
+  return defaults[provider] ?? '';
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('ak-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'ak-toast';
+    toast.className = 'ak-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  setTimeout(() => toast.classList.remove('visible'), 3500);
+}
+
 /** Initialisiert Sortierung und Live-Suche im Software-Tab. */
 function initSoftwareTab() {
   // Spalten-Sortierung per Klick auf Thead
@@ -1308,7 +1676,7 @@ function renderSoftware(result, filter = '') {
   tbody.innerHTML = '';
 
   if (programs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="table-placeholder">${filter ? 'Keine Treffer für „' + escapeHtml(filter) + '"' : 'Keine Programme gefunden.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="table-placeholder">${filter ? 'Keine Treffer für „' + escapeHtml(filter) + '"' : 'Keine Programme gefunden.'}</td></tr>`;
     return;
   }
 
@@ -1328,7 +1696,9 @@ function renderSoftware(result, filter = '') {
       ? `<button class="copy-btn" data-copy="${escapeHtml(p.uninstall_string)}" title="Uninstall-Befehl kopieren">📋</button>`
       : '<span class="text-muted">–</span>';
 
+    const cbId = `software:${p.name}`;
     tr.innerHTML = `
+      <td class="cb-col"><input type="checkbox" class="item-check" data-id="${escapeHtml(cbId)}" data-name="${escapeHtml(p.name ?? '')}" data-path="" data-type="software"></td>
       <td>${escapeHtml(p.name ?? '–')}</td>
       <td class="mono-cell">${escapeHtml(p.version ?? '–')}</td>
       <td>${escapeHtml(p.publisher ?? '–')}</td>
@@ -1340,6 +1710,14 @@ function renderSoftware(result, filter = '') {
   });
 
   tbody.appendChild(frag);
+
+  // Checkbox-Handler für Software-Tabelle
+  tbody.addEventListener('change', e => {
+    const cb = e.target.closest('.item-check');
+    if (!cb) return;
+    toggleItemSelection(cb, cb.checked);
+    updateActionBar();
+  });
 
   // Kopier-Buttons verdrahten
   tbody.querySelectorAll('.copy-btn').forEach(btn => {
@@ -2106,6 +2484,24 @@ function initSettings() {
   });
   document.getElementById('settings-save')?.addEventListener('click', saveSettings);
 
+  // API-Key Sichtbarkeits-Toggle
+  document.querySelectorAll('.api-key-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      // Wenn ••• angezeigt: Feld leeren damit neu eingegeben werden kann
+      if (target.value === '••••••••') {
+        target.value = '';
+        target.type = 'text';
+        btn.textContent = '🙈';
+        return;
+      }
+      const isPass = target.type === 'password';
+      target.type = isPass ? 'text' : 'password';
+      btn.textContent = isPass ? '🙈' : '👁';
+    });
+  });
+
   // Logo-Picker: nativer Datei-Dialog, Datei wird in Vault kopiert
   document.getElementById('btn-pick-logo')?.addEventListener('click', async () => {
     const btn = document.getElementById('btn-pick-logo');
@@ -2130,7 +2526,6 @@ function initSettings() {
 }
 
 function openSettings() {
-  // Aktuelle Werte aus der Config laden
   const cfg = state.config;
   if (cfg) {
     document.getElementById('setting-company').value  = cfg.branding?.company_name    ?? '';
@@ -2138,6 +2533,22 @@ function openSettings() {
     document.getElementById('setting-logo-path').value = cfg.branding?.logo_path       ?? '';
     document.getElementById('setting-wifi-passwords').checked =
       cfg.defaults?.include_wifi_passwords ?? false;
+    // API-Keys (nie im Klartext vorausfüllen — nur *** wenn gesetzt)
+    const setKeyField = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val ? '••••••••' : '';
+      el?.setAttribute('data-has-value', val ? '1' : '0');
+    };
+    setKeyField('setting-vt-key',       cfg.api_keys?.virustotal);
+    setKeyField('setting-openai-key',    cfg.api_keys?.openai);
+    setKeyField('setting-anthropic-key', cfg.api_keys?.anthropic);
+    setKeyField('setting-groq-key',      cfg.api_keys?.groq);
+    // Modell-Felder
+    document.getElementById('setting-model-openai').value    = cfg.ai_models?.openai    ?? '';
+    document.getElementById('setting-model-anthropic').value = cfg.ai_models?.anthropic ?? '';
+    document.getElementById('setting-model-groq').value      = cfg.ai_models?.groq      ?? '';
+    document.getElementById('setting-model-ollama').value    = cfg.ai_models?.ollama    ?? '';
+    document.getElementById('setting-model-lmstudio').value  = cfg.ai_models?.lmstudio  ?? '';
   }
   document.getElementById('settings-modal-overlay')?.classList.remove('hidden');
 }
@@ -2186,19 +2597,40 @@ async function updateBrandingBar() {
 }
 
 async function saveSettings() {
-  // Sicherheitsnetz: wenn config noch nicht geladen ist, Fallback-Objekt aufbauen
   if (!state.config) {
-    state.config = { branding: {}, defaults: {}, ui: {}, logging: {}, backup: {} };
+    state.config = { branding: {}, defaults: {}, ui: {}, logging: {}, backup: {}, api_keys: {}, ai_models: {} };
   }
   const cfg = state.config;
-  if (!cfg.branding) cfg.branding = {};
-  if (!cfg.defaults) cfg.defaults = {};
+  if (!cfg.branding)  cfg.branding  = {};
+  if (!cfg.defaults)  cfg.defaults  = {};
+  if (!cfg.api_keys)  cfg.api_keys  = {};
+  if (!cfg.ai_models) cfg.ai_models = {};
 
   cfg.branding.company_name    = document.getElementById('setting-company').value.trim();
   cfg.branding.technician_name = document.getElementById('setting-technician').value.trim();
   cfg.branding.logo_path       = document.getElementById('setting-logo-path').value.trim();
   cfg.defaults.include_wifi_passwords =
     document.getElementById('setting-wifi-passwords').checked;
+
+  // API-Keys: nur speichern wenn tatsächlich neu eingegeben (nicht •••)
+  const readKeyField = (id, existingVal) => {
+    const el = document.getElementById(id);
+    if (!el) return existingVal ?? '';
+    const v = el.value.trim();
+    if (!v || v === '••••••••') return existingVal ?? '';
+    return v;
+  };
+  cfg.api_keys.virustotal = readKeyField('setting-vt-key',       cfg.api_keys.virustotal);
+  cfg.api_keys.openai     = readKeyField('setting-openai-key',    cfg.api_keys.openai);
+  cfg.api_keys.anthropic  = readKeyField('setting-anthropic-key', cfg.api_keys.anthropic);
+  cfg.api_keys.groq       = readKeyField('setting-groq-key',      cfg.api_keys.groq);
+
+  // Modell-Felder
+  cfg.ai_models.openai    = document.getElementById('setting-model-openai')?.value.trim()    || '';
+  cfg.ai_models.anthropic = document.getElementById('setting-model-anthropic')?.value.trim() || '';
+  cfg.ai_models.groq      = document.getElementById('setting-model-groq')?.value.trim()      || '';
+  cfg.ai_models.ollama    = document.getElementById('setting-model-ollama')?.value.trim()    || '';
+  cfg.ai_models.lmstudio  = document.getElementById('setting-model-lmstudio')?.value.trim()  || '';
 
   const btn = document.getElementById('settings-save');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Speichere…'; }
