@@ -30,6 +30,8 @@ import {
   RunRawCommand,
   GetProcesses,
   GetVTWhitelist, AddToVTWhitelist, RemoveFromVTWhitelist, SaveVTAuditLog,
+  UploadFileToVirusTotal,
+  GetNetworkConnections,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -202,6 +204,9 @@ function initScanButtons() {
   document.getElementById('btn-scan-network')?.addEventListener('click', () => runNetworkScan());
   document.getElementById('btn-scan-software')?.addEventListener('click', () => runSoftwareScan());
   document.getElementById('btn-refresh')?.addEventListener('click', () => loadAppInfo());
+  document.getElementById('btn-scan-connections')?.addEventListener('click', () => runConnectionsScan());
+  document.getElementById('connections-filter')?.addEventListener('change', filterConnections);
+  document.getElementById('connections-search')?.addEventListener('input', filterConnections);
 }
 
 function initPrinterScan() {
@@ -356,6 +361,66 @@ async function runNetworkScanBasic() {
     state.isScanning = false;
     setScanButtonsDisabled(false);
   }
+}
+
+let allConnections = [];
+
+async function runConnectionsScan() {
+  const btn = document.getElementById('btn-scan-connections');
+  const section = document.getElementById('connections-section');
+  const body = document.getElementById('connections-body');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  if (section) section.style.display = '';
+  if (body) body.innerHTML = '<tr><td colspan="6" class="info-placeholder">Verbindungen werden geladen…</td></tr>';
+  try {
+    allConnections = await GetNetworkConnections() ?? [];
+    setEl('connections-count', allConnections.length.toString());
+    renderConnections(allConnections);
+    setStatus(`Verbindungs-Scan: ${allConnections.length} Verbindungen`);
+    addAction(`Verbindungs-Scan: ${allConnections.length} aktive Verbindungen`, 'info');
+  } catch (err) {
+    if (body) body.innerHTML = `<tr><td colspan="6" class="info-placeholder">Fehler: ${escapeHtml(String(err))}</td></tr>`;
+    addAction('Verbindungs-Scan fehlgeschlagen: ' + err, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Verbindungen'; }
+  }
+}
+
+function filterConnections() {
+  const stateFilter = document.getElementById('connections-filter')?.value ?? '';
+  const search = (document.getElementById('connections-search')?.value ?? '').toLowerCase();
+  const filtered = allConnections.filter(c => {
+    if (stateFilter && c.state !== stateFilter) return false;
+    if (search) {
+      const haystack = `${c.process_name} ${c.remote_addr} ${c.local_addr} ${c.local_port} ${c.remote_port} ${c.state}`.toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+  renderConnections(filtered);
+}
+
+function renderConnections(conns) {
+  const body = document.getElementById('connections-body');
+  if (!body) return;
+  if (!conns || conns.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" class="info-placeholder">Keine Verbindungen gefunden.</td></tr>';
+    return;
+  }
+  const stateClass = s => s === 'ESTABLISHED' ? 'conn-established' : s === 'LISTEN' ? 'conn-listen' : s === 'TIME_WAIT' ? 'conn-timewait' : '';
+  body.innerHTML = conns.map(c => {
+    const remote = c.remote_addr && c.remote_port ? `${c.remote_addr}:${c.remote_port}` : '–';
+    const local = c.local_addr ? `${c.local_addr}:${c.local_port}` : '–';
+    const sc = stateClass(c.state);
+    return `<tr>
+      <td><span class="proto-badge">${escapeHtml(c.protocol)}</span></td>
+      <td class="mono">${escapeHtml(local)}</td>
+      <td class="mono">${escapeHtml(remote)}</td>
+      <td><span class="conn-state ${sc}">${escapeHtml(c.state || '–')}</span></td>
+      <td class="mono">${c.pid || '–'}</td>
+      <td>${escapeHtml(c.process_name || '–')}</td>
+    </tr>`;
+  }).join('');
 }
 
 async function runSoftwareScan() {
@@ -2575,24 +2640,64 @@ function termAppend(text) {
 
 async function scanFileWithVT(filePath) {
   const vtKey = state.config?.api_keys?.virustotal ?? '';
-  showVTFileResult('loading', `Berechne SHA256 für: ${filePath}`);
+  const name = filePath.split('/').pop().split('\\').pop();
+  showVTFileResult('loading', `Berechne SHA256 für: ${name}…`);
   try {
     const hash = await HashFileForVT(filePath);
-    if (vtKey) {
-      // Mit API-Key: direkte Prüfung
-      showVTFileResult('info', `SHA256: ${hash}\nPrüfe per API…`);
-      const result = await CheckVirusTotalItems([{ name: filePath.split('/').pop().split('\\').pop(), path: filePath, item_type: 'file' }]);
-      const r = result?.results?.[0];
-      if (r) showVTFileResult(r.status === 'malicious' ? 'error' : r.status === 'clean' ? 'ok' : 'info',
-        `${filePath}\nSHA256: ${hash}\nStatus: ${r.status}${r.detections > 0 ? ` (${r.detections}/${r.engines})` : ''}`);
-    } else {
+    if (!vtKey) {
       // Ohne API-Key: Browser öffnen
-      showVTFileResult('info', `SHA256: ${hash}\nÖffne virustotal.com im Browser…`);
+      showVTFileResult('info', `${name}\nSHA256: ${hash}\nÖffne virustotal.com im Browser…`);
       OpenVTInBrowser(hash);
       addAction('VT Browser-Check gestartet: ' + hash.slice(0, 12) + '…', 'info');
+      return;
     }
+    // Mit API-Key: Hash-Lookup
+    showVTFileResult('loading', `${name}\nSHA256: ${hash}\nPrüfe per Hash-Lookup…`);
+    const batchResult = await CheckVirusTotalItems([{ name, path: filePath, item_type: 'file' }]);
+    const r = batchResult?.results?.[0];
+    if (!r) { showVTFileResult('error', 'Keine Antwort von VT.'); return; }
+
+    if (r.status === 'not_found') {
+      // Hash unbekannt → Upload anbieten
+      showVTFileResultWithUpload(filePath, name, hash);
+      return;
+    }
+    const cls = r.status === 'malicious' ? 'error' : r.status === 'clean' ? 'ok' : 'info';
+    showVTFileResult(cls, `${name}\nSHA256: ${hash}\nStatus: ${r.status}${r.detections > 0 ? ` (${r.detections}/${r.engines} Engines)` : ''}`);
   } catch (err) {
     showVTFileResult('error', 'Fehler: ' + err);
+  }
+}
+
+function showVTFileResultWithUpload(filePath, name, hash) {
+  const el = document.getElementById('vt-file-result');
+  if (!el) return;
+  el.classList.remove('hidden');
+  el.className = 'vt-file-result vt-file-info';
+  el.innerHTML = `
+    <span>– ${escapeHtml(name)}<br>SHA256: ${escapeHtml(hash)}<br>Kein VT-Eintrag gefunden — Datei noch nicht bekannt.</span>
+    <div style="margin-top:8px">
+      <button class="btn btn-sm btn-secondary" id="btn-vt-upload-confirm">
+        ⬆ Datei an VirusTotal senden (Analyse ~1–2 Min.)
+      </button>
+      <p style="font-size:11px;color:var(--color-text-muted);margin-top:4px">
+        Die Datei wird an virustotal.com übermittelt und ist dort öffentlich einsehbar.
+      </p>
+    </div>`;
+  document.getElementById('btn-vt-upload-confirm')?.addEventListener('click', () => {
+    uploadFileToVT(filePath, name);
+  });
+}
+
+async function uploadFileToVT(filePath, name) {
+  showVTFileResult('loading', `${name}\nWird hochgeladen und analysiert — bitte warten (bis zu 2 Min.)…`);
+  try {
+    const r = await UploadFileToVirusTotal(filePath);
+    const cls = r.status === 'malicious' ? 'error' : r.status === 'clean' ? 'ok' : 'info';
+    showVTFileResult(cls, `${name}\nSHA256: ${r.sha256}\nStatus: ${r.status}${r.detections > 0 ? ` (${r.detections}/${r.engines} Engines)` : ''}`);
+    addAction(`VT-Upload abgeschlossen: ${name} → ${r.status}`, r.status === 'malicious' ? 'error' : 'success');
+  } catch (err) {
+    showVTFileResult('error', 'Upload-Fehler: ' + err);
   }
 }
 

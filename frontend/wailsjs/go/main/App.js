@@ -199,6 +199,14 @@ export function SaveVTAuditLog(arg1) {
     return window['go']['main']['App']['SaveVTAuditLog'](arg1);
 }
 
+export function UploadFileToVirusTotal(arg1) {
+    return window['go']['main']['App']['UploadFileToVirusTotal'](arg1);
+}
+
+export function GetNetworkConnections() {
+    return window['go']['main']['App']['GetNetworkConnections']();
+}
+
 // ── Terminal Log ──
 export function SaveTerminalLog(arg1) {
     return window['go']['main']['App']['SaveTerminalLog'](arg1);

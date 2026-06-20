@@ -341,6 +341,17 @@ func (a *App) ScanNetworkBasic() (*network.ScanResult, error) {
 	return result, nil
 }
 
+// GetNetworkConnections gibt alle aktuellen TCP/UDP-Verbindungen mit Prozessname zurück.
+func (a *App) GetNetworkConnections() ([]network.NetworkConnection, error) {
+	conns, err := network.ScanConnections()
+	if err != nil {
+		logging.Warnf("Network", "Verbindungs-Scan Fehler: %v", err)
+		return nil, err
+	}
+	logging.Infof("Network", "Verbindungs-Scan: %d Verbindungen gefunden", len(conns))
+	return conns, nil
+}
+
 // SaveNetworkScan speichert ein Netzwerk-Scan-Ergebnis im Session-Ordner.
 func (a *App) SaveNetworkScan(result *network.ScanResult, sessionPath string) error {
 	if sessionPath == "" {
@@ -776,6 +787,29 @@ func (a *App) PickFileForVTScan() (string, error) {
 		return "", err
 	}
 	return path, nil
+}
+
+// UploadFileToVirusTotal lädt eine Datei direkt zu VirusTotal hoch und wartet auf
+// das Analyseergebnis. Erfordert API-Key und explizite Nutzer-Zustimmung im Frontend
+// ("Datei wird an VirusTotal übermittelt"). Max. 32 MB, Wartezeit bis zu 5 Minuten.
+func (a *App) UploadFileToVirusTotal(filePath string) (*virustotal.CheckResult, error) {
+	vtKey := ""
+	if a.cfg != nil {
+		vtKey = a.cfg.APIKeys.VirusTotal
+	}
+	if vtKey == "" {
+		return nil, fmt.Errorf("kein VirusTotal-API-Key konfiguriert")
+	}
+	if a.vtClient == nil {
+		a.vtClient = virustotal.NewClient(vtKey)
+	}
+	result, err := a.vtClient.UploadFile(a.ctx, filePath)
+	if err != nil {
+		logging.Warnf("VT", "Upload fehlgeschlagen (%s): %v", filePath, err)
+		return &result, err
+	}
+	logging.Infof("VT", "Upload abgeschlossen: %s → %s (%d/%d)", filePath, result.Status, result.Detections, result.Engines)
+	return &result, nil
 }
 
 // ─── VT-Whitelist ─────────────────────────────────────────────────────────────
