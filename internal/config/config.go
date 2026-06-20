@@ -55,10 +55,11 @@ type Branding struct {
 }
 
 type Defaults struct {
-	LogLocation         string `yaml:"log_location"`
-	ExportFormat        string `yaml:"export_format"`
+	LogLocation          string `yaml:"log_location"`
+	ExportFormat         string `yaml:"export_format"`
 	IncludeWifiPasswords bool   `yaml:"include_wifi_passwords"`
-	IncludeSmartData    bool   `yaml:"include_smart_data"`
+	IncludeSmartData     bool   `yaml:"include_smart_data"`
+	AutoVTScan           bool   `yaml:"auto_vt_scan"`
 }
 
 type Backup struct {

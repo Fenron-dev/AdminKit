@@ -237,6 +237,15 @@ async function runFullScan() {
   await runBrowserExtScan();
 
   showScanSummary();
+
+  if (state.config?.defaults?.auto_vt_scan) {
+    const vtKey = state.config?.api_keys?.virustotal ?? '';
+    if (vtKey) {
+      runAutoVTScan();
+    } else {
+      showToast('Auto-VT-Scan übersprungen — kein VirusTotal-API-Key konfiguriert.');
+    }
+  }
 }
 
 async function runSystemScan() {
@@ -2799,6 +2808,65 @@ function closeScanSummary() {
   document.getElementById('modal-scan-summary')?.classList.add('hidden');
 }
 
+async function runAutoVTScan() {
+  const requests = [];
+  state.lastAutostartResult?.entries?.forEach(e => {
+    if (e.path) requests.push({ name: e.name, path: e.path, item_type: 'autostart' });
+  });
+  state.lastServicesResult?.services?.forEach(s => {
+    if (s.path) requests.push({ name: s.display_name || s.name, path: s.path, item_type: 'service' });
+  });
+  if (requests.length === 0) return;
+
+  setStatus(`Auto-VT-Scan: ${requests.length} Einträge werden geprüft…`);
+  showToast(`Auto-VT-Scan gestartet — ${requests.length} Einträge.`);
+  addAction(`Auto-VT-Scan: ${requests.length} Autostart- und Dienste-Einträge`, 'info');
+
+  const auditLog = [];
+  const pathToType = {};
+  requests.forEach(r => { pathToType[r.path] = r.item_type; });
+
+  try {
+    if (window.runtime?.EventsOn) {
+      window.runtime.EventsOn('vt:progress', (data) => {
+        setStatus(`Auto-VT: ${data.current}/${data.total} — ${data.result?.name ?? ''}`);
+        if (data.result) {
+          injectVTBadge(data.result);
+          if (data.result.status === 'malicious') {
+            addAction(`VT-Treffer: ${data.result.name} (${data.result.detections}/${data.result.engines})`, 'error');
+          }
+          auditLog.push({
+            name: data.result.name, path: data.result.path ?? '',
+            item_type: pathToType[data.result.path] ?? '',
+            status: data.result.status, sha256: data.result.sha256 ?? '',
+            detections: data.result.detections ?? 0, engines: data.result.engines ?? 0,
+            checked_at: new Date().toISOString(),
+          });
+        }
+      });
+    }
+
+    await CheckVirusTotalItems(requests);
+
+    const hits = auditLog.filter(e => e.status === 'malicious').length;
+    const msg = hits > 0
+      ? `Auto-VT abgeschlossen: ${hits} Treffer von ${requests.length} Einträgen!`
+      : `Auto-VT abgeschlossen: ${requests.length} Einträge geprüft, alles sauber.`;
+    setStatus(msg);
+    showToast(msg);
+    addAction(msg, hits > 0 ? 'error' : 'success');
+
+    if (auditLog.length > 0) {
+      try { await SaveVTAuditLog(JSON.stringify(auditLog)); } catch {}
+    }
+  } catch (err) {
+    showToast('Auto-VT-Scan Fehler: ' + err);
+    addAction('Auto-VT-Scan Fehler: ' + err, 'error');
+  } finally {
+    if (window.runtime?.EventsOff) window.runtime.EventsOff('vt:progress');
+  }
+}
+
 function showScanSummary() {
   const modal    = document.getElementById('modal-scan-summary');
   const modGrid  = document.getElementById('summary-modules');
@@ -3139,6 +3207,8 @@ function openSettings() {
     document.getElementById('setting-logo-path').value = cfg.branding?.logo_path       ?? '';
     document.getElementById('setting-wifi-passwords').checked =
       cfg.defaults?.include_wifi_passwords ?? false;
+    document.getElementById('setting-auto-vt-scan').checked =
+      cfg.defaults?.auto_vt_scan ?? false;
     // API-Keys (nie im Klartext vorausfüllen — nur *** wenn gesetzt)
     const setKeyField = (id, val) => {
       const el = document.getElementById(id);
@@ -3219,6 +3289,8 @@ async function saveSettings() {
   cfg.branding.logo_path       = document.getElementById('setting-logo-path').value.trim();
   cfg.defaults.include_wifi_passwords =
     document.getElementById('setting-wifi-passwords').checked;
+  cfg.defaults.auto_vt_scan =
+    document.getElementById('setting-auto-vt-scan').checked;
 
   // API-Keys: nur speichern wenn tatsächlich neu eingegeben (nicht •••)
   const readKeyField = (id, existingVal) => {
