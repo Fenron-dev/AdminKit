@@ -25,7 +25,9 @@ import (
 	"adminkit/internal/services"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
+	"adminkit/internal/tasks"
 	"adminkit/internal/tools"
+	"adminkit/internal/users"
 	"adminkit/internal/vault"
 	"adminkit/internal/virustotal"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -350,6 +352,36 @@ func (a *App) GetNetworkConnections() ([]network.NetworkConnection, error) {
 	}
 	logging.Infof("Network", "Verbindungs-Scan: %d Verbindungen gefunden", len(conns))
 	return conns, nil
+}
+
+// ScanUsers gibt alle lokalen Benutzerkonten und Gruppen zurück.
+func (a *App) ScanUsers() (*users.ScanResult, error) {
+	logging.Info("Users", "Benutzer-Scan gestartet")
+	result, err := users.Scan()
+	if err != nil {
+		logging.Errorf("Users", "Scan fehlgeschlagen: %v", err)
+		return nil, err
+	}
+	for _, e := range result.Errors {
+		logging.Warnf("Users", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Users", "Benutzer-Scan abgeschlossen: %d Benutzer, %d Gruppen", len(result.Users), len(result.Groups))
+	return result, nil
+}
+
+// ScanScheduledTasks gibt alle geplanten Aufgaben zurück.
+func (a *App) ScanScheduledTasks() (*tasks.ScanResult, error) {
+	logging.Info("Tasks", "Aufgaben-Scan gestartet")
+	result, err := tasks.Scan()
+	if err != nil {
+		logging.Errorf("Tasks", "Scan fehlgeschlagen: %v", err)
+		return nil, err
+	}
+	for _, e := range result.Errors {
+		logging.Warnf("Tasks", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Tasks", "Aufgaben-Scan abgeschlossen: %d Aufgaben", len(result.Tasks))
+	return result, nil
 }
 
 // SaveNetworkScan speichert ein Netzwerk-Scan-Ergebnis im Session-Ordner.

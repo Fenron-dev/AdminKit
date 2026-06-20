@@ -207,6 +207,15 @@ export function GetNetworkConnections() {
     return window['go']['main']['App']['GetNetworkConnections']();
 }
 
+// ── Benutzerkonten & Geplante Aufgaben ──
+export function ScanUsers() {
+    return window['go']['main']['App']['ScanUsers']();
+}
+
+export function ScanScheduledTasks() {
+    return window['go']['main']['App']['ScanScheduledTasks']();
+}
+
 // ── Terminal Log ──
 export function SaveTerminalLog(arg1) {
     return window['go']['main']['App']['SaveTerminalLog'](arg1);

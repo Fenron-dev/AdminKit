@@ -32,6 +32,8 @@ import {
   GetVTWhitelist, AddToVTWhitelist, RemoveFromVTWhitelist, SaveVTAuditLog,
   UploadFileToVirusTotal,
   GetNetworkConnections,
+  ScanUsers,
+  ScanScheduledTasks,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -207,6 +209,8 @@ function initScanButtons() {
   document.getElementById('btn-scan-connections')?.addEventListener('click', () => runConnectionsScan());
   document.getElementById('connections-filter')?.addEventListener('change', filterConnections);
   document.getElementById('connections-search')?.addEventListener('input', filterConnections);
+  document.getElementById('btn-scan-users')?.addEventListener('click', () => runUsersScan());
+  document.getElementById('btn-scan-tasks')?.addEventListener('click', () => runTasksScan());
 }
 
 function initPrinterScan() {
@@ -2911,6 +2915,134 @@ function initScanSummaryModal() {
 
 function closeScanSummary() {
   document.getElementById('modal-scan-summary')?.classList.add('hidden');
+}
+
+// ─── Benutzerkonten ───────────────────────────────────────────────────────────
+
+async function runUsersScan() {
+  const btn = document.getElementById('btn-scan-users');
+  const container = document.getElementById('users-info');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  if (container) container.innerHTML = '<div class="info-placeholder">Scanne Benutzerkonten…</div>';
+  try {
+    const result = await ScanUsers();
+    renderUsers(result);
+    const count = result?.users?.length ?? 0;
+    setEl('users-count', count.toString());
+    setStatus(`Benutzer-Scan: ${count} Konten gefunden`);
+    addAction(`Benutzer-Scan: ${count} lokale Konten`, 'info');
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(err))}</div>`;
+    addAction('Benutzer-Scan fehlgeschlagen: ' + err, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '👤 Benutzer scannen'; }
+  }
+}
+
+function renderUsers(result) {
+  const container = document.getElementById('users-info');
+  if (!container) return;
+  if (!result?.users?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine Benutzerkonten gefunden.</div>';
+    return;
+  }
+
+  const adminNames = new Set(
+    (result.groups ?? []).flatMap(g => g.members ?? []).map(m => m.toLowerCase())
+  );
+
+  const rows = result.users.map(u => {
+    const adminBadge = u.is_admin ? '<span class="user-badge user-admin">Admin</span>' : '';
+    const sysBadge   = u.is_system ? '<span class="user-badge user-system">System</span>' : '';
+    const disBadge   = u.is_disabled ? '<span class="user-badge user-disabled">Deaktiviert</span>' : '';
+    const pwBadge    = !u.has_password ? '<span class="user-badge user-nopw">Kein Passwort</span>' : '';
+    const fullName   = u.full_name ? `<span class="user-fullname">${escapeHtml(u.full_name)}</span>` : '';
+    return `<tr class="${u.is_disabled ? 'row-disabled' : ''}">
+      <td>${escapeHtml(u.name)} ${fullName}</td>
+      <td>${adminBadge}${sysBadge}${disBadge}${pwBadge}</td>
+      <td class="mono">${u.uid ?? '–'}</td>
+      <td class="mono">${escapeHtml(u.shell || '–')}</td>
+      <td class="mono">${escapeHtml(u.home_dir || '–')}</td>
+    </tr>`;
+  }).join('');
+
+  let groupHtml = '';
+  if (result.groups?.length) {
+    groupHtml = `<h4 style="margin:16px 0 8px;font-size:13px;color:var(--color-text-muted)">Gruppen</h4>
+    <div class="info-grid">${result.groups.map(g =>
+      `<div class="info-item"><span class="info-key">${escapeHtml(g.name)}</span>
+       <span class="info-val">${(g.members ?? []).join(', ') || '–'}</span></div>`
+    ).join('')}</div>`;
+  }
+
+  container.innerHTML = `
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr>
+          <th>Benutzername</th><th>Status</th><th>UID</th><th>Shell</th><th>Home</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${groupHtml}`;
+}
+
+// ─── Geplante Aufgaben ────────────────────────────────────────────────────────
+
+async function runTasksScan() {
+  const btn = document.getElementById('btn-scan-tasks');
+  const container = document.getElementById('tasks-info');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  if (container) container.innerHTML = '<div class="info-placeholder">Scanne geplante Aufgaben…</div>';
+  try {
+    const result = await ScanScheduledTasks();
+    renderTasks(result);
+    const count = result?.tasks?.length ?? 0;
+    setEl('tasks-count', count.toString());
+    setStatus(`Aufgaben-Scan: ${count} Aufgaben gefunden`);
+    addAction(`Aufgaben-Scan: ${count} geplante Aufgaben`, 'info');
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(err))}</div>`;
+    addAction('Aufgaben-Scan fehlgeschlagen: ' + err, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🗓 Aufgaben scannen'; }
+  }
+}
+
+function renderTasks(result) {
+  const container = document.getElementById('tasks-info');
+  if (!container) return;
+  if (!result?.tasks?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine geplanten Aufgaben gefunden.</div>';
+    return;
+  }
+
+  // Nicht-System-Aufgaben oben
+  const sorted = [...result.tasks].sort((a, b) => (a.is_system ? 1 : 0) - (b.is_system ? 1 : 0));
+
+  const rows = sorted.map(t => {
+    const enBadge  = !t.is_enabled ? '<span class="user-badge user-disabled">Deaktiviert</span>' : '';
+    const sysBadge = t.is_system ? '<span class="user-badge user-system">System</span>' : '';
+    const cmd = t.command?.length > 80 ? t.command.slice(0, 77) + '…' : t.command || '–';
+    const nextRun = t.next_run ? new Date(t.next_run).toLocaleString('de-DE') : '–';
+    return `<tr class="${!t.is_enabled ? 'row-disabled' : ''}">
+      <td>${escapeHtml(t.name)}${sysBadge}${enBadge}</td>
+      <td class="mono" title="${escapeHtml(t.command || '')}">${escapeHtml(cmd)}</td>
+      <td>${escapeHtml(t.schedule || '–')}</td>
+      <td>${nextRun}</td>
+      <td>${escapeHtml(t.run_as_user || '–')}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr>
+          <th>Name</th><th>Befehl</th><th>Zeitplan</th><th>Nächste Ausführung</th><th>Als Benutzer</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 async function runAutoVTScan() {
