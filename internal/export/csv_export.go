@@ -202,6 +202,91 @@ func GenerateCSV(data *SessionExport) string {
 		}
 	}
 
+	// ── Benutzerkonten ───────────────────────────────────────────────────────
+	if data.Users != nil && len(data.Users.Users) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# Benutzerkonten\r\n")
+		sb.WriteString("Benutzername,Vollständiger Name,Admin,System,Deaktiviert,Passwort,Shell,Home\r\n")
+		for _, u := range data.Users.Users {
+			fmt.Fprintf(sb, "%s,%s,%s,%s,%s,%s,%s,%s\r\n",
+				csvField(u.Name),
+				csvField(u.FullName),
+				boolStr(u.IsAdmin),
+				boolStr(u.IsSystem),
+				boolStr(u.IsDisabled),
+				boolStr(u.HasPassword),
+				csvField(u.Shell),
+				csvField(u.HomeDir),
+			)
+		}
+	}
+
+	// ── Geplante Aufgaben ────────────────────────────────────────────────────
+	if data.Tasks != nil && len(data.Tasks.Tasks) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# Geplante Aufgaben\r\n")
+		sb.WriteString("Name,Befehl,Zeitplan,Ausführen als,Quelle,System,Aktiviert,Letzter Lauf,Nächster Lauf\r\n")
+		for _, t := range data.Tasks.Tasks {
+			lastRun := ""
+			if !t.LastRun.IsZero() {
+				lastRun = t.LastRun.Format("02.01.2006 15:04:05")
+			}
+			nextRun := ""
+			if !t.NextRun.IsZero() {
+				nextRun = t.NextRun.Format("02.01.2006 15:04:05")
+			}
+			fmt.Fprintf(sb, "%s,%s,%s,%s,%s,%s,%s,%s,%s\r\n",
+				csvField(t.Name),
+				csvField(t.Command),
+				csvField(t.Schedule),
+				csvField(t.RunAsUser),
+				csvField(t.Source),
+				boolStr(t.IsSystem),
+				boolStr(t.IsEnabled),
+				lastRun,
+				nextRun,
+			)
+		}
+	}
+
+	// ── Konfigurationsprofile ─────────────────────────────────────────────────
+	if data.Profiles != nil && len(data.Profiles.Profiles) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# Konfigurationsprofile\r\n")
+		sb.WriteString("Name,Organisation,Identifier,Payload-Typen,Installiert,Verifiziert\r\n")
+		for _, p := range data.Profiles.Profiles {
+			installed := ""
+			if !p.InstallDate.IsZero() {
+				installed = p.InstallDate.Format("02.01.2006")
+			}
+			fmt.Fprintf(sb, "%s,%s,%s,%s,%s,%s\r\n",
+				csvField(p.Name),
+				csvField(p.Organization),
+				csvField(p.Identifier),
+				csvField(strings.Join(p.PayloadTypes, "; ")),
+				installed,
+				boolStr(p.Verified),
+			)
+		}
+	}
+
+	// ── USB-Geräte ────────────────────────────────────────────────────────────
+	if data.USB != nil && len(data.USB.Devices) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# USB-Geräte\r\n")
+		sb.WriteString("Name,Hersteller,VendorID,ProductID,Seriennummer,Geschwindigkeit\r\n")
+		for _, d := range data.USB.Devices {
+			fmt.Fprintf(sb, "%s,%s,%s,%s,%s,%s\r\n",
+				csvField(d.Name),
+				csvField(d.Manufacturer),
+				csvField(d.VendorID),
+				csvField(d.ProductID),
+				csvField(d.SerialNumber),
+				csvField(d.Speed),
+			)
+		}
+	}
+
 	// ── Speichervolumes ───────────────────────────────────────────────────────
 	if data.System != nil && len(data.System.Hardware.Volumes) > 0 {
 		sb.WriteString("\r\n")

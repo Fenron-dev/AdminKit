@@ -22,7 +22,9 @@ import (
 	"adminkit/internal/logging"
 	"adminkit/internal/network"
 	"adminkit/internal/printers"
+	"adminkit/internal/profiles"
 	"adminkit/internal/services"
+	"adminkit/internal/usbhistory"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
 	"adminkit/internal/tasks"
@@ -54,6 +56,10 @@ type App struct {
 	lastBrowserExtScan  *browserext.ScanResult
 	lastProcessScan     []system.RunningProcess
 	lastVTAuditLog      []export.VTAuditEntry
+	lastUsersScan       *users.ScanResult
+	lastTasksScan       *tasks.ScanResult
+	lastProfilesScan    *profiles.ScanResult
+	lastUSBScan         *usbhistory.ScanResult
 	lastSessionName     string
 	lastSessionPath     string
 
@@ -249,6 +255,10 @@ func (a *App) NewSession(customerName string) (string, error) {
 	a.lastBrowserExtScan = nil
 	a.lastProcessScan = nil
 	a.lastVTAuditLog = nil
+	a.lastUsersScan = nil
+	a.lastTasksScan = nil
+	a.lastProfilesScan = nil
+	a.lastUSBScan = nil
 	return path, nil
 }
 
@@ -366,6 +376,7 @@ func (a *App) ScanUsers() (*users.ScanResult, error) {
 		logging.Warnf("Users", "[%s] %s", e.Module, e.Message)
 	}
 	logging.Infof("Users", "Benutzer-Scan abgeschlossen: %d Benutzer, %d Gruppen", len(result.Users), len(result.Groups))
+	a.lastUsersScan = result
 	return result, nil
 }
 
@@ -381,6 +392,40 @@ func (a *App) ScanScheduledTasks() (*tasks.ScanResult, error) {
 		logging.Warnf("Tasks", "[%s] %s", e.Module, e.Message)
 	}
 	logging.Infof("Tasks", "Aufgaben-Scan abgeschlossen: %d Aufgaben", len(result.Tasks))
+	a.lastTasksScan = result
+	return result, nil
+}
+
+// ScanConfigProfiles gibt alle installierten macOS-Konfigurationsprofile zurück.
+// Auf Windows und Linux wird ein leeres Ergebnis zurückgegeben.
+func (a *App) ScanConfigProfiles() (*profiles.ScanResult, error) {
+	logging.Info("Profiles", "Konfigurationsprofil-Scan gestartet")
+	result, err := profiles.Scan()
+	if err != nil {
+		logging.Errorf("Profiles", "Scan fehlgeschlagen: %v", err)
+		return nil, err
+	}
+	for _, e := range result.Errors {
+		logging.Warnf("Profiles", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Profiles", "Profil-Scan abgeschlossen: %d Profile", len(result.Profiles))
+	a.lastProfilesScan = result
+	return result, nil
+}
+
+// ScanUSBDevices gibt alle angeschlossenen USB-Geräte zurück.
+func (a *App) ScanUSBDevices() (*usbhistory.ScanResult, error) {
+	logging.Info("USB", "USB-Scan gestartet")
+	result, err := usbhistory.Scan()
+	if err != nil {
+		logging.Errorf("USB", "Scan fehlgeschlagen: %v", err)
+		return nil, err
+	}
+	for _, e := range result.Errors {
+		logging.Warnf("USB", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("USB", "USB-Scan abgeschlossen: %d Geräte", len(result.Devices))
+	a.lastUSBScan = result
 	return result, nil
 }
 
@@ -631,6 +676,10 @@ func (a *App) ExportSession(format string) (string, error) {
 		BrowserExt:     a.lastBrowserExtScan,
 		Processes:      a.lastProcessScan,
 		VTAuditLog:     a.lastVTAuditLog,
+		Users:          a.lastUsersScan,
+		Tasks:          a.lastTasksScan,
+		Profiles:       a.lastProfilesScan,
+		USB:            a.lastUSBScan,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
 		LogoBase64:     a.readLogoBase64(),
@@ -687,6 +736,10 @@ func (a *App) ExportCSV() (string, error) {
 		BrowserExt:     a.lastBrowserExtScan,
 		Processes:      a.lastProcessScan,
 		VTAuditLog:     a.lastVTAuditLog,
+		Users:          a.lastUsersScan,
+		Tasks:          a.lastTasksScan,
+		Profiles:       a.lastProfilesScan,
+		USB:            a.lastUSBScan,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
 	}

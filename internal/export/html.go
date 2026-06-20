@@ -14,6 +14,10 @@ import (
 	"adminkit/internal/services"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
+	"adminkit/internal/profiles"
+	"adminkit/internal/tasks"
+	"adminkit/internal/usbhistory"
+	"adminkit/internal/users"
 )
 
 // h escaped HTML-Sonderzeichen.
@@ -100,6 +104,18 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if len(data.VTAuditLog) > 0 {
 		sb.WriteString("  <a href=\"#sec-vtaudit\">🔬 VirusTotal</a>\n")
 	}
+	if data.Users != nil && len(data.Users.Users) > 0 {
+		sb.WriteString("  <a href=\"#sec-users\">👤 Benutzer</a>\n")
+	}
+	if data.Tasks != nil && len(data.Tasks.Tasks) > 0 {
+		sb.WriteString("  <a href=\"#sec-tasks\">🗓 Aufgaben</a>\n")
+	}
+	if data.Profiles != nil && len(data.Profiles.Profiles) > 0 {
+		sb.WriteString("  <a href=\"#sec-profiles\">🛡 Profile</a>\n")
+	}
+	if data.USB != nil && len(data.USB.Devices) > 0 {
+		sb.WriteString("  <a href=\"#sec-usb\">🔌 USB</a>\n")
+	}
 	sb.WriteString("</nav>\n")
 
 	// ── Übersichtskarten ─────────────────────────────────────────────────────
@@ -184,6 +200,34 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if len(data.VTAuditLog) > 0 {
 		sb.WriteString("<section id=\"sec-vtaudit\">\n<h2 class=\"sec-title\">🔬 VirusTotal-Ergebnisse</h2>\n")
 		writeVTAuditSection(sb, data.VTAuditLog)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Benutzerkonten ───────────────────────────────────────────────────────
+	if data.Users != nil && len(data.Users.Users) > 0 {
+		sb.WriteString("<section id=\"sec-users\">\n<h2 class=\"sec-title\">👤 Benutzerkonten</h2>\n")
+		writeUsersSection(sb, data.Users)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Geplante Aufgaben ────────────────────────────────────────────────────
+	if data.Tasks != nil && len(data.Tasks.Tasks) > 0 {
+		sb.WriteString("<section id=\"sec-tasks\">\n<h2 class=\"sec-title\">🗓 Geplante Aufgaben</h2>\n")
+		writeTasksSection(sb, data.Tasks)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Konfigurationsprofile ─────────────────────────────────────────────────
+	if data.Profiles != nil && len(data.Profiles.Profiles) > 0 {
+		sb.WriteString("<section id=\"sec-profiles\">\n<h2 class=\"sec-title\">🛡 Konfigurationsprofile</h2>\n")
+		writeProfilesSection(sb, data.Profiles)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── USB-Geräte ───────────────────────────────────────────────────────────
+	if data.USB != nil && len(data.USB.Devices) > 0 {
+		sb.WriteString("<section id=\"sec-usb\">\n<h2 class=\"sec-title\">🔌 USB-Geräte</h2>\n")
+		writeUSBSection(sb, data.USB)
 		sb.WriteString("</section>\n")
 	}
 
@@ -894,6 +938,132 @@ func writeVTAuditSection(sb *strings.Builder, entries []VTAuditEntry) {
 	} else {
 		fmt.Fprintf(sb, "<p class=\"section-meta\">%d Einträge geprüft — keine Bedrohungen erkannt.</p>\n", len(entries))
 	}
+}
+
+func writeUSBSection(sb *strings.Builder, r *usbhistory.ScanResult) {
+	sb.WriteString("<table class=\"data-table\">\n<thead><tr>" +
+		"<th>Name</th><th>Hersteller</th><th>VID</th><th>PID</th><th>Seriennummer</th><th>Geschwindigkeit</th>" +
+		"</tr></thead>\n<tbody>\n")
+	for _, d := range r.Devices {
+		nameCell := h(d.Name)
+		if d.IsHub {
+			nameCell = "<span style=\"color:var(--muted)\">" + nameCell + "</span>"
+		}
+		fmt.Fprintf(sb, "<tr><td>%s</td><td>%s</td><td class=\"mono\">%s</td><td class=\"mono\">%s</td><td class=\"mono\" style=\"font-size:11px\">%s</td><td>%s</td></tr>\n",
+			nameCell, h(d.Manufacturer), h(d.VendorID), h(d.ProductID), h(d.SerialNumber), h(d.Speed))
+	}
+	sb.WriteString("</tbody></table>\n")
+	fmt.Fprintf(sb, "<p class=\"section-meta\">%d USB-Geräte</p>\n", len(r.Devices))
+}
+
+func writeProfilesSection(sb *strings.Builder, r *profiles.ScanResult) {
+	sb.WriteString("<table class=\"data-table\">\n<thead><tr>" +
+		"<th>Name</th><th>Organisation</th><th>Identifier</th>" +
+		"<th>Payload-Typen</th><th>Installiert</th><th>Verifiziert</th>" +
+		"</tr></thead>\n<tbody>\n")
+	for _, p := range r.Profiles {
+		installed := "–"
+		if !p.InstallDate.IsZero() {
+			installed = p.InstallDate.Format("02.01.2006")
+		}
+		verified := "–"
+		if p.Verified {
+			verified = "✅"
+		}
+		payloads := strings.Join(p.PayloadTypes, ", ")
+		if payloads == "" {
+			payloads = "–"
+		}
+		fmt.Fprintf(sb, "<tr><td><strong>%s</strong></td><td>%s</td><td class=\"mono\" style=\"font-size:11px\">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+			h(p.Name), h(p.Organization), h(p.Identifier), h(payloads), installed, verified)
+	}
+	sb.WriteString("</tbody></table>\n")
+	fmt.Fprintf(sb, "<p class=\"section-meta\">%d Konfigurationsprofile installiert</p>\n", len(r.Profiles))
+}
+
+func writeUsersSection(sb *strings.Builder, r *users.ScanResult) {
+	sb.WriteString("<table class=\"data-table\">\n<thead><tr>" +
+		"<th>Benutzername</th><th>Vollständiger Name</th><th>Admin</th><th>System</th>" +
+		"<th>Deaktiviert</th><th>Passwort</th><th>Shell</th><th>Home</th>" +
+		"</tr></thead>\n<tbody>\n")
+	for _, u := range r.Users {
+		rowCls := ""
+		if u.IsDisabled {
+			rowCls = " class=\"row-disabled\""
+		}
+		admin := "–"
+		if u.IsAdmin {
+			admin = "✅"
+		}
+		sys := "–"
+		if u.IsSystem {
+			sys = "✅"
+		}
+		disabled := "–"
+		if u.IsDisabled {
+			disabled = "⚠ Deaktiviert"
+		}
+		pw := "✅"
+		if !u.HasPassword {
+			pw = "❌ Kein Passwort"
+		}
+		fmt.Fprintf(sb, "<tr%s><td><strong>%s</strong></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><code>%s</code></td><td class=\"mono\" style=\"font-size:11px\">%s</td></tr>\n",
+			rowCls, h(u.Name), h(u.FullName), admin, sys, disabled, pw, h(u.Shell), h(u.HomeDir))
+	}
+	sb.WriteString("</tbody></table>\n")
+	if len(r.Groups) > 0 {
+		sb.WriteString("<h3 class=\"sub-title\">Lokale Gruppen</h3>\n" +
+			"<table class=\"data-table\"><thead><tr><th>Gruppe</th><th>Mitglieder</th></tr></thead>\n<tbody>\n")
+		for _, g := range r.Groups {
+			members := "–"
+			if len(g.Members) > 0 {
+				members = strings.Join(g.Members, ", ")
+			}
+			fmt.Fprintf(sb, "<tr><td><strong>%s</strong></td><td>%s</td></tr>\n",
+				h(g.Name), h(members))
+		}
+		sb.WriteString("</tbody></table>\n")
+	}
+	fmt.Fprintf(sb, "<p class=\"section-meta\">%d Benutzer · %d Gruppen</p>\n", len(r.Users), len(r.Groups))
+}
+
+func writeTasksSection(sb *strings.Builder, r *tasks.ScanResult) {
+	sb.WriteString("<table class=\"data-table\">\n<thead><tr>" +
+		"<th>Name</th><th>Befehl</th><th>Zeitplan</th><th>Ausführen als</th>" +
+		"<th>Quelle</th><th>Status</th><th>Letzter Lauf</th><th>Nächster Lauf</th>" +
+		"</tr></thead>\n<tbody>\n")
+	for _, t := range r.Tasks {
+		enabled := "✅"
+		if !t.IsEnabled {
+			enabled = "–"
+		}
+		lastRun := "–"
+		if !t.LastRun.IsZero() {
+			lastRun = t.LastRun.Format("02.01.2006 15:04")
+		}
+		nextRun := "–"
+		if !t.NextRun.IsZero() {
+			nextRun = t.NextRun.Format("02.01.2006 15:04")
+		}
+		rowCls := ""
+		if !t.IsSystem {
+			rowCls = " class=\"row-warn\""
+		}
+		fmt.Fprintf(sb, "<tr%s><td><strong>%s</strong></td><td class=\"mono\" style=\"font-size:11px\">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s %s</td><td>%s</td><td>%s</td></tr>\n",
+			rowCls, h(t.Name), h(t.Command), h(t.Schedule), h(t.RunAsUser),
+			h(t.Source), enabled, h(t.LastStatus), lastRun, nextRun)
+	}
+	sb.WriteString("</tbody></table>\n")
+	sysCnt, userCnt := 0, 0
+	for _, t := range r.Tasks {
+		if t.IsSystem {
+			sysCnt++
+		} else {
+			userCnt++
+		}
+	}
+	fmt.Fprintf(sb, "<p class=\"section-meta\">%d Aufgaben (%d System · %d Benutzer)</p>\n",
+		len(r.Tasks), sysCnt, userCnt)
 }
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────

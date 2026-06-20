@@ -216,6 +216,16 @@ export function ScanScheduledTasks() {
     return window['go']['main']['App']['ScanScheduledTasks']();
 }
 
+// ── Konfigurationsprofile ──
+export function ScanConfigProfiles() {
+    return window['go']['main']['App']['ScanConfigProfiles']();
+}
+
+// ── USB-Geräte ──
+export function ScanUSBDevices() {
+    return window['go']['main']['App']['ScanUSBDevices']();
+}
+
 // ── Terminal Log ──
 export function SaveTerminalLog(arg1) {
     return window['go']['main']['App']['SaveTerminalLog'](arg1);

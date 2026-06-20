@@ -34,6 +34,8 @@ import {
   GetNetworkConnections,
   ScanUsers,
   ScanScheduledTasks,
+  ScanConfigProfiles,
+  ScanUSBDevices,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -211,6 +213,8 @@ function initScanButtons() {
   document.getElementById('connections-search')?.addEventListener('input', filterConnections);
   document.getElementById('btn-scan-users')?.addEventListener('click', () => runUsersScan());
   document.getElementById('btn-scan-tasks')?.addEventListener('click', () => runTasksScan());
+  document.getElementById('btn-scan-profiles')?.addEventListener('click', () => runProfilesScan());
+  document.getElementById('btn-scan-usb')?.addEventListener('click', () => runUSBScan());
 }
 
 function initPrinterScan() {
@@ -244,6 +248,10 @@ async function runFullScan() {
   await runNetworkScanBasic(); // kein WiFi-Passwort-Dialog beim Vollscan
   await runSoftwareScan();
   await runBrowserExtScan();
+  await runUsersScan();
+  await runTasksScan();
+  await runProfilesScan();
+  await runUSBScan();
 
   showScanSummary();
 
@@ -3039,6 +3047,113 @@ function renderTasks(result) {
       <table class="data-table">
         <thead><tr>
           <th>Name</th><th>Befehl</th><th>Zeitplan</th><th>Nächste Ausführung</th><th>Als Benutzer</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ─── Konfigurationsprofile ────────────────────────────────────────────────────
+
+async function runProfilesScan() {
+  const btn = document.getElementById('btn-scan-profiles');
+  const container = document.getElementById('profiles-info');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  if (container) container.innerHTML = '<div class="info-placeholder">Scanne Konfigurationsprofile…</div>';
+  try {
+    const result = await ScanConfigProfiles();
+    renderProfiles(result);
+    const count = result?.profiles?.length ?? 0;
+    setEl('profiles-count', count.toString());
+    setStatus(`Profil-Scan: ${count} Profile gefunden`);
+    addAction(`Profil-Scan: ${count} Konfigurationsprofile`, 'info');
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(err))}</div>`;
+    addAction('Profil-Scan fehlgeschlagen: ' + err, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🛡 Profile scannen'; }
+  }
+}
+
+function renderProfiles(result) {
+  const container = document.getElementById('profiles-info');
+  if (!container) return;
+  if (!result?.profiles?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine Konfigurationsprofile installiert.</div>';
+    return;
+  }
+
+  const rows = result.profiles.map(p => {
+    const verBadge = p.verified ? '<span class="user-badge">✅ Verifiziert</span>' : '';
+    const payloads = (p.payload_types || []).join(', ') || '–';
+    const installed = p.install_date ? new Date(p.install_date).toLocaleDateString('de-DE') : '–';
+    return `<tr>
+      <td><strong>${escapeHtml(p.name)}</strong>${verBadge}</td>
+      <td>${escapeHtml(p.organization || '–')}</td>
+      <td class="mono" style="font-size:11px">${escapeHtml(p.identifier || '–')}</td>
+      <td>${escapeHtml(payloads)}</td>
+      <td>${installed}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr>
+          <th>Name</th><th>Organisation</th><th>Identifier</th><th>Payload-Typen</th><th>Installiert</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ─── USB-Geräte ───────────────────────────────────────────────────────────────
+
+async function runUSBScan() {
+  const btn = document.getElementById('btn-scan-usb');
+  const container = document.getElementById('usb-info');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  if (container) container.innerHTML = '<div class="info-placeholder">Scanne USB-Geräte…</div>';
+  try {
+    const result = await ScanUSBDevices();
+    renderUSBDevices(result);
+    const count = result?.devices?.length ?? 0;
+    setEl('usb-count', count.toString());
+    setStatus(`USB-Scan: ${count} Geräte gefunden`);
+    addAction(`USB-Scan: ${count} USB-Geräte`, 'info');
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(err))}</div>`;
+    addAction('USB-Scan fehlgeschlagen: ' + err, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔌 USB scannen'; }
+  }
+}
+
+function renderUSBDevices(result) {
+  const container = document.getElementById('usb-info');
+  if (!container) return;
+  if (!result?.devices?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine USB-Geräte gefunden.</div>';
+    return;
+  }
+
+  const rows = result.devices.map(d => {
+    const hubCls = d.is_hub ? 'style="color:var(--muted-color)"' : '';
+    return `<tr>
+      <td ${hubCls}>${escapeHtml(d.name)}</td>
+      <td>${escapeHtml(d.manufacturer || '–')}</td>
+      <td class="mono">${escapeHtml(d.vendor_id || '–')}</td>
+      <td class="mono">${escapeHtml(d.product_id || '–')}</td>
+      <td class="mono" style="font-size:11px">${escapeHtml(d.serial_number || '–')}</td>
+      <td>${escapeHtml(d.speed || '–')}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr>
+          <th>Name</th><th>Hersteller</th><th>VID</th><th>PID</th><th>Seriennummer</th><th>Geschwindigkeit</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>

@@ -16,6 +16,10 @@ import (
 	"adminkit/internal/services"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
+	"adminkit/internal/profiles"
+	"adminkit/internal/tasks"
+	"adminkit/internal/usbhistory"
+	"adminkit/internal/users"
 )
 
 // VTAuditEntry ist ein einzelnes VT-Prüfergebnis für den Export.
@@ -52,6 +56,10 @@ type SessionExport struct {
 	BrowserExt      *browserext.ScanResult
 	Processes       []system.RunningProcess
 	VTAuditLog      []VTAuditEntry
+	Users           *users.ScanResult
+	Tasks           *tasks.ScanResult
+	Profiles        *profiles.ScanResult
+	USB             *usbhistory.ScanResult
 }
 
 // ExportHTML erzeugt einen selbst-enthaltenen HTML-Bericht und speichert ihn
