@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -788,8 +789,8 @@ func parseFreq(s string) int {
 
 // ScanProcesses gibt alle laufenden Prozesse zurück (via ps).
 func ScanProcesses() ([]RunningProcess, error) {
-	// Felder: pid, user, %cpu, rss (KB), comm (Prozessname ohne Argumente)
-	out, err := exec.Command("ps", "-axo", "pid=,user=,pcpu=,rss=,comm=").Output()
+	// args= gibt den vollen Befehlsaufruf zurück (erster Token = Pfad/Name)
+	out, err := exec.Command("ps", "-axwwo", "pid=,user=,pcpu=,rss=,args=").Output()
 	if err != nil {
 		return nil, fmt.Errorf("ps fehlgeschlagen: %w", err)
 	}
@@ -811,11 +812,23 @@ func ScanProcesses() ([]RunningProcess, error) {
 		user := fields[1]
 		cpu, _ := strconv.ParseFloat(fields[2], 64)
 		rssKB, _ := strconv.ParseFloat(fields[3], 64)
-		name := strings.Join(fields[4:], " ")
+
+		// Erster Token von args ist der Ausführungspfad (oder Kernel-Thread-Name)
+		execArg := fields[4]
+		var name, path string
+		if strings.HasPrefix(execArg, "/") {
+			path = execArg
+			name = filepath.Base(execArg)
+		} else {
+			// Kernel-Threads oder kurze Namen ohne Pfad
+			name = strings.TrimPrefix(execArg, "(")
+			name = strings.TrimSuffix(name, ")")
+		}
 
 		procs = append(procs, RunningProcess{
 			PID:      pid,
 			Name:     name,
+			Path:     path,
 			User:     user,
 			CPUPct:   cpu,
 			MemoryMB: rssKB / 1024,

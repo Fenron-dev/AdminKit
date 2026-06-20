@@ -183,6 +183,18 @@ export function GetProcesses() {
     return window['go']['main']['App']['GetProcesses']();
 }
 
+export function GetVTWhitelist() {
+    return window['go']['main']['App']['GetVTWhitelist']();
+}
+
+export function AddToVTWhitelist(arg1, arg2) {
+    return window['go']['main']['App']['AddToVTWhitelist'](arg1, arg2);
+}
+
+export function RemoveFromVTWhitelist(arg1) {
+    return window['go']['main']['App']['RemoveFromVTWhitelist'](arg1);
+}
+
 // ── Terminal Log ──
 export function SaveTerminalLog(arg1) {
     return window['go']['main']['App']['SaveTerminalLog'](arg1);

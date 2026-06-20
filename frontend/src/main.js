@@ -29,6 +29,7 @@ import {
   GetOpenRouterModels,
   RunRawCommand,
   GetProcesses,
+  GetVTWhitelist, AddToVTWhitelist, RemoveFromVTWhitelist,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ const state = {
   // VT / KI Auswahl
   selectedItems: new Map(),       // key → {name, path, type, extra}
   vtAbortController: null,        // Für Abbrechen des VT-Scans
+  platform: 'darwin',             // Wird beim Boot via GetPlatform() gesetzt
   // Terminal
   terminalHistory: [],            // Befehlsverlauf
   terminalHistoryIdx: -1,         // Aktueller Verlaufsindex
@@ -1487,6 +1489,13 @@ async function runVTCheck() {
     return;
   }
 
+  // Whitelist laden um bekannte-saubere Items zu überspringen
+  let whitelistHashes = new Set();
+  try {
+    const wl = await GetVTWhitelist();
+    wl.forEach(e => whitelistHashes.add(e.sha256?.toLowerCase()));
+  } catch {}
+
   const items = [...state.selectedItems.values()];
   modal.classList.remove('hidden');
   if (bar) bar.style.width = '0%';
@@ -1503,6 +1512,13 @@ async function runVTCheck() {
     if (text) text.textContent = 'Keine prüfbaren Einträge (kein Pfad verfügbar).';
     if (doneBtn) doneBtn.classList.remove('hidden');
     return;
+  }
+
+  // Whitelist-Einträge vorab als "whitelisted" anzeigen
+  if (whitelistHashes.size > 0 && results) {
+    items.filter(i => !i.path).forEach(i => {
+      results.innerHTML += `<div class="vt-progress-item vt-clean">✓ ${escapeHtml(i.name)}: whitelisted (übersprungen)</div>`;
+    });
   }
 
   try {
@@ -1594,6 +1610,25 @@ function showVTDetail(result) {
     webBtn.onclick = () => { if (window.runtime?.BrowserOpenURL) window.runtime.BrowserOpenURL(result.permalink); };
   } else if (webBtn) {
     webBtn.classList.add('hidden');
+  }
+
+  // Whitelist-Button: nur bei clean/not_found mit bekanntem Hash
+  const wlBtn = document.getElementById('btn-vt-whitelist');
+  if (wlBtn && result.sha256 && (result.status === 'clean' || result.status === 'not_found')) {
+    wlBtn.classList.remove('hidden');
+    wlBtn.textContent = '✅ Whitelist';
+    wlBtn.onclick = async () => {
+      try {
+        await AddToVTWhitelist(result.sha256, result.name ?? '');
+        wlBtn.textContent = '✓ Gespeichert';
+        wlBtn.disabled = true;
+        showToast(`„${result.name}" zur VT-Whitelist hinzugefügt.`);
+      } catch (e) {
+        showToast('Whitelist-Fehler: ' + e);
+      }
+    };
+  } else if (wlBtn) {
+    wlBtn.classList.add('hidden');
   }
 
   modal.classList.remove('hidden');
@@ -2253,8 +2288,9 @@ round-trip min/avg/max/stddev = 11.234/11.899/12.345/0.432 ms`,
 
 /** Baut die Werkzeug-Auswahl mit plattformspezifischen Labels auf. */
 async function initPlatformTools() {
-  let platform = 'mac';
+  let platform = 'darwin';
   try { platform = (await GetPlatform()).trim(); } catch {}
+  state.platform = platform;
   const isMac = platform === 'darwin';
   const isWin = platform === 'windows';
 

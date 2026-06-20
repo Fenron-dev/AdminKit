@@ -753,6 +753,65 @@ func (a *App) PickFileForVTScan() (string, error) {
 	return path, nil
 }
 
+// ─── VT-Whitelist ─────────────────────────────────────────────────────────────
+
+type vtWhitelistEntry struct {
+	SHA256  string `json:"sha256"`
+	Name    string `json:"name"`
+	AddedAt string `json:"added_at"`
+}
+
+func (a *App) vtWhitelistPath() string {
+	return filepath.Join(a.vault.RootPath, "vt_whitelist.json")
+}
+
+// GetVTWhitelist gibt alle vertrauenswürdigen Hashes zurück.
+func (a *App) GetVTWhitelist() ([]vtWhitelistEntry, error) {
+	data, err := os.ReadFile(a.vtWhitelistPath())
+	if os.IsNotExist(err) {
+		return []vtWhitelistEntry{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var list []vtWhitelistEntry
+	json.Unmarshal(data, &list)
+	return list, nil
+}
+
+// AddToVTWhitelist fügt einen Hash zur Whitelist hinzu (idempotent).
+func (a *App) AddToVTWhitelist(sha256, name string) error {
+	list, _ := a.GetVTWhitelist()
+	for _, e := range list {
+		if strings.EqualFold(e.SHA256, sha256) {
+			return nil // bereits vorhanden
+		}
+	}
+	list = append(list, vtWhitelistEntry{
+		SHA256:  strings.ToLower(sha256),
+		Name:    name,
+		AddedAt: time.Now().Format("2006-01-02 15:04:05"),
+	})
+	data, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(a.vtWhitelistPath(), data, 0o644)
+}
+
+// RemoveFromVTWhitelist entfernt einen Hash aus der Whitelist.
+func (a *App) RemoveFromVTWhitelist(sha256 string) error {
+	list, _ := a.GetVTWhitelist()
+	filtered := list[:0]
+	for _, e := range list {
+		if !strings.EqualFold(e.SHA256, sha256) {
+			filtered = append(filtered, e)
+		}
+	}
+	data, _ := json.MarshalIndent(filtered, "", "  ")
+	return os.WriteFile(a.vtWhitelistPath(), data, 0o644)
+}
+
 // RunRawCommand führt einen beliebigen Shell-Befehl aus und gibt stdout+stderr zurück.
 // Wird für die erweiterte Konsole (freie Eingabe) verwendet.
 func (a *App) RunRawCommand(command string) (string, error) {
