@@ -341,25 +341,25 @@
                   </div>
                 </details>
 
-                <!-- Gemeinsame Ausgabe (Werkzeuge + freie Eingabe) -->
-                <div class="terminal-output" id="terminal-output">
-                  <span class="console-placeholder">Werkzeug auswählen &amp; ausführen — oder direkt unten eintippen…</span>
-                </div>
-
-                <!-- Aktionsleiste + Eingabe (sticky am unteren Rand) -->
-                <div class="terminal-footer">
-                  <div class="terminal-actions-row">
-                    <button class="btn btn-sm btn-secondary" id="btn-terminal-ai">🤖 An KI senden</button>
-                    <button class="btn btn-sm btn-secondary" id="btn-terminal-copy">📋 Kopieren</button>
-                    <button class="btn btn-sm btn-secondary" id="btn-terminal-save">💾 Log speichern</button>
-                    <button class="btn btn-sm btn-secondary" id="btn-terminal-clear">✕ Leeren</button>
-                    <span class="console-hint">↑↓ im Eingabefeld = Befehlsverlauf</span>
-                  </div>
+                <!-- Eingabe + Aktionsleiste (OBERHALB der Ausgabe → immer sichtbar) -->
+                <div class="terminal-controls">
                   <div class="terminal-input-row">
                     <span class="terminal-prompt">$</span>
                     <input class="terminal-input" type="text" id="terminal-input" placeholder="Eigenen Befehl eingeben (z.B. ls, whoami, ipconfig)…" autocomplete="off" spellcheck="false" />
                     <button class="btn btn-primary btn-sm" id="btn-terminal-run">↵</button>
                   </div>
+                  <div class="terminal-actions-row">
+                    <button class="btn btn-sm btn-secondary" id="btn-terminal-ai">🤖 KI</button>
+                    <button class="btn btn-sm btn-secondary" id="btn-terminal-copy">📋 Kopieren</button>
+                    <button class="btn btn-sm btn-secondary" id="btn-terminal-save">💾 Log</button>
+                    <button class="btn btn-sm btn-secondary" id="btn-terminal-clear">✕ Leeren</button>
+                    <span class="console-hint">↑↓ = Befehlsverlauf</span>
+                  </div>
+                </div>
+
+                <!-- Terminal-Ausgabe (unterhalb der Eingabe) -->
+                <div class="terminal-output" id="terminal-output">
+                  <span class="console-placeholder">Werkzeug auswählen &amp; ausführen — oder oben eigenen Befehl eingeben…</span>
                 </div>
 
               </div>

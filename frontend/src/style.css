@@ -1545,24 +1545,22 @@ body.platform-mac .titlebar {
   border-radius: var(--radius);
   padding: 6px 10px;
 }
-/* Sticky footer container for terminal actions + input */
-.terminal-footer {
-  position: sticky;
-  bottom: 0;
-  background: var(--color-bg);
-  padding-top: 6px;
+/* Controls above terminal output (input + action buttons) */
+.terminal-controls {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  z-index: 10;
-  border-top: 1px solid var(--color-border);
-  margin-top: 2px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
 }
 
 .terminal-actions-row {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 /* ── Konsolen-Aktionszeile ── */

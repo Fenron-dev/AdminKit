@@ -2002,10 +2002,21 @@ function initToolsTab() {
     }
   });
 
-  document.getElementById('tool-wifi-pw')?.addEventListener('click', () => {
+  document.getElementById('tool-wifi-pw')?.addEventListener('click', async () => {
     switchTab('network');
-    // Ggf. Netzwerk-Scan starten wenn noch keine Daten
-    if (!state.lastNetworkResult) runNetworkScan();
+    if (!state.lastNetworkResult) {
+      // Warnung: macOS zeigt Keychain-Dialog für jedes gespeicherte Netzwerk
+      showToast('macOS fragt für jedes gespeicherte WLAN nach Keychain-Zugriff — einmalig "Immer erlauben" wählen, um zukünftige Dialoge zu vermeiden.');
+      await runNetworkScan();
+      // Feedback nach dem Scan: wie viele Passwörter erfolgreich?
+      const wifi = state.lastNetworkResult?.wifi;
+      if (wifi?.length) {
+        const withPw = wifi.filter(w => w.password).length;
+        const total  = wifi.length;
+        if (withPw > 0) addAction(`${withPw} von ${total} WLAN-Passwörtern aus Keychain gelesen.`, 'success');
+        else addAction(`WLAN-Profile geladen (${total}). Passwörter: Keychain-Zugriff verweigert oder nicht konfiguriert.`, 'info');
+      }
+    }
   });
 
   document.getElementById('tool-uptime')?.addEventListener('click', async () => {
