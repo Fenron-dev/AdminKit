@@ -32,6 +32,18 @@ func RunCommand(tool, target string) (string, error) {
 		out, err = runKexts()
 	case "curl":
 		out, err = RunCurl(target)
+	case "ifconfig":
+		out, err = runIfconfig()
+	case "route":
+		out, err = runRoute()
+	case "dns-flush":
+		out, err = runDNSFlush()
+	case "hosts":
+		out, err = runHosts()
+	case "firewall":
+		out, err = runFirewall()
+	case "openports":
+		out, err = runOpenPorts()
 	default:
 		return "", fmt.Errorf("unbekanntes Tool: %s", tool)
 	}
@@ -134,6 +146,63 @@ func runARP() (string, error) {
 	out, err := exec.Command("arp", "-a").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("arp fehlgeschlagen: %w", err)
+	}
+	return string(out), nil
+}
+
+func runIfconfig() (string, error) {
+	out, err := exec.Command("ifconfig").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("ifconfig fehlgeschlagen: %w", err)
+	}
+	return string(out), nil
+}
+
+func runRoute() (string, error) {
+	out, err := exec.Command("netstat", "-rn").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("Route konnte nicht abgerufen werden: %w", err)
+	}
+	return string(out), nil
+}
+
+func runDNSFlush() (string, error) {
+	// mDNSResponder-Neustart erfordert Admin-Rechte; osascript zeigt nativen Auth-Dialog.
+	script := `do shell script "dscacheutil -flushcache; killall -HUP mDNSResponder" with administrator privileges`
+	out, err := exec.Command("osascript", "-e", script).CombinedOutput()
+	if err != nil {
+		// Ohne Admin-Rechte zumindest den user-Cache leeren
+		out2, _ := exec.Command("dscacheutil", "-flushcache").CombinedOutput()
+		return "DNS-User-Cache geleert (mDNSResponder-Neustart erfordert Admin-Rechte).\n" + string(out2), nil
+	}
+	return "DNS-Cache erfolgreich geleert (dscacheutil + mDNSResponder-Neustart).\n" + string(out), nil
+}
+
+func runHosts() (string, error) {
+	out, err := exec.Command("cat", "/etc/hosts").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("Hosts-Datei konnte nicht gelesen werden: %w", err)
+	}
+	return string(out), nil
+}
+
+func runFirewall() (string, error) {
+	fwPath := "/usr/libexec/ApplicationFirewall/socketfilterfw"
+	state, _ := exec.Command(fwPath, "--getglobalstate").CombinedOutput()
+	stealth, _ := exec.Command(fwPath, "--getstealthmode").CombinedOutput()
+	blockall, _ := exec.Command(fwPath, "--getblockall").CombinedOutput()
+	result := "=== macOS Application Firewall ===\n"
+	result += "Status:       " + strings.TrimSpace(string(state)) + "\n"
+	result += "Stealth Mode: " + strings.TrimSpace(string(stealth)) + "\n"
+	result += "Block All:    " + strings.TrimSpace(string(blockall)) + "\n"
+	return result, nil
+}
+
+func runOpenPorts() (string, error) {
+	// lsof ohne sudo zeigt nur Prozesse des aktuellen Benutzers
+	out, err := exec.Command("lsof", "-i", "-P", "-n", "-sTCP:LISTEN").CombinedOutput()
+	if err != nil && len(out) == 0 {
+		return "", fmt.Errorf("lsof fehlgeschlagen: %w", err)
 	}
 	return string(out), nil
 }

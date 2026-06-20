@@ -17,7 +17,7 @@ import {
   ScanNetworkBasic,
   GetSessions,
   StartService, StopService,
-  RunConsoleTool, BackupVault, GetClipboard, GetUptime,
+  RunConsoleTool, BackupVault, GetClipboard, GetUptime, GetPlatform,
   ExportSession, ExportCSV,
   SaveConfig,
   PickLogoFile,
@@ -82,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initActionLog();
   initActionBar();
   initToolsExtended();
+  initPlatformTools();
   applyPlatformClass();
   loadAppInfo();
 });
@@ -2031,32 +2032,133 @@ function initToolsTab() {
 
   // ── Konsolen-Tools ────────────────────────────────────────────────────────
   document.getElementById('btn-console-run')?.addEventListener('click', runConsoleTool);
-  document.getElementById('btn-console-clear')?.addEventListener('click', () => {
-    const out = document.getElementById('console-output');
-    if (out) out.innerHTML = '<span class="console-placeholder">Ausgabe geleert.</span>';
-  });
 
   // Enter-Taste im Target-Input löst Ausführung aus
   document.getElementById('console-target')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') runConsoleTool();
   });
 
-  // Placeholder-Text + Presets je nach Tool anpassen
+  // Placeholder-Text + Presets + Info-Box je nach Tool anpassen
   document.getElementById('console-tool')?.addEventListener('change', updateConsolePlaceholder);
-  updateConsolePlaceholder();
+  // updateConsolePlaceholder() wird nach initPlatformTools() aufgerufen
 }
 
-// Presets pro Tool
+// ─── Werkzeug-Definitionen (plattformübergreifend, Labels OS-spezifisch) ──────
+
+const CONSOLE_TOOL_DEFS = [
+  { value: 'ping',       mac: 'Ping',                  win: 'Ping',                  placeholder: 'Hostname oder IP (z.B. google.com)' },
+  { value: 'traceroute', mac: 'Traceroute',             win: 'Tracert',               placeholder: 'Hostname oder IP (z.B. 8.8.8.8)' },
+  { value: 'dns',        mac: 'DNS-Lookup',             win: 'DNS-Lookup',            placeholder: 'Hostname (z.B. example.com)' },
+  { value: 'dns-flush',  mac: 'DNS-Cache leeren',       win: 'DNS-Cache leeren',      placeholder: '(kein Ziel nötig)' },
+  { value: 'netstat',    mac: 'Netstat',                win: 'Netstat',               placeholder: '(kein Ziel nötig)' },
+  { value: 'openports',  mac: 'Offene Ports (lsof)',    win: 'Offene Ports (Listen)', placeholder: '(kein Ziel nötig)' },
+  { value: 'arp',        mac: 'ARP-Tabelle',            win: 'ARP-Tabelle',           placeholder: '(kein Ziel nötig)' },
+  { value: 'ifconfig',   mac: 'ifconfig (Interfaces)',  win: 'ipconfig /all',         placeholder: '(kein Ziel nötig)' },
+  { value: 'route',      mac: 'Routing-Tabelle',        win: 'Routing-Tabelle',       placeholder: '(kein Ziel nötig)' },
+  { value: 'firewall',   mac: 'Firewall-Status',        win: 'Firewall-Status',       placeholder: '(kein Ziel nötig)' },
+  { value: 'hosts',      mac: '/etc/hosts',             win: 'Hosts-Datei',           placeholder: '(kein Ziel nötig)' },
+  { value: 'portscan',   mac: 'Port-Scan (intern)',     win: 'Port-Scan (intern)',    placeholder: 'Host oder host:80,443 oder host:22-1024' },
+  { value: 'curl',       mac: 'HTTP/Curl',              win: 'HTTP/Curl',             placeholder: 'URL (z.B. https://api.ipify.org)' },
+  { value: 'drivers',    mac: 'Kernel-Extensions',      win: 'Treiber (driverquery)', placeholder: '(kein Ziel nötig)' },
+];
+
 const CONSOLE_PRESETS = {
   ping:       ['google.com', '8.8.8.8', '1.1.1.1', 'cloudflare.com', 'microsoft.com'],
   traceroute: ['google.com', '8.8.8.8', '1.1.1.1'],
   dns:        ['google.com', 'github.com', 'microsoft.com', 'apple.com'],
-  netstat:    [],
-  arp:        [],
   portscan:   ['localhost:80,443,22,3389', 'localhost:1-1024', '192.168.1.1:22,80,443'],
   curl:       ['https://api.ipify.org', 'https://ifconfig.me/ip', 'https://httpbin.org/ip', 'https://httpbin.org/get'],
-  drivers:    [],
 };
+
+const TOOL_INFO = {
+  ping: {
+    desc: 'Sendet ICMP-Pakete an einen Host und misst die Antwortzeit (Latenz in ms). Prüft grundlegend ob ein Host erreichbar ist.',
+    example: `PING google.com (142.250.185.78): 56 bytes\n64 bytes from 142.250.185.78: ttl=118 time=12.3 ms\n64 bytes from 142.250.185.78: ttl=118 time=11.8 ms\n\n--- google.com ping statistics ---\n4 packets transmitted, 4 received, 0% packet loss`,
+    interpret: '< 20 ms = ausgezeichnet · 20–80 ms = gut · > 100 ms = verzögert · 100 % Verlust = Host nicht erreichbar oder Firewall blockiert ICMP.',
+  },
+  traceroute: {
+    desc: 'Zeigt den vollständigen Netzwerkpfad (alle Router-Hops) zum Ziel und misst die Latenz an jedem Schritt.',
+    example: `1  192.168.1.1 (Router)    1.2 ms\n2  10.0.0.1                8.4 ms\n3  * * *                   (kein Antwort)\n4  142.250.185.78         12.3 ms`,
+    interpret: '"* * *" = Router antwortet nicht auf Traceroute (sehr häufig, kein Fehler). Hohe Latenz ab einem bestimmten Hop = Engpass. "!" am Ende = Verbindung aktiv blockiert.',
+  },
+  dns: {
+    desc: 'Fragt einen DNS-Server nach der IP-Adresse eines Hostnamens — oder umgekehrt (Reverse Lookup für IP → Hostname).',
+    example: `Server: 8.8.8.8\nAddress: 8.8.8.8#53\n\nNon-authoritative answer:\nName: google.com\nAddress: 142.250.185.78\nAddress: 2a00:1450:4016:804::200e`,
+    interpret: '"Non-authoritative answer" ist normal (gecachte Antwort). Kein Ergebnis / SERVFAIL = DNS-Server nicht erreichbar oder Name existiert nicht. Falscher A-Record = mögliches DNS-Spoofing.',
+  },
+  'dns-flush': {
+    desc: 'Leert den lokalen DNS-Cache. Hilfreich nach DNS-Änderungen, bei Weiterleitung auf falsche IP oder Malware-Verdacht.',
+    example: `[macOS] DNS-Cache erfolgreich geleert (dscacheutil + mDNSResponder-Neustart).\n[Windows] Die IP-Adressauflösungstabelle wurde geleert.`,
+    interpret: 'Nach dem Leeren werden alle DNS-Anfragen neu vom Server abgefragt. Nützlich wenn: eine Domain plötzlich auf eine falsche IP zeigt, neu gesetzte DNS-Einträge nicht sichtbar sind, oder ein AV-Tool DNS-Hijacking meldet.',
+  },
+  netstat: {
+    desc: 'Zeigt alle aktiven Netzwerkverbindungen des Systems (eingehend + ausgehend) mit Protokoll, Ports und Status.',
+    example: `Proto  Local Address         Foreign Address       State\nTCP    0.0.0.0:80            0.0.0.0:0             LISTEN\nTCP    192.168.1.5:52100     142.250.185.78:443    ESTABLISHED\nTCP    192.168.1.5:52101     185.125.188.55:443    TIME_WAIT`,
+    interpret: 'LISTEN = Port offen, wartet. ESTABLISHED = aktive Verbindung. TIME_WAIT = Verbindung wird gerade geschlossen (normal). Unbekannte ausländische IPs im ESTABLISHED-Status → mit VT/IP-Lookup prüfen.',
+  },
+  openports: {
+    desc: 'Listet alle Ports auf, auf denen das System aktiv lauscht — mit dem zugehörigen Prozess (macOS: lsof; Windows: netstat -ano).',
+    example: `[macOS via lsof]\nCOMMAND   PID  USER   TYPE  NAME\nnginx    1234  root   IPv4  *:80\nnode     5678  user   IPv4  *:3000\nsshd     9012  root   IPv4  *:22`,
+    interpret: 'Nur bekannte Anwendungen sollten lauschen. Unbekannte Prozesse auf ungewöhnlichen Ports = potenzielle Malware. "*" vor dem Port = auf allen Interfaces erreichbar (höheres Risiko als 127.0.0.1).',
+  },
+  arp: {
+    desc: 'Zeigt die ARP-Tabelle: Zuordnung von IP-Adressen zu MAC-Adressen im lokalen Netzwerk. Enthält alle Geräte, mit denen kürzlich kommuniziert wurde.',
+    example: `Address         HWtype  HWaddress           Flags Interface\n192.168.1.1     ether   aa:bb:cc:dd:ee:ff   C     en0\n192.168.1.100   ether   11:22:33:44:55:66   C     en0`,
+    interpret: 'Zwei IPs mit der gleichen MAC = ARP-Spoofing (Man-in-the-Middle möglich). Unbekannte MACs = fremde Geräte im Netzwerk. "incomplete" = Gerät hat nicht geantwortet.',
+  },
+  ifconfig: {
+    desc: 'Zeigt alle Netzwerk-Interfaces mit IP-Adressen, IPv6, MAC-Adresse, Netmaske und Status (macOS: ifconfig · Windows: ipconfig /all).',
+    example: `en0: flags=8863 mtu 1500\n  inet 192.168.1.5 netmask 0xffffff00 broadcast 192.168.1.255\n  ether aa:bb:cc:dd:ee:ff\n  status: active`,
+    interpret: 'lo0/Loopback (127.0.0.1) = normal. Mehrere externe IPs = VPN oder mehrere Netzwerkkarten aktiv. Kein "status: active" bei der bekannten Schnittstelle = Kabel/WLAN getrennt.',
+  },
+  route: {
+    desc: 'Zeigt die Routing-Tabelle: Welche Pakete über welches Gateway / Interface gesendet werden. Steuert den gesamten Netzwerkverkehr.',
+    example: `Destination     Gateway         Flags  Interface\n0.0.0.0/0       192.168.1.1     UG     en0\n192.168.1.0/24  link#4          U      en0\n127.0.0.0/8     lo0             U      lo0`,
+    interpret: '0.0.0.0 / "default" = Standard-Route (gesamter Internet-Traffic). Fehlende Default-Route = kein Internet-Zugang. Unbekannte Einträge können auf VPN, Malware oder Fehlkonfiguration hindeuten.',
+  },
+  firewall: {
+    desc: 'Prüft den aktuellen Status der System-Firewall (macOS Application Firewall / Windows Defender Firewall) auf allen Profilen.',
+    example: `[macOS]\nFirewall Status: ENABLED\nStealth Mode: OFF\nBlock all incoming connections: OFF\n\n[Windows]\nDomain Profile:   State: ON\nPrivate Profile:  State: ON\nPublic Profile:   State: ON`,
+    interpret: 'Firewall OFF auf einem Server oder Firmen-PC = Sicherheitsrisiko. Stealth Mode ON = System antwortet nicht auf Ping (empfohlen). Block All = sehr restriktiv, kann Dienste unterbrechen.',
+  },
+  hosts: {
+    desc: 'Liest die Hosts-Datei aus (/etc/hosts auf macOS · C:\\Windows\\System32\\drivers\\etc\\hosts auf Windows). Einträge hier überschreiben DNS — höchste Priorität.',
+    example: `127.0.0.1   localhost\n::1         localhost\n192.168.1.10 fileserver.local\n# 0.0.0.0  werbung.example.com  ← blockiert`,
+    interpret: 'Fremdartige Einträge die bekannte Domains umleiten (z.B. "1.2.3.4 microsoft.com") = klares Malware-Indiz. Auch Adblock-Listen nutzen /etc/hosts (0.0.0.0 vor dem Domain-Namen).',
+  },
+  portscan: {
+    desc: 'Scannt einen Host auf offene TCP-Ports. Format: "host:80,443" oder "host:1-1024" für einen Bereich.',
+    example: `Offene Ports auf 192.168.1.1:\n  22/tcp  SSH\n  80/tcp  HTTP\n  443/tcp HTTPS\n\n1021 geschlossene Ports, Scan in 4.2s`,
+    interpret: 'Nur erwartete Ports sollten offen sein. Port 22 offen = SSH-Zugang möglich. Unbekannte Ports → Dienst identifizieren (openports-Tool). Öffentlich erreichbarer Port 3389 (RDP) = hohes Angriffspotenzial.',
+  },
+  curl: {
+    desc: 'Führt einen HTTP/HTTPS-GET-Request durch und zeigt Status-Code, wichtige Response-Header und Anfang des Body.',
+    example: `Status: 200 OK\nContent-Type: text/html; charset=UTF-8\nServer: nginx/1.25.3\nX-Frame-Options: SAMEORIGIN\nStrict-Transport-Security: max-age=31536000\n\n[Body: erste 512 Bytes…]`,
+    interpret: '200 = OK · 301/302 = Weiterleitung · 403 = Kein Zugriff · 404 = Nicht gefunden · 5xx = Server-Fehler. Fehlende Security-Header (X-Frame-Options, CSP, HSTS) = Sicherheitslücken im Webserver.',
+  },
+  drivers: {
+    desc: 'Listet alle installierten Treiber (Windows: driverquery) oder geladene Kernel-Erweiterungen (macOS: kextstat) auf.',
+    example: `[macOS]\nIndex  Refs   Size   Name\n12     0      0x8000 com.apple.iokit.IOUSBFamily\n\n[Windows]\nModul-Name     Beschreibung        Treibertyp  Status\nnvlddmkm.sys   NVIDIA Display      Kernel      Aktiv`,
+    interpret: 'Kernel-Treiber haben höchste Rechte im System. Unbekannte Treiber ohne signierten Herausgeber = Rootkit-Risiko. Auf neueren macOS-Versionen stark eingeschränkt durch SIP und Gatekeeper.',
+  },
+};
+
+/** Baut die Werkzeug-Auswahl mit plattformspezifischen Labels auf. */
+async function initPlatformTools() {
+  let platform = 'mac';
+  try { platform = (await GetPlatform()).trim(); } catch {}
+  const isMac = platform === 'darwin';
+  const isWin = platform === 'windows';
+
+  const sel = document.getElementById('console-tool');
+  if (!sel) return;
+  sel.innerHTML = CONSOLE_TOOL_DEFS.map(t => {
+    const label = isWin ? t.win : t.mac;
+    return `<option value="${t.value}">${escapeHtml(label)}</option>`;
+  }).join('');
+
+  updateConsolePlaceholder();
+}
 
 function updateConsolePlaceholder() {
   const tool = document.getElementById('console-tool')?.value;
@@ -2064,25 +2166,33 @@ function updateConsolePlaceholder() {
   const preset = document.getElementById('console-preset');
   if (!input) return;
 
-  const placeholders = {
-    ping:       'Hostname oder IP (z.B. google.com)',
-    traceroute: 'Hostname oder IP (z.B. 8.8.8.8)',
-    dns:        'Hostname (z.B. example.com)',
-    netstat:    '(kein Ziel nötig)',
-    arp:        '(kein Ziel nötig)',
-    portscan:   'host oder host:80,443,3389 oder host:80-1024',
-    curl:       'URL (z.B. https://api.ipify.org)',
-    drivers:    '(kein Ziel nötig)',
-  };
-  input.placeholder = placeholders[tool] ?? 'Ziel eingeben…';
+  const def = CONSOLE_TOOL_DEFS.find(t => t.value === tool);
+  input.placeholder = def?.placeholder ?? 'Ziel eingeben…';
 
-  // Presets befüllen
   if (preset) {
     const options = CONSOLE_PRESETS[tool] ?? [];
     preset.innerHTML = '<option value="">– Vorschlag –</option>' +
       options.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
     preset.style.display = options.length > 0 ? '' : 'none';
   }
+
+  // Info-Box aktualisieren
+  updateToolInfo(tool);
+}
+
+function updateToolInfo(tool) {
+  const info = TOOL_INFO[tool];
+  const sel = document.getElementById('console-tool');
+  const label = sel?.options[sel.selectedIndex]?.text ?? tool;
+  const summary = document.getElementById('console-info-summary');
+  const desc    = document.getElementById('console-info-desc');
+  const example = document.getElementById('console-info-example');
+  const interp  = document.getElementById('console-info-interpret');
+  if (summary) summary.textContent = `ℹ ${label} — Was zeigt dieser Befehl?`;
+  if (!info) return;
+  if (desc)    desc.textContent    = info.desc;
+  if (example) example.textContent = info.example;
+  if (interp)  interp.textContent  = info.interpret;
 }
 
 async function runConsoleTool() {
@@ -2097,33 +2207,24 @@ async function runConsoleTool() {
     document.getElementById('console-tool')?.selectedIndex
   ]?.text ?? tool;
 
-  consoleWrite(`${label}${target ? ': ' + target : ''}`, '');
+  termWrite(`[${label}${target ? ': ' + target : ''}]`, null);
 
   try {
     const result = await RunConsoleTool(tool, target);
-    consoleAppend(result);
+    termAppend(result);
   } catch (err) {
-    consoleAppend('Fehler: ' + err);
+    termAppend('Fehler: ' + err);
   } finally {
     if (runBtn) { runBtn.disabled = false; runBtn.textContent = '▶ Ausführen'; }
   }
 }
 
-/** Schreibt einen Header + optionalen Text in die Konsolen-Ausgabe. */
-function consoleWrite(header, body) {
-  const out = document.getElementById('console-output');
-  if (!out) return;
-  const line = '═'.repeat(40);
-  out.textContent = `${line}\n  ${header}\n${line}\n${body ? body + '\n' : ''}`;
-  out.scrollTop = out.scrollHeight;
+/** Compat-Wrapper — früher console-output, jetzt unified terminal-output. */
+function consoleWrite(header, _body) {
+  termWrite(`[${header}]`, null);
 }
-
-/** Hängt Text an die bestehende Konsolen-Ausgabe an. */
 function consoleAppend(text) {
-  const out = document.getElementById('console-output');
-  if (!out) return;
-  out.textContent += text;
-  out.scrollTop = out.scrollHeight;
+  termAppend(text);
 }
 
 // ─── Erweiterte Tools-Features ────────────────────────────────────────────────
@@ -2134,18 +2235,6 @@ function initToolsExtended() {
     if (e.target.value) {
       document.getElementById('console-target').value = e.target.value;
     }
-  });
-
-  // ── Konsolen-Aktions-Buttons ───────────────────────────────────────────────
-  document.getElementById('btn-console-ai')?.addEventListener('click', () => {
-    const text = document.getElementById('console-output')?.textContent ?? '';
-    if (!text.trim()) return;
-    sendOutputToAI('Konsolen-Ausgabe', text);
-  });
-  document.getElementById('btn-console-copy')?.addEventListener('click', () => {
-    const text = document.getElementById('console-output')?.textContent ?? '';
-    navigator.clipboard.writeText(text).catch(() => {});
-    showToast('Ausgabe in Zwischenablage kopiert');
   });
 
   // Konsolen-Verlauf (↑/↓) im target-input

@@ -1417,6 +1417,65 @@ body.platform-mac .titlebar {
   color: #F1F5F9;
 }
 
+/* ── Konsolen-Info-Box (Details/Summary) ── */
+.console-info-box {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0;
+  overflow: hidden;
+}
+.console-info-box > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  transition: background .15s;
+}
+.console-info-box > summary::-webkit-details-marker { display: none; }
+.console-info-box > summary::before {
+  content: '▶';
+  font-size: 9px;
+  transition: transform .2s;
+}
+.console-info-box[open] > summary::before { transform: rotate(90deg); }
+.console-info-box > summary:hover { background: rgba(99,102,241,.06); }
+.console-info-content {
+  padding: 12px 14px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.console-info-desc {
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.5;
+  margin: 0;
+}
+.console-info-block { display: flex; flex-direction: column; gap: 4px; }
+.console-info-block strong { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted); }
+.console-info-block pre {
+  margin: 0;
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: calc(var(--radius) - 2px);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+[data-theme="light"] .console-info-block pre { background: #1e1e2e; color: #cdd6f4; }
+.console-info-block p { margin: 0; font-size: 12px; color: var(--color-text); line-height: 1.55; }
+
 /* ── Terminal ── */
 .terminal-wrap {
   display: flex;

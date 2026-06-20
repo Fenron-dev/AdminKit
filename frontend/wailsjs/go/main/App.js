@@ -173,3 +173,8 @@ export function GetOpenRouterModels(arg1) {
 export function RunRawCommand(arg1) {
     return window['go']['main']['App']['RunRawCommand'](arg1);
 }
+
+// ── Plattform-Erkennung ──
+export function GetPlatform() {
+    return window['go']['main']['App']['GetPlatform']();
+}

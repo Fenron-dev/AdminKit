@@ -308,56 +308,59 @@
               </div>
             </div>
 
+            <!-- Netzwerk-Terminal (Werkzeuge + freie Eingabe in einem) -->
             <div class="tools-group tools-group-full">
-              <h3 class="tools-group-title">Netzwerk-Konsole</h3>
+              <h3 class="tools-group-title">Netzwerk-Terminal</h3>
               <div class="console-tools">
+
+                <!-- Werkzeug-Auswahl -->
                 <div class="console-input-row">
                   <select class="console-select" id="console-tool">
-                    <option value="ping">Ping</option>
-                    <option value="traceroute">Traceroute</option>
-                    <option value="dns">DNS-Lookup</option>
-                    <option value="netstat">Netstat</option>
-                    <option value="arp">ARP-Tabelle</option>
-                    <option value="portscan">Port-Scan</option>
-                    <option value="curl">HTTP/Curl</option>
-                    <option value="drivers">Treiber/Extensions</option>
+                    <!-- Optionen werden per JS plattformspezifisch befüllt -->
                   </select>
-                  <!-- Preset-Dropdown je nach Tool -->
                   <select class="console-select console-preset" id="console-preset" style="min-width:160px">
                     <option value="">– Vorschlag –</option>
                   </select>
                   <input class="console-input" type="text" id="console-target" placeholder="Ziel: Host / IP / URL …" />
                   <button class="btn btn-primary" id="btn-console-run">▶ Ausführen</button>
-                  <button class="btn btn-secondary" id="btn-console-clear" title="Ausgabe leeren">✕</button>
                 </div>
-                <div class="console-output" id="console-output">
-                  <span class="console-placeholder">Wähle ein Werkzeug und gib ein Ziel ein…</span>
-                </div>
-                <div class="console-actions-row">
-                  <button class="btn btn-sm btn-secondary" id="btn-console-ai" title="Ausgabe an KI senden">🤖 An KI senden</button>
-                  <button class="btn btn-sm btn-secondary" id="btn-console-copy" title="Ausgabe kopieren">📋 Kopieren</button>
-                  <span class="console-hint">↑↓ für Verlauf</span>
-                </div>
-              </div>
-            </div>
 
-            <!-- Terminal (freie Eingabe) -->
-            <div class="tools-group tools-group-full">
-              <h3 class="tools-group-title">Terminal <span class="count-badge">Freie Eingabe</span></h3>
-              <div class="terminal-wrap">
+                <!-- Ausklappbare Info-Box für das aktuelle Werkzeug -->
+                <details id="console-info-box" class="console-info-box">
+                  <summary id="console-info-summary">ℹ Was zeigt dieser Befehl?</summary>
+                  <div class="console-info-content">
+                    <p class="console-info-desc" id="console-info-desc"></p>
+                    <div class="console-info-block">
+                      <strong>Beispiel-Ausgabe:</strong>
+                      <pre id="console-info-example"></pre>
+                    </div>
+                    <div class="console-info-block">
+                      <strong>Interpretation &amp; Tipps:</strong>
+                      <p id="console-info-interpret"></p>
+                    </div>
+                  </div>
+                </details>
+
+                <!-- Gemeinsame Ausgabe (Werkzeuge + freie Eingabe) -->
                 <div class="terminal-output" id="terminal-output">
-                  <span class="console-placeholder">Befehle direkt eingeben (z.B. ls, whoami, ipconfig)…</span>
+                  <span class="console-placeholder">Werkzeug auswählen &amp; ausführen — oder direkt unten eintippen…</span>
                 </div>
+
+                <!-- Aktionsleiste -->
                 <div class="terminal-actions-row">
                   <button class="btn btn-sm btn-secondary" id="btn-terminal-ai">🤖 An KI senden</button>
                   <button class="btn btn-sm btn-secondary" id="btn-terminal-copy">📋 Kopieren</button>
                   <button class="btn btn-sm btn-secondary" id="btn-terminal-clear">✕ Leeren</button>
+                  <span class="console-hint">↑↓ im Eingabefeld = Befehlsverlauf</span>
                 </div>
+
+                <!-- Freie Terminal-Eingabe -->
                 <div class="terminal-input-row">
                   <span class="terminal-prompt">$</span>
-                  <input class="terminal-input" type="text" id="terminal-input" placeholder="Befehl eingeben…" autocomplete="off" spellcheck="false" />
+                  <input class="terminal-input" type="text" id="terminal-input" placeholder="Eigenen Befehl eingeben (z.B. ls, whoami, ipconfig)…" autocomplete="off" spellcheck="false" />
                   <button class="btn btn-primary btn-sm" id="btn-terminal-run">↵</button>
                 </div>
+
               </div>
             </div>
           </div>

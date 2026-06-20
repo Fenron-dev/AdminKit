@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"time"
 
@@ -129,6 +130,11 @@ func (a *App) GetVaultPath() string {
 // GetAppVersion gibt die AdminKit-Version zurück.
 func (a *App) GetAppVersion() string {
 	return "0.6.0"
+}
+
+// GetPlatform gibt das aktuelle Betriebssystem zurück (darwin, windows, linux).
+func (a *App) GetPlatform() string {
+	return goruntime.GOOS
 }
 
 // SaveConfig speichert die Konfiguration (z.B. Branding-Einstellungen) dauerhaft in config.yaml.

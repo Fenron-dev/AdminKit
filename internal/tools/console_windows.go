@@ -4,6 +4,7 @@ package tools
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -34,6 +35,18 @@ func RunCommand(tool, target string) (string, error) {
 		out, err = runDrivers()
 	case "curl":
 		out, err = RunCurl(target)
+	case "ifconfig":
+		out, err = runIfconfig()
+	case "route":
+		out, err = runRoute()
+	case "dns-flush":
+		out, err = runDNSFlush()
+	case "hosts":
+		out, err = runHosts()
+	case "firewall":
+		out, err = runFirewall()
+	case "openports":
+		out, err = runOpenPorts()
 	default:
 		return "", fmt.Errorf("unbekanntes Tool: %s", tool)
 	}
@@ -71,6 +84,65 @@ func GetUptime() (string, error) {
 }
 
 // ─── Interne Implementierungen ────────────────────────────────────────────────
+
+func runIfconfig() (string, error) {
+	out, err := exec.Command("ipconfig", "/all").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("ipconfig fehlgeschlagen: %w", err)
+	}
+	return string(out), nil
+}
+
+func runRoute() (string, error) {
+	out, err := exec.Command("route", "print").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("route print fehlgeschlagen: %w", err)
+	}
+	return string(out), nil
+}
+
+func runDNSFlush() (string, error) {
+	out, err := exec.Command("ipconfig", "/flushdns").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("DNS-Cache konnte nicht geleert werden: %w", err)
+	}
+	return string(out), nil
+}
+
+func runHosts() (string, error) {
+	hostsPath := `C:\Windows\System32\drivers\etc\hosts`
+	data, err := os.ReadFile(hostsPath)
+	if err != nil {
+		return "", fmt.Errorf("Hosts-Datei konnte nicht gelesen werden: %w", err)
+	}
+	return string(data), nil
+}
+
+func runFirewall() (string, error) {
+	out, err := exec.Command("netsh", "advfirewall", "show", "allprofiles", "state").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("Firewall-Status konnte nicht abgerufen werden: %w", err)
+	}
+	return string(out), nil
+}
+
+func runOpenPorts() (string, error) {
+	// netstat -ano zeigt PID; -b für Prozessnamen braucht Admin
+	out, err := exec.Command("netstat", "-ano").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("netstat fehlgeschlagen: %w", err)
+	}
+	// Nur LISTENING-Zeilen herausfiltern
+	lines := strings.Split(string(out), "\r\n")
+	var result []string
+	result = append(result, "Proto  Local Address          Foreign Address        State           PID")
+	for _, l := range lines {
+		if strings.Contains(l, "LISTENING") {
+			result = append(result, l)
+		}
+	}
+	return strings.Join(result, "\n"), nil
+}
 
 func runPing(target string) (string, error) {
 	if target == "" {
