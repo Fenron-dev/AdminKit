@@ -5,6 +5,7 @@ package tools
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -221,22 +222,34 @@ func formatPortList(ports []int) string {
 
 // RunRaw führt einen beliebigen Shell-Befehl aus (sh -c / cmd /c) und gibt
 // stdout+stderr als String zurück. Für die freie Terminal-Eingabe.
+// RunRaw führt einen beliebigen Shell-Befehl aus (max. 30 Sekunden).
+// Endlose Befehle (z.B. ping ohne -c) werden nach 30 s automatisch abgebrochen.
 func RunRaw(command string) (string, error) {
 	if strings.TrimSpace(command) == "" {
 		return "", fmt.Errorf("leerer Befehl")
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("cmd", "/c", command)
+		cmd = exec.CommandContext(ctx, "cmd", "/c", command)
 	} else {
-		cmd = exec.Command("sh", "-c", command)
+		cmd = exec.CommandContext(ctx, "sh", "-c", command)
 	}
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
-	_ = cmd.Run() // Fehlercode ignorieren — Ausgabe enthält Details
+	_ = cmd.Run()
+
 	result := strings.TrimRight(buf.String(), "\n")
-	if result == "" {
+	if ctx.Err() == context.DeadlineExceeded {
+		if result != "" {
+			result += "\n\n⚠ Zeitüberschreitung (30 s) — Befehl wurde abgebrochen.\nTipp: z.B. 'ping -c 5 host' statt 'ping host'"
+		} else {
+			result = "⚠ Zeitüberschreitung (30 s) — keine Ausgabe.\nTipp: z.B. 'ping -c 5 host' statt 'ping host'"
+		}
+	} else if result == "" {
 		result = "(keine Ausgabe)"
 	}
 	return result, nil

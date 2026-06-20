@@ -2289,7 +2289,7 @@ function initToolsExtended() {
     if (termInput) termInput.value = '';
 
     // Befehl in Ausgabe anzeigen
-    termWrite(`$ ${cmd}`, '');
+    termWrite(`$ ${cmd}`, '⏳ Läuft…');
     try {
       const result = await RunRawCommand(cmd);
       termAppend(result);

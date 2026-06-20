@@ -252,32 +252,84 @@ func scanWiFi(includePasswords bool) ([]WiFiProfile, []ScanError) {
 			IsConnected: ssid == connectedSSID,
 		}
 
-		// Passwort aus Keychain (erfordert Benutzer-Zustimmung pro SSID)
-		if includePasswords {
-			pw, pwErr := fetchWiFiPassword(ssid)
-			if pwErr == nil && pw != "" {
-				profile.Password = pw // NIEMALS loggen
-				profile.HasPassword = true
-			} else {
-				// Passwort existiert, aber kein Zugriff – aus Sicherheitstyp ableiten
-				profile.HasPassword = profile.Security != WiFiOpen
-			}
-		} else {
-			// Keine Keychain-Abfrage: HasPassword aus Sicherheitstyp ableiten
-			// → verhindert bis zu N Systemdialoge beim Vollständigen Scan
-			profile.HasPassword = profile.Security != WiFiOpen
-		}
-
 		profiles = append(profiles, profile)
+	}
+
+	// Passwörter per Single-Admin-Dialog holen (einmal für alle SSIDs)
+	if includePasswords && len(profiles) > 0 {
+		ssids := make([]string, len(profiles))
+		for i, p := range profiles {
+			ssids[i] = p.SSID
+		}
+		pwMap := fetchWiFiPasswordsBatch(ssids)
+		for i := range profiles {
+			pw := pwMap[profiles[i].SSID]
+			if pw != "" {
+				profiles[i].Password = pw // NIEMALS loggen
+				profiles[i].HasPassword = true
+			} else {
+				profiles[i].HasPassword = profiles[i].Security != WiFiOpen
+			}
+		}
+	} else if !includePasswords {
+		for i := range profiles {
+			profiles[i].HasPassword = profiles[i].Security != WiFiOpen
+		}
 	}
 
 	return profiles, errs
 }
 
-// fetchWiFiPassword holt das WiFi-Passwort aus dem macOS-Keychain.
-// Erfordert Benutzer-Zustimmung via Systemdialog beim ersten Aufruf.
-// NIEMALS das Ergebnis loggen.
-func fetchWiFiPassword(ssid string) (string, error) {
+// fetchWiFiPasswordsBatch holt alle WiFi-Passwörter mit EINEM einzigen Admin-Dialog
+// (osascript with administrator privileges → läuft als root → kein per-Eintrag Keychain-Dialog).
+// Gibt map[ssid]password zurück. NIEMALS das Ergebnis loggen.
+func fetchWiFiPasswordsBatch(ssids []string) map[string]string {
+	result := make(map[string]string)
+	if len(ssids) == 0 {
+		return result
+	}
+
+	// Shell-Skript: für jede SSID security aufrufen, Ergebnis mit Trennzeichen ausgeben.
+	// Als root (über osascript admin) braucht security keine per-Eintrag Keychain-Zustimmung.
+	var sb strings.Builder
+	sb.WriteString("#!/bin/sh\n")
+	for _, ssid := range ssids {
+		// Einfache Quotes escapen: ' → '\''
+		safe := strings.ReplaceAll(ssid, "'", "'\\''")
+		sb.WriteString(fmt.Sprintf(
+			"pw=$(security find-generic-password -D 'AirPort network password' -a '%s' -w 2>/dev/null || true)\n",
+			safe,
+		))
+		sb.WriteString(fmt.Sprintf("printf '%%s\\t%%s\\n' '%s' \"$pw\"\n", safe))
+	}
+
+	// AppleScript escaped (einfache Quotes im Shell-Skript durch " ersetzen für AppleScript-String)
+	appleScriptBody := strings.ReplaceAll(sb.String(), `"`, `\"`)
+	appleScript := fmt.Sprintf(`do shell script "%s" with administrator privileges`, appleScriptBody)
+
+	out, err := exec.Command("osascript", "-e", appleScript).Output()
+	if err != nil {
+		// Fallback: einzeln ohne Admin (alter Weg mit N Dialogen)
+		for _, ssid := range ssids {
+			pw, e := fetchWiFiPasswordSingle(ssid)
+			if e == nil && pw != "" {
+				result[ssid] = pw
+			}
+		}
+		return result
+	}
+
+	for _, line := range strings.Split(string(out), "\n") {
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) == 2 && parts[1] != "" {
+			result[parts[0]] = strings.TrimSpace(parts[1])
+		}
+	}
+	return result
+}
+
+// fetchWiFiPasswordSingle ist der Fallback (ein Dialog pro SSID).
+func fetchWiFiPasswordSingle(ssid string) (string, error) {
 	out, err := exec.Command("security", "find-generic-password",
 		"-D", "AirPort network password",
 		"-a", ssid,
