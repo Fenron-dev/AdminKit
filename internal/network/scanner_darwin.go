@@ -26,6 +26,8 @@ func Scan(includeWiFiPasswords bool) (*ScanResult, error) {
 	result.WiFi = wifi
 	result.Errors = append(result.Errors, errs...)
 
+	result.SearchDomains = fetchSearchDomains()
+
 	return result, nil
 }
 
@@ -126,6 +128,28 @@ func fetchDNSServers(errs *[]ScanError) []string {
 		}
 	}
 	return servers
+}
+
+// fetchSearchDomains liest DNS-Suchdomänen via scutil aus (z.B. "fritz.box", "corp.local").
+func fetchSearchDomains() []string {
+	out, err := exec.Command("scutil", "--dns").Output()
+	if err != nil {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var domains []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "search domain[") && strings.Contains(line, ":") {
+			parts := strings.SplitN(line, ":", 2)
+			d := strings.TrimSpace(parts[1])
+			if d != "" && !seen[d] {
+				seen[d] = true
+				domains = append(domains, d)
+			}
+		}
+	}
+	return domains
 }
 
 // fetchConnectedSSID gibt das aktuell verbundene WLAN-Netzwerk zurück.

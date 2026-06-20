@@ -29,7 +29,33 @@ func Scan(includeWiFiPasswords bool) (*ScanResult, error) {
 	result.WiFi = wifi
 	result.Errors = append(result.Errors, errs...)
 
+	result.SearchDomains = fetchSearchDomains()
+
 	return result, nil
+}
+
+// fetchSearchDomains liest DNS-Suchdomänen aus ipconfig /all.
+func fetchSearchDomains() []string {
+	out, err := exec.Command("ipconfig", "/all").Output()
+	if err != nil {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var domains []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		// "DNS Suffix Search List. . . . : corp.local"
+		// "Connection-specific DNS Suffix  . : fritz.box"
+		if strings.Contains(line, "DNS Suffix") && strings.Contains(line, ":") {
+			parts := strings.SplitN(line, ":", 2)
+			d := strings.TrimSpace(parts[1])
+			if d != "" && !seen[d] {
+				seen[d] = true
+				domains = append(domains, d)
+			}
+		}
+	}
+	return domains
 }
 
 // ─── Netzwerkadapter ─────────────────────────────────────────────────────────

@@ -1761,6 +1761,18 @@ function updateNetworkBadge(result) {
   const status = connected > 0 ? 'OK' : 'UNKNOWN';
   setBadge('badge-network', 'detail-network', status,
     `${connected}/${total} Adapter verbunden`);
+
+  // Primär-Adapter: verbundener Nicht-Loopback mit IPv4
+  const primary = result.adapters?.find(a => a.is_connected && a.ipv4?.length && a.type !== 'Loopback');
+  if (primary) {
+    setEl('info-ip', primary.ipv4.join(', '));
+    setEl('info-gateway', primary.gateway || '–');
+    setEl('info-dns', primary.dns_servers?.slice(0, 2).join(', ') || '–');
+  }
+  const domains = result.search_domains;
+  if (domains?.length) {
+    setEl('info-domain', domains.join(', '));
+  }
 }
 
 // ─── Dashboard-Badges aktualisieren ──────────────────────────────────────────

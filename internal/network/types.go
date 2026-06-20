@@ -7,11 +7,12 @@ import "time"
 
 // ScanResult ist das vollständige Ergebnis eines Netzwerk-Scans.
 type ScanResult struct {
-	Timestamp time.Time       `json:"timestamp"`
-	Adapters  []Adapter       `json:"adapters"`
-	Shares    []NetworkShare  `json:"shares"`
-	WiFi      []WiFiProfile   `json:"wifi"`
-	Errors    []ScanError     `json:"errors,omitempty"`
+	Timestamp     time.Time      `json:"timestamp"`
+	Adapters      []Adapter      `json:"adapters"`
+	Shares        []NetworkShare `json:"shares"`
+	WiFi          []WiFiProfile  `json:"wifi"`
+	SearchDomains []string       `json:"search_domains,omitempty"`
+	Errors        []ScanError    `json:"errors,omitempty"`
 }
 
 // ─── Netzwerkadapter ─────────────────────────────────────────────────────────
