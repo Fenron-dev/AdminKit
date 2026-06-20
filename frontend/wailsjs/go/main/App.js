@@ -226,6 +226,15 @@ export function ScanUSBDevices() {
     return window['go']['main']['App']['ScanUSBDevices']();
 }
 
+// ── Vault-Archivierung ──
+export function PickArchiveDirectory() {
+    return window['go']['main']['App']['PickArchiveDirectory']();
+}
+
+export function ArchiveVault(arg1) {
+    return window['go']['main']['App']['ArchiveVault'](arg1);
+}
+
 // ── Terminal Log ──
 export function SaveTerminalLog(arg1) {
     return window['go']['main']['App']['SaveTerminalLog'](arg1);

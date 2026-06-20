@@ -36,6 +36,8 @@ import {
   ScanScheduledTasks,
   ScanConfigProfiles,
   ScanUSBDevices,
+  PickArchiveDirectory,
+  ArchiveVault,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -2221,6 +2223,45 @@ function initToolsTab() {
     }
   });
 
+  document.getElementById('tool-vault-archive')?.addEventListener('click', () => {
+    openArchiveModal();
+  });
+
+  document.getElementById('archive-btn-cancel')?.addEventListener('click', closeArchiveModal);
+  document.getElementById('archive-modal-close')?.addEventListener('click', closeArchiveModal);
+  document.getElementById('archive-btn-pick')?.addEventListener('click', async () => {
+    try {
+      const dir = await PickArchiveDirectory();
+      if (!dir) return;
+      document.getElementById('archive-dest-display').textContent = dir;
+      document.getElementById('archive-btn-start').disabled = false;
+      document.getElementById('archive-btn-start').dataset.dest = dir;
+    } catch (err) {
+      showToast('Fehler beim Öffnen des Verzeichnis-Dialogs: ' + err);
+    }
+  });
+  document.getElementById('archive-btn-start')?.addEventListener('click', async () => {
+    const dest = document.getElementById('archive-btn-start').dataset.dest;
+    if (!dest) return;
+    closeArchiveModal();
+    const btn = document.getElementById('tool-vault-archive');
+    if (btn) btn.style.opacity = '0.5';
+    setStatus('Archivierung läuft…');
+    try {
+      const result = await ArchiveVault(dest);
+      const mb = ((result.copied_bytes || 0) / 1048576).toFixed(1);
+      addAction(`Archivierung abgeschlossen: ${result.copied_files} Dateien (${mb} MB) → ${shortenPath(result.archive_path)}`, 'success');
+      showToast(`✅ ${result.copied_files} Dateien archiviert. Vault wurde bereinigt.`);
+      setStatus('Archivierung abgeschlossen');
+    } catch (err) {
+      addAction('Archivierung fehlgeschlagen: ' + err, 'error');
+      showToast('❌ Archivierung fehlgeschlagen: ' + err);
+      setStatus('Fehler bei der Archivierung');
+    } finally {
+      if (btn) btn.style.opacity = '';
+    }
+  });
+
   document.getElementById('tool-wifi-pw')?.addEventListener('click', async () => {
     switchTab('network');
     if (!state.lastNetworkResult) {
@@ -3425,6 +3466,9 @@ function initExport() {
   document.getElementById('export-modal-overlay')?.addEventListener('click', (e) => {
     if (e.target.id === 'export-modal-overlay') closeExportModal();
   });
+  document.getElementById('modal-archive-overlay')?.addEventListener('click', (e) => {
+    if (e.target.id === 'modal-archive-overlay') closeArchiveModal();
+  });
 }
 
 async function runExport(format) {
@@ -3495,6 +3539,22 @@ function showExportModal(format, path, error) {
 
 function closeExportModal() {
   document.getElementById('export-modal-overlay')?.classList.add('hidden');
+}
+
+// ─── Vault-Archivierung ───────────────────────────────────────────────────────
+
+function openArchiveModal() {
+  const overlay = document.getElementById('modal-archive-overlay');
+  if (!overlay) return;
+  // Zustand zurücksetzen
+  document.getElementById('archive-dest-display').textContent = 'Kein Ziel ausgewählt';
+  const startBtn = document.getElementById('archive-btn-start');
+  if (startBtn) { startBtn.disabled = true; delete startBtn.dataset.dest; }
+  overlay.classList.remove('hidden');
+}
+
+function closeArchiveModal() {
+  document.getElementById('modal-archive-overlay')?.classList.add('hidden');
 }
 
 // ─── Einstellungen ────────────────────────────────────────────────────────────

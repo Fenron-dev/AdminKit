@@ -607,6 +607,36 @@ func (a *App) RunConsoleTool(tool, target string) (string, error) {
 	return out, nil
 }
 
+// PickArchiveDirectory öffnet einen nativen Verzeichnis-Dialog zur Auswahl des Archivziels.
+func (a *App) PickArchiveDirectory() (string, error) {
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Archivziel wählen",
+	})
+	if err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// ArchiveVault kopiert alle Sessions, Exporte und Logs nach destDir und löscht
+// sie danach aus dem Vault. config.yaml und clients/ bleiben erhalten.
+func (a *App) ArchiveVault(destDir string) (*vault.ArchiveResult, error) {
+	if a.vault == nil {
+		return nil, fmt.Errorf("keine Vault initialisiert")
+	}
+	if destDir == "" {
+		return nil, fmt.Errorf("kein Zielverzeichnis angegeben")
+	}
+	logging.Infof("Vault", "Archivierung gestartet → %s", destDir)
+	result, err := a.vault.ArchiveAndClean(destDir)
+	if err != nil {
+		logging.Errorf("Vault", "Archivierung fehlgeschlagen: %v", err)
+		return nil, err
+	}
+	logging.Infof("Vault", "Archivierung abgeschlossen: %d Dateien → %s", result.CopiedFiles, result.ArchivePath)
+	return result, nil
+}
+
 // BackupVault erstellt ein ZIP-Archiv der gesamten Vault.
 // Das Archiv wird in vaultPath/exports/backups/ abgelegt.
 func (a *App) BackupVault() (string, error) {

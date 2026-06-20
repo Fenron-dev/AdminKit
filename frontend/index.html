@@ -357,6 +357,10 @@
                   <span class="tool-icon">💾</span>
                   <span>Vault-Backup</span>
                 </button>
+                <button class="tool-btn" id="tool-vault-archive">
+                  <span class="tool-icon">🗃</span>
+                  <span>Archivieren &amp; bereinigen</span>
+                </button>
                 <button class="tool-btn" id="tool-wifi-pw">
                   <span class="tool-icon">🔑</span>
                   <span>WiFi-Passwörter</span>
@@ -599,6 +603,26 @@
             <button class="btn btn-secondary" id="settings-cancel">Abbrechen</button>
             <button class="btn btn-primary" id="settings-save">Speichern</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Archivierungs-Bestätigungs-Dialog -->
+      <div class="modal-overlay hidden" id="modal-archive-overlay">
+        <div class="modal">
+          <h2>🗃 Archivieren &amp; bereinigen</h2>
+          <p style="margin-bottom:12px">Alle Sessions, Berichte und Logs werden in das gewählte Verzeichnis kopiert und anschließend aus dem Vault gelöscht.</p>
+          <div id="archive-dest-display" style="background:var(--surface-color,#1e293b);border:1px solid var(--border-color,#334155);border-radius:6px;padding:8px 12px;font-size:12px;font-family:monospace;margin-bottom:16px;word-break:break-all">
+            Kein Ziel ausgewählt
+          </div>
+          <div style="background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.3);border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:16px;color:#dc2626">
+            ⚠ Diese Aktion löscht alle Scan-Daten aus dem Vault. Sicherstellen, dass das Ziel erreichbar ist (z.B. externer Datenträger oder Netzlaufwerk).
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="archive-btn-cancel">Abbrechen</button>
+            <button class="btn btn-secondary" id="archive-btn-pick">📁 Ziel wählen…</button>
+            <button class="btn btn-primary" id="archive-btn-start" disabled>🗃 Archivieren &amp; löschen</button>
+          </div>
+          <button class="modal-close" id="archive-modal-close" title="Schließen">✕</button>
         </div>
       </div>
 
