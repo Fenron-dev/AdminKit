@@ -7,8 +7,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
+
+// SessionInfo beschreibt eine gespeicherte Kunden-Session im Vault.
+type SessionInfo struct {
+	Name      string    `json:"name"`
+	Path      string    `json:"path"`
+	CreatedAt time.Time `json:"created_at"`
+}
 
 // Vault repräsentiert eine AdminKit-Vault-Instanz.
 type Vault struct {
@@ -66,6 +74,37 @@ func (v *Vault) NewSession(customerName string) (string, error) {
 	}
 
 	return sessionPath, nil
+}
+
+// ListSessions gibt alle gespeicherten Sessions zurück (neueste zuerst).
+func (v *Vault) ListSessions() ([]SessionInfo, error) {
+	dataDir := filepath.Join(v.RootPath, "data")
+	entries, err := os.ReadDir(dataDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var sessions []SessionInfo
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		sessions = append(sessions, SessionInfo{
+			Name:      e.Name(),
+			Path:      filepath.Join(dataDir, e.Name()),
+			CreatedAt: info.ModTime(),
+		})
+	}
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].CreatedAt.After(sessions[j].CreatedAt)
+	})
+	return sessions, nil
 }
 
 // DataPath gibt den absoluten Pfad zu einer Datei innerhalb der Vault zurück.

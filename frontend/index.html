@@ -23,6 +23,7 @@
         </div>
         <div class="titlebar-right">
           <button class="icon-btn" id="btn-new-session" title="Neue Session erstellen">📋 Neue Session</button>
+          <button class="icon-btn" id="btn-session-history" title="Session-Verlauf anzeigen">🕐 Verlauf</button>
           <button class="icon-btn" id="btn-theme" title="Theme wechseln">🌙</button>
           <div class="export-wrap">
             <button class="icon-btn export-btn" id="btn-export" title="Bericht exportieren">📤 Exportieren ▾</button>
@@ -176,6 +177,12 @@
                 <div class="info-placeholder">„Drucker scannen" klicken um Drucker aufzulisten…</div>
               </div>
             </div>
+            <div class="info-section">
+              <h3 class="section-title">Sicherheit</h3>
+              <div id="security-info">
+                <div class="info-placeholder">System-Scan starten um Sicherheitsinformationen zu laden…</div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -214,6 +221,7 @@
             <div class="toolbar-actions">
               <input class="search-input" type="search" id="software-search" placeholder="Name oder Hersteller suchen…" />
               <button class="btn btn-primary" id="btn-scan-software">🔍 Software scannen</button>
+              <button class="btn btn-secondary" id="btn-scan-extensions">🧩 Extensions scannen</button>
             </div>
           </div>
           <div class="table-wrapper">
@@ -232,6 +240,15 @@
                 <tr><td colspan="6" class="table-placeholder">Scan starten um Software zu laden…</td></tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+          <!-- Browser-Extensions Sektion -->
+          <div class="info-section" style="margin-top:16px">
+            <h3 class="section-title">Browser-Erweiterungen <span class="count-badge" id="extensions-count"></span></h3>
+            <div id="extensions-info">
+              <div class="info-placeholder">„Extensions scannen" klicken um Browser-Erweiterungen zu laden…</div>
+            </div>
           </div>
         </section>
 
@@ -370,6 +387,35 @@
           <div class="modal-actions">
             <button class="btn btn-secondary" id="btn-session-cancel">Abbrechen</button>
             <button class="btn btn-primary" id="btn-session-create">Session erstellen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session-Verlauf-Dialog -->
+      <div class="modal-overlay hidden" id="modal-session-history">
+        <div class="modal modal-wide">
+          <button class="modal-close" id="btn-history-close" title="Schließen">✕</button>
+          <h2>🕐 Session-Verlauf</h2>
+          <div id="session-history-list">
+            <p class="info-placeholder">Lade Sessions…</p>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="btn-history-cancel">Schließen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- WiFi-QR-Code-Dialog -->
+      <div class="modal-overlay hidden" id="modal-wifi-qr">
+        <div class="modal">
+          <button class="modal-close" id="btn-qr-close" title="Schließen">✕</button>
+          <h2 id="qr-modal-title">WiFi QR-Code</h2>
+          <div id="qr-modal-body" style="text-align:center;padding:12px 0">
+            <p class="info-placeholder">Generiere QR-Code…</p>
+          </div>
+          <p id="qr-modal-hint" style="font-size:12px;color:var(--color-text-muted);text-align:center"></p>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="btn-qr-cancel">Schließen</button>
           </div>
         </div>
       </div>

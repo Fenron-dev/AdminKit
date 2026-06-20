@@ -473,8 +473,76 @@ func scanSecurity() (SecurityInfo, []ScanError) {
 	info.BitLockerVolumes = scanBitLocker(&errs)
 	scanDefender(&info, &errs)
 	info.FirewallEnabled = checkFirewall(&errs)
+	info.LocalShares = scanLocalShares(&errs)
+	scanRDP(&info, &errs)
 
 	return info, errs
+}
+
+type wmiShare struct {
+	Name        string
+	Path        string
+	Description string
+	Type        uint32
+}
+
+func scanLocalShares(errs *[]ScanError) []LocalShare {
+	var shares []LocalShare
+	var raw []wmiShare
+	if err := wmi.Query("SELECT Name,Path,Description,Type FROM Win32_Share", &raw); err != nil {
+		*errs = append(*errs, ScanError{"security.shares", err.Error()})
+		return shares
+	}
+	for _, s := range raw {
+		isSystem := (s.Type&0x80000000) != 0 || strings.HasSuffix(s.Name, "$")
+		shares = append(shares, LocalShare{
+			Name:        s.Name,
+			Path:        strings.TrimSpace(s.Path),
+			Description: strings.TrimSpace(s.Description),
+			IsSystem:    isSystem,
+		})
+	}
+	return shares
+}
+
+func scanRDP(info *SecurityInfo, errs *[]ScanError) {
+	out, err := exec.Command("reg", "query",
+		`HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server`,
+		"/v", "fDenyTSConnections").Output()
+	if err != nil {
+		*errs = append(*errs, ScanError{"security.rdp", err.Error()})
+		return
+	}
+	info.RDPEnabled = strings.Contains(string(out), "0x0")
+
+	if info.RDPEnabled {
+		// NLA (Network Level Authentication) prüfen
+		nlaOut, err := exec.Command("reg", "query",
+			`HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp`,
+			"/v", "UserAuthentication").Output()
+		if err == nil {
+			info.NLAEnabled = strings.Contains(string(nlaOut), "0x1")
+		}
+		// Standard-RDP-Port
+		info.RDPPort = 3389
+		portOut, err := exec.Command("reg", "query",
+			`HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp`,
+			"/v", "PortNumber").Output()
+		if err == nil {
+			for _, line := range strings.Split(string(portOut), "\n") {
+				if strings.Contains(line, "PortNumber") {
+					fields := strings.Fields(line)
+					if len(fields) >= 3 {
+						var port int
+						fmt.Sscanf(fields[len(fields)-1], "0x%x", &port)
+						if port > 0 {
+							info.RDPPort = port
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 func scanBitLocker(errs *[]ScanError) []BitLockerVolume {

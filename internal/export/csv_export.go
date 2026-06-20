@@ -96,6 +96,76 @@ func GenerateCSV(data *SessionExport) string {
 		}
 	}
 
+	// ── Autostart-Einträge ───────────────────────────────────────────────────
+	if data.Autostart != nil && len(data.Autostart.Entries) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# Autostart-Einträge\r\n")
+		sb.WriteString("Name,Pfad,Quelle,System,Aktiviert\r\n")
+		for _, e := range data.Autostart.Entries {
+			fmt.Fprintf(sb, "%s,%s,%s,%s,%s\r\n",
+				csvField(e.Name),
+				csvField(e.Path),
+				csvField(string(e.Location)),
+				boolStr(e.IsSystem),
+				boolStr(e.IsEnabled),
+			)
+		}
+	}
+
+	// ── Dienste ──────────────────────────────────────────────────────────────
+	if data.Services != nil && len(data.Services.Services) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# Dienste\r\n")
+		sb.WriteString("Name,Anzeigename,Status,Starttyp,System\r\n")
+		for _, s := range data.Services.Services {
+			fmt.Fprintf(sb, "%s,%s,%s,%s,%s\r\n",
+				csvField(s.Name),
+				csvField(s.DisplayName),
+				csvField(string(s.State)),
+				csvField(string(s.StartType)),
+				boolStr(s.IsSystem),
+			)
+		}
+	}
+
+	// ── Systemereignisse ──────────────────────────────────────────────────────
+	if data.Events != nil && len(data.Events.Events) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# Systemereignisse\r\n")
+		sb.WriteString("Zeit,Schwere,Quelle,Ereignis-ID,Log,Meldung\r\n")
+		for _, e := range data.Events.Events {
+			var ts string
+			if !e.Time.IsZero() {
+				ts = e.Time.Format("02.01.2006 15:04:05")
+			}
+			fmt.Fprintf(sb, "%s,%s,%s,%d,%s,%s\r\n",
+				ts,
+				csvField(string(e.Level)),
+				csvField(e.Source),
+				e.EventID,
+				csvField(e.Log),
+				csvField(e.Message),
+			)
+		}
+	}
+
+	// ── Speichervolumes ───────────────────────────────────────────────────────
+	if data.System != nil && len(data.System.Hardware.Volumes) > 0 {
+		sb.WriteString("\r\n")
+		sb.WriteString("# Speichervolumes\r\n")
+		sb.WriteString("Bezeichnung,Einhängepunkt,Dateisystem,Gesamt (GB),Belegt (GB),Frei (GB)\r\n")
+		for _, v := range data.System.Hardware.Volumes {
+			fmt.Fprintf(sb, "%s,%s,%s,%.1f,%.1f,%.1f\r\n",
+				csvField(v.Letter),
+				csvField(v.MountPoint),
+				csvField(v.FileSystem),
+				v.TotalGB,
+				v.UsedGB,
+				v.FreeGB,
+			)
+		}
+	}
+
 	return sb.String()
 }
 

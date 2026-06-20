@@ -5,6 +5,7 @@
  * Alle Methoden sind in app.go definiert und werden von Wails beim Build generiert.
  */
 import './style.css';
+import QRCode from 'qrcode';
 import {
   GetAppVersion, GetVaultPath, GetConfig, NewSession,
   ScanSystem, SaveSystemScan,
@@ -12,6 +13,8 @@ import {
   ScanSoftware, SaveSoftwareScan,
   ScanPrinters, SavePrinterScan,
   ScanAutostart, ScanServices, ScanEvents,
+  ScanBrowserExtensions,
+  GetSessions,
   RunConsoleTool, BackupVault, GetClipboard, GetUptime,
   ExportSession, ExportCSV,
   SaveConfig,
@@ -43,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initThemeToggle();
   initSessionModal();
+  initSessionHistory();
   initScanButtons();
   initSoftwareTab();
   initToolsTab();
@@ -52,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initPrinterScan();
   initCollapsibleSections();
   initBackToTop();
+  initQRModal();
   applyPlatformClass();
   loadAppInfo();
 });
@@ -175,6 +180,7 @@ function initPrinterScan() {
   document.getElementById('btn-scan-autostart')?.addEventListener('click', () => runAutostartScan());
   document.getElementById('btn-scan-services')?.addEventListener('click', () => runServicesScan());
   document.getElementById('btn-scan-events')?.addEventListener('click', () => runEventsScan());
+  document.getElementById('btn-scan-extensions')?.addEventListener('click', () => runBrowserExtScan());
 }
 
 /** Vollständiger Scan: alle Scanner nacheinander */
@@ -187,6 +193,7 @@ async function runFullScan() {
   await runPrinterScan();
   await runNetworkScan();
   await runSoftwareScan();
+  await runBrowserExtScan();
 }
 
 async function runSystemScan() {
@@ -207,6 +214,7 @@ async function runSystemScan() {
     renderHardware(result.hardware);
     renderOS(result.os);
     renderSmart(result.smart);
+    renderSecurity(result.security);
     updateDashboardBadges(result);
 
     if (state.currentSessionPath) {
@@ -389,7 +397,8 @@ function logScanErrors(errors, label) {
 
 function setScanButtonsDisabled(disabled) {
   ['btn-full-scan', 'btn-scan-system', 'btn-scan-network', 'btn-scan-software',
-   'btn-scan-printers', 'btn-scan-autostart', 'btn-scan-services', 'btn-scan-events'].forEach(id => {
+   'btn-scan-printers', 'btn-scan-autostart', 'btn-scan-services', 'btn-scan-events',
+   'btn-scan-extensions'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = disabled;
   });
@@ -818,12 +827,12 @@ function renderWiFi(profiles) {
     let pwCell = '<span class="text-muted">–</span>';
     if (w.has_password) {
       if (w.password) {
-        // Passwort vorhanden: maskiert anzeigen, Toggle-Button
         const pwId = `wifi-pw-${idx}`;
         pwCell = `
           <span class="pw-mask" id="${pwId}-mask">••••••••</span>
           <span class="pw-text hidden" id="${pwId}-text" style="font-family:var(--font-mono)">${escapeHtml(w.password)}</span>
-          <button class="pw-toggle" data-target="${pwId}" title="Passwort einblenden">👁</button>`;
+          <button class="pw-toggle" data-target="${pwId}" title="Passwort einblenden">👁</button>
+          <button class="qr-btn" data-ssid="${escapeHtml(w.ssid)}" data-pw="${escapeHtml(w.password)}" data-sec="${escapeHtml(w.security || 'WPA')}" title="QR-Code anzeigen" style="margin-left:6px">📱</button>`;
       } else {
         pwCell = '<span class="text-muted">Vorhanden (Admin nötig)</span>';
       }
@@ -854,6 +863,261 @@ function renderWiFi(profiles) {
       btn.textContent = visible ? '👁' : '🙈';
     });
   });
+
+  // QR-Code-Buttons verdrahten
+  container.querySelectorAll('.qr-btn').forEach(btn => {
+    btn.addEventListener('click', () => showWiFiQR(btn.dataset.ssid, btn.dataset.pw, btn.dataset.sec));
+  });
+}
+
+// ─── Sicherheit-Rendering ─────────────────────────────────────────────────────
+
+function renderSecurity(sec) {
+  const container = document.getElementById('security-info');
+  if (!container) return;
+  if (!sec) {
+    container.innerHTML = '<div class="info-placeholder">Keine Sicherheitsdaten (nur Windows).</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  // Allgemeine Sicherheitsstatus-Zeilen
+  const rows = [];
+  if (sec.firewall_enabled !== undefined) {
+    rows.push(['Firewall', sec.firewall_enabled
+      ? '<span style="color:var(--color-success)">✓ Aktiv</span>'
+      : '<span style="color:var(--color-error)">✗ Deaktiviert</span>']);
+  }
+  if (sec.defender_enabled !== undefined) {
+    rows.push(['Windows Defender', sec.defender_enabled
+      ? '<span style="color:var(--color-success)">✓ Aktiv</span>'
+      : '<span style="color:var(--color-error)">✗ Deaktiviert</span>']);
+  }
+  if (sec.defender_version) rows.push(['Defender-Version', sec.defender_version]);
+  if (sec.rdp_enabled !== undefined) {
+    const rdpStr = sec.rdp_enabled
+      ? `<span style="color:var(--color-warning)">Aktiviert (Port ${sec.rdp_port || 3389})</span>${sec.nla_enabled ? ' · NLA: ✓' : ' · <span style="color:var(--color-error)">NLA: ✗</span>'}`
+      : '<span style="color:var(--color-success)">✓ Deaktiviert</span>';
+    rows.push(['RDP', rdpStr]);
+  }
+
+  if (rows.length > 0) {
+    container.appendChild(buildInfoGrid(rows, true));
+  }
+
+  // BitLocker-Volumes
+  if (sec.bitlocker_volumes?.length > 0) {
+    const title = document.createElement('div');
+    title.className = 'autostart-group-title';
+    title.textContent = 'BitLocker';
+    container.appendChild(title);
+
+    const tbl = document.createElement('table');
+    tbl.className = 'data-table';
+    tbl.innerHTML = '<thead><tr><th>Laufwerk</th><th>Verschlüsselt</th><th>Status</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    sec.bitlocker_volumes.forEach(v => {
+      const tr = document.createElement('tr');
+      const icon = v.encrypted ? '🔒' : '🔓';
+      tr.innerHTML = `<td>${escapeHtml(v.drive)}</td><td>${icon} ${v.encrypted ? 'Ja' : 'Nein'}</td><td>${escapeHtml(v.status || '–')}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    container.appendChild(tbl);
+  }
+
+  // Lokale Freigaben
+  if (sec.local_shares?.length > 0) {
+    const userShares = sec.local_shares.filter(s => !s.is_system);
+    const sysShares  = sec.local_shares.filter(s => s.is_system);
+
+    const renderShareTable = (title, shares) => {
+      if (shares.length === 0) return;
+      const groupTitle = document.createElement('div');
+      groupTitle.className = 'autostart-group-title';
+      groupTitle.textContent = title;
+      container.appendChild(groupTitle);
+
+      const tbl = document.createElement('table');
+      tbl.className = 'data-table';
+      tbl.innerHTML = '<thead><tr><th>Name</th><th>Pfad</th><th>Beschreibung</th></tr></thead>';
+      const tbody = document.createElement('tbody');
+      shares.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><strong>${escapeHtml(s.name)}</strong></td><td class="mono-cell" style="font-size:11px">${escapeHtml(s.path || '–')}</td><td style="font-size:11px">${escapeHtml(s.description || '–')}</td>`;
+        tbody.appendChild(tr);
+      });
+      tbl.appendChild(tbody);
+      container.appendChild(tbl);
+    };
+
+    renderShareTable(`📂 Freigegebene Ordner (${userShares.length} Benutzer-Freigaben)`, userShares);
+    renderShareTable(`🔧 System-Freigaben (${sysShares.length})`, sysShares);
+  } else if (sec.local_shares !== undefined) {
+    const p = document.createElement('p');
+    p.className = 'section-meta';
+    p.textContent = 'Keine lokalen Netzwerkfreigaben gefunden.';
+    container.appendChild(p);
+  }
+}
+
+// ─── Browser-Extensions-Scanner ───────────────────────────────────────────────
+
+async function runBrowserExtScan() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  setScanButtonsDisabled(true);
+  setStatus('Browser-Extensions-Scan läuft…');
+  addAction('Browser-Extensions-Scan gestartet', 'info');
+  setPlaceholder('extensions-info', 'Scanne Browser-Erweiterungen…');
+
+  try {
+    const result = await ScanBrowserExtensions();
+    renderBrowserExtensions(result.extensions);
+    setEl('extensions-count', result.extensions?.length ?? 0);
+    logScanErrors(result.errors, 'Browser-Extensions-Scan');
+    setStatus('Browser-Extensions-Scan abgeschlossen');
+  } catch (err) {
+    setPlaceholder('extensions-info', 'Fehler: ' + err);
+    addAction('Browser-Extensions-Scan fehlgeschlagen: ' + err, 'error');
+    setStatus('Fehler beim Browser-Extensions-Scan');
+  } finally {
+    state.isScanning = false;
+    setScanButtonsDisabled(false);
+  }
+}
+
+function renderBrowserExtensions(extensions) {
+  const container = document.getElementById('extensions-info');
+  if (!container) return;
+  if (!extensions?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine Browser-Erweiterungen gefunden.</div>';
+    return;
+  }
+
+  // Nach Browser gruppieren
+  const groups = {};
+  extensions.forEach(e => {
+    if (!groups[e.browser]) groups[e.browser] = [];
+    groups[e.browser].push(e);
+  });
+
+  container.innerHTML = '';
+  for (const [browser, exts] of Object.entries(groups)) {
+    const wrap = document.createElement('div');
+    wrap.className = 'autostart-group';
+    wrap.innerHTML = `<div class="autostart-group-title">🌐 ${escapeHtml(browser)} (${exts.length})</div>`;
+
+    const tbl = document.createElement('table');
+    tbl.className = 'data-table';
+    tbl.innerHTML = '<thead><tr><th>Name</th><th>Version</th><th>ID</th><th>Status</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    exts.forEach(ext => {
+      const tr = document.createElement('tr');
+      const status = ext.enabled ? '✓ Aktiv' : '– Deaktiviert';
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(ext.name)}</strong>${ext.description ? '<br><span class="text-muted" style="font-size:11px">' + escapeHtml(ext.description.slice(0, 80)) + (ext.description.length > 80 ? '…' : '') + '</span>' : ''}</td>
+        <td class="mono-cell" style="font-size:11px">${escapeHtml(ext.version || '–')}</td>
+        <td class="mono-cell" style="font-size:10px;color:var(--color-text-muted)">${escapeHtml(ext.id?.slice(0, 16) || '–')}…</td>
+        <td style="font-size:11px">${status}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+    container.appendChild(wrap);
+  }
+}
+
+// ─── Session-Verlauf ──────────────────────────────────────────────────────────
+
+function initSessionHistory() {
+  document.getElementById('btn-session-history')?.addEventListener('click', openSessionHistory);
+  document.getElementById('btn-history-close')?.addEventListener('click', closeSessionHistory);
+  document.getElementById('btn-history-cancel')?.addEventListener('click', closeSessionHistory);
+  document.getElementById('modal-session-history')?.addEventListener('click', e => {
+    if (e.target.id === 'modal-session-history') closeSessionHistory();
+  });
+}
+
+async function openSessionHistory() {
+  const modal = document.getElementById('modal-session-history');
+  const list  = document.getElementById('session-history-list');
+  if (!modal || !list) return;
+  modal.classList.remove('hidden');
+  list.innerHTML = '<p class="info-placeholder">Lade Sessions…</p>';
+
+  try {
+    const sessions = await GetSessions();
+    if (!sessions?.length) {
+      list.innerHTML = '<p class="info-placeholder">Noch keine Sessions gespeichert.</p>';
+      return;
+    }
+    const tbl = document.createElement('table');
+    tbl.className = 'data-table';
+    tbl.innerHTML = '<thead><tr><th>Session</th><th>Erstellt</th><th>Pfad</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    sessions.forEach(s => {
+      const tr = document.createElement('tr');
+      const date = s.created_at ? new Date(s.created_at).toLocaleString('de-DE') : '–';
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(s.name)}</strong></td>
+        <td style="white-space:nowrap;font-size:12px">${escapeHtml(date)}</td>
+        <td style="font-size:11px;color:var(--color-text-muted)">${escapeHtml(shortenPath(s.path))}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    list.innerHTML = `<p class="section-meta">${sessions.length} Sessions</p>`;
+    list.appendChild(tbl);
+  } catch (err) {
+    list.innerHTML = `<p class="info-placeholder">Fehler beim Laden: ${escapeHtml(String(err))}</p>`;
+  }
+}
+
+function closeSessionHistory() {
+  document.getElementById('modal-session-history')?.classList.add('hidden');
+}
+
+// ─── WiFi QR-Code ─────────────────────────────────────────────────────────────
+
+function initQRModal() {
+  document.getElementById('btn-qr-close')?.addEventListener('click', closeQRModal);
+  document.getElementById('btn-qr-cancel')?.addEventListener('click', closeQRModal);
+  document.getElementById('modal-wifi-qr')?.addEventListener('click', e => {
+    if (e.target.id === 'modal-wifi-qr') closeQRModal();
+  });
+}
+
+async function showWiFiQR(ssid, password, security) {
+  const modal = document.getElementById('modal-wifi-qr');
+  const body  = document.getElementById('qr-modal-body');
+  const title = document.getElementById('qr-modal-title');
+  const hint  = document.getElementById('qr-modal-hint');
+  if (!modal || !body) return;
+
+  title.textContent = `WiFi QR-Code: ${ssid}`;
+  body.innerHTML = '<p class="info-placeholder">Generiere…</p>';
+  hint.textContent = '';
+  modal.classList.remove('hidden');
+
+  try {
+    const authType = security === 'WEP' ? 'WEP' : (security === 'Open' ? 'nopass' : 'WPA');
+    const wifiStr = `WIFI:T:${authType};S:${escapeWifiString(ssid)};P:${escapeWifiString(password)};;`;
+    const dataUrl = await QRCode.toDataURL(wifiStr, { width: 256, margin: 2, errorCorrectionLevel: 'M' });
+    body.innerHTML = `<img src="${dataUrl}" alt="WiFi QR-Code" style="max-width:256px;border-radius:8px">`;
+    hint.textContent = `Netzwerk: ${ssid} · Sicherheit: ${security || 'WPA'}`;
+  } catch (err) {
+    body.innerHTML = `<p class="info-placeholder">QR-Code konnte nicht erstellt werden: ${escapeHtml(String(err))}</p>`;
+  }
+}
+
+function closeQRModal() {
+  document.getElementById('modal-wifi-qr')?.classList.add('hidden');
+}
+
+function escapeWifiString(s) {
+  // RFC-4180-ähnliches Escaping für WiFi-QR-Strings
+  return String(s).replace(/[\\;,"]/g, c => '\\' + c);
 }
 
 // ─── Software-Tab ────────────────────────────────────────────────────────────

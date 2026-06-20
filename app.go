@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"adminkit/internal/autostart"
+	"adminkit/internal/browserext"
 	"adminkit/internal/config"
 	"adminkit/internal/events"
 	"adminkit/internal/export"
@@ -40,11 +41,12 @@ type App struct {
 	lastNetworkScan   *network.ScanResult
 	lastSoftwareScan  *software.ScanResult
 	lastPrinterScan   *printers.ScanResult
-	lastAutostartScan *autostart.ScanResult
-	lastServicesScan  *services.ScanResult
-	lastEventsScan    *events.ScanResult
-	lastSessionName   string
-	lastSessionPath   string
+	lastAutostartScan   *autostart.ScanResult
+	lastServicesScan    *services.ScanResult
+	lastEventsScan      *events.ScanResult
+	lastBrowserExtScan  *browserext.ScanResult
+	lastSessionName     string
+	lastSessionPath     string
 }
 
 // NewApp erstellt eine neue App-Instanz.
@@ -209,6 +211,7 @@ func (a *App) NewSession(customerName string) (string, error) {
 	a.lastAutostartScan = nil
 	a.lastServicesScan = nil
 	a.lastEventsScan = nil
+	a.lastBrowserExtScan = nil
 	return path, nil
 }
 
@@ -355,6 +358,26 @@ func (a *App) ScanEvents() (*events.ScanResult, error) {
 	return &result, nil
 }
 
+// ScanBrowserExtensions scannt installierte Browser-Erweiterungen (Chrome, Brave, Edge, Firefox).
+func (a *App) ScanBrowserExtensions() (*browserext.ScanResult, error) {
+	logging.Info("BrowserExt", "Browser-Extensions-Scan gestartet")
+	result := browserext.Scan()
+	for _, e := range result.Errors {
+		logging.Warnf("BrowserExt", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("BrowserExt", "Browser-Extensions-Scan abgeschlossen: %d Erweiterungen", len(result.Extensions))
+	a.lastBrowserExtScan = &result
+	return &result, nil
+}
+
+// GetSessions gibt die Liste aller bisher erstellten Sessions zurück (neueste zuerst).
+func (a *App) GetSessions() ([]vault.SessionInfo, error) {
+	if a.vault == nil {
+		return nil, nil
+	}
+	return a.vault.ListSessions()
+}
+
 // ScanPrinters listet alle installierten Drucker auf.
 func (a *App) ScanPrinters() (*printers.ScanResult, error) {
 	logging.Info("Printers", "Drucker-Scan gestartet")
@@ -478,9 +501,11 @@ func (a *App) ExportSession(format string) (string, error) {
 	return path, nil
 }
 
-// ExportCSV exportiert die Software-Liste als CSV-Datei (Excel-kompatibel, UTF-8 BOM).
+// ExportCSV exportiert alle Scan-Daten als CSV-Datei (Excel-kompatibel, UTF-8 BOM).
 func (a *App) ExportCSV() (string, error) {
-	if a.lastSoftwareScan == nil && a.lastPrinterScan == nil {
+	if a.lastSoftwareScan == nil && a.lastPrinterScan == nil &&
+		a.lastSystemScan == nil && a.lastAutostartScan == nil &&
+		a.lastServicesScan == nil && a.lastEventsScan == nil {
 		return "", fmt.Errorf("kein Scan durchgeführt – bitte zuerst scannen")
 	}
 
@@ -498,8 +523,12 @@ func (a *App) ExportCSV() (string, error) {
 		GeneratedAt:    time.Now(),
 		SessionName:    sessionName,
 		SessionPath:    a.lastSessionPath,
+		System:         a.lastSystemScan,
 		Software:       a.lastSoftwareScan,
 		Printers:       a.lastPrinterScan,
+		Autostart:      a.lastAutostartScan,
+		Services:       a.lastServicesScan,
+		Events:         a.lastEventsScan,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
 	}
