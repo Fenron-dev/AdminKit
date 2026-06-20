@@ -2280,8 +2280,14 @@ function initToolsExtended() {
   const termOutput = document.getElementById('terminal-output');
 
   const runTerminalCmd = async () => {
-    const cmd = termInput?.value?.trim() ?? '';
+    let cmd = termInput?.value?.trim() ?? '';
     if (!cmd) return;
+
+    // Ping ohne Count-Flag läuft endlos → auto -c 5 / -n 5 einfügen
+    if (/^ping6?\s/i.test(cmd) && !/\s-[cn]\s*\d/i.test(cmd)) {
+      const flag = state.platform === 'windows' ? '-n 5' : '-c 5';
+      cmd = cmd.replace(/^(ping6?)\s+/i, `$1 ${flag} `);
+    }
 
     // Verlauf aktualisieren
     state.terminalHistory.push(cmd);

@@ -191,9 +191,10 @@ html, body {
 
 .tab-panel {
   display: none;
-  height: 100%;
+  height: calc(100vh - var(--titlebar-h) - var(--tabnav-h) - var(--statusbar-h));
   overflow-y: auto;
   padding: 20px;
+  padding-bottom: 60px;
   animation: fadeIn .15s ease;
 }
 .tab-panel.active { display: block; }
