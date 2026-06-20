@@ -1708,3 +1708,78 @@ body.platform-mac .titlebar {
 .conn-listen      { background: rgba(99,102,241,.12); color: #6366f1; }
 .conn-timewait    { background: rgba(156,163,175,.12); color: var(--color-text-muted); }
 
+/* ── Vollscan-Fortschrittsleiste ────────────────────────────────────────── */
+.fullscan-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: calc(var(--titlebar-h) + var(--tabnav-h));
+  z-index: 198;
+}
+.fullscan-progress.hidden { display: none; }
+
+.fullscan-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--color-surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+.fullscan-bar {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 99px;
+  transition: width .35s ease;
+  width: 0%;
+}
+.fullscan-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  min-width: 140px;
+  text-align: right;
+}
+
+/* ── Responsive: Toolbar-Wrapping bei kleinen Fenstern ──────────────────── */
+.panel-toolbar {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.toolbar-actions {
+  flex-wrap: wrap;
+}
+
+/* ── Responsive: Tabellen horizontal scrollbar ──────────────────────────── */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.data-table {
+  min-width: 480px;
+}
+
+/* ── Responsive: Statusleiste kürzen bei kleinen Fenstern ───────────────── */
+.statusbar {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+@media (max-width: 600px) {
+  .statusbar-divider { display: none; }
+  #status-vault { display: none; }
+  .titlebar-right { gap: 4px; }
+  .icon-btn { font-size: 11px; padding: 4px 8px; }
+}
+
+/* ── Responsive: Tab-Nav scrollbar bei vielen Tabs ──────────────────────── */
+.tab-nav {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tab-nav::-webkit-scrollbar { display: none; }
+

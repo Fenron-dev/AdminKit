@@ -56,6 +56,14 @@
         <button class="tab-btn" data-tab="tools">Tools</button>
       </nav>
 
+      <!-- Vollscan-Fortschrittsleiste (nur während Vollscan sichtbar) -->
+      <div class="fullscan-progress hidden" id="fullscan-progress">
+        <div class="fullscan-bar-wrap">
+          <div class="fullscan-bar" id="fullscan-bar"></div>
+        </div>
+        <span class="fullscan-label" id="fullscan-label">Schritt 1 / 12</span>
+      </div>
+
       <!-- Tab-Inhalt -->
       <main class="tab-content">
 
@@ -603,6 +611,21 @@
             <button class="btn btn-secondary" id="settings-cancel">Abbrechen</button>
             <button class="btn btn-primary" id="settings-save">Speichern</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Archivierungs-Ergebnis-Dialog -->
+      <div class="modal-overlay hidden" id="modal-archive-result-overlay">
+        <div class="modal">
+          <h2>✅ Archivierung abgeschlossen</h2>
+          <p style="margin-bottom:8px">Alle Daten wurden erfolgreich gesichert und aus dem Vault gelöscht.</p>
+          <div id="archive-result-stats" style="font-size:13px;color:var(--muted-color,#64748b);margin-bottom:12px"></div>
+          <div id="archive-result-path" style="background:var(--surface-color,#1e293b);border:1px solid var(--border-color,#334155);border-radius:6px;padding:8px 12px;font-size:12px;font-family:monospace;margin-bottom:16px;word-break:break-all"></div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="archive-result-reveal">📁 Im Finder öffnen</button>
+            <button class="btn btn-primary" id="archive-result-ok">OK</button>
+          </div>
+          <button class="modal-close" id="archive-result-close" title="Schließen">✕</button>
         </div>
       </div>
 

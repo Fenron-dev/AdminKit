@@ -230,6 +230,41 @@ function initPrinterScan() {
 
 /** Vollständiger Scan: alle Scanner nacheinander.
  *  Netzwerk-Scan läuft im Basic-Modus (kein Passwort-Dialog). */
+// Vollscan-Schritte: [Label, async Funktion]
+const FULLSCAN_STEPS = [
+  ['System',              () => runSystemScan()],
+  ['Autostart',          () => runAutostartScan()],
+  ['Dienste',            () => runServicesScan()],
+  ['Ereignisse',         () => runEventsScan()],
+  ['Drucker',            () => runPrinterScan()],
+  ['Netzwerk',           () => runNetworkScanBasic()],
+  ['Software',           () => runSoftwareScan()],
+  ['Browser-Extensions', () => runBrowserExtScan()],
+  ['Benutzerkonten',     () => runUsersScan()],
+  ['Geplante Aufgaben',  () => runTasksScan()],
+  ['Konfigurationsprofile', () => runProfilesScan()],
+  ['USB-Geräte',         () => runUSBScan()],
+];
+
+function setFullscanProgress(step, total, label) {
+  const el = document.getElementById('fullscan-progress');
+  const bar = document.getElementById('fullscan-bar');
+  const lbl = document.getElementById('fullscan-label');
+  if (!el) return;
+  if (step === 0) {
+    el.classList.remove('hidden');
+    if (bar) bar.style.width = '0%';
+  }
+  const pct = total > 0 ? Math.round((step / total) * 100) : 0;
+  if (bar) bar.style.width = pct + '%';
+  if (lbl) lbl.textContent = label
+    ? `Schritt ${step} / ${total} — ${label}`
+    : `Abgeschlossen`;
+  if (step >= total) {
+    setTimeout(() => el.classList.add('hidden'), 800);
+  }
+}
+
 async function runFullScan() {
   switchTab('system');
   // Alte Ergebnisse löschen damit die Zusammenfassung nur den aktuellen Scan zeigt
@@ -242,19 +277,16 @@ async function runFullScan() {
   state.lastSoftwareResult = null;
   state.lastBrowserExtResult = null;
 
-  await runSystemScan();
-  await runAutostartScan();
-  await runServicesScan();
-  await runEventsScan();
-  await runPrinterScan();
-  await runNetworkScanBasic(); // kein WiFi-Passwort-Dialog beim Vollscan
-  await runSoftwareScan();
-  await runBrowserExtScan();
-  await runUsersScan();
-  await runTasksScan();
-  await runProfilesScan();
-  await runUSBScan();
+  const total = FULLSCAN_STEPS.length;
+  setFullscanProgress(0, total, FULLSCAN_STEPS[0][0]);
 
+  for (let i = 0; i < FULLSCAN_STEPS.length; i++) {
+    const [label, fn] = FULLSCAN_STEPS[i];
+    setFullscanProgress(i + 1, total, label);
+    await fn();
+  }
+
+  setFullscanProgress(total, total, null);
   showScanSummary();
 
   if (state.config?.defaults?.auto_vt_scan) {
@@ -2251,8 +2283,8 @@ function initToolsTab() {
       const result = await ArchiveVault(dest);
       const mb = ((result.copied_bytes || 0) / 1048576).toFixed(1);
       addAction(`Archivierung abgeschlossen: ${result.copied_files} Dateien (${mb} MB) → ${shortenPath(result.archive_path)}`, 'success');
-      showToast(`✅ ${result.copied_files} Dateien archiviert. Vault wurde bereinigt.`);
       setStatus('Archivierung abgeschlossen');
+      showArchiveResult(result);
     } catch (err) {
       addAction('Archivierung fehlgeschlagen: ' + err, 'error');
       showToast('❌ Archivierung fehlgeschlagen: ' + err);
@@ -3542,6 +3574,32 @@ function closeExportModal() {
 }
 
 // ─── Vault-Archivierung ───────────────────────────────────────────────────────
+
+function showArchiveResult(result) {
+  const overlay = document.getElementById('modal-archive-result-overlay');
+  if (!overlay) return;
+  const mb = ((result.copied_bytes || 0) / 1048576).toFixed(1);
+  const stats = document.getElementById('archive-result-stats');
+  if (stats) stats.textContent = `${result.copied_files} Dateien · ${mb} MB gesichert · ${result.deleted_dirs} Einträge aus Vault gelöscht`;
+  const pathEl = document.getElementById('archive-result-path');
+  if (pathEl) pathEl.textContent = result.archive_path || '–';
+
+  const revealBtn = document.getElementById('archive-result-reveal');
+  if (revealBtn) {
+    revealBtn.onclick = async () => {
+      try { await RevealFile(result.archive_path); } catch (e) { /* ignore */ }
+    };
+  }
+
+  const okBtn = document.getElementById('archive-result-ok');
+  const closeBtn = document.getElementById('archive-result-close');
+  const closeResult = () => overlay.classList.add('hidden');
+  if (okBtn) okBtn.onclick = closeResult;
+  if (closeBtn) closeBtn.onclick = closeResult;
+  overlay.onclick = (e) => { if (e.target === overlay) closeResult(); };
+
+  overlay.classList.remove('hidden');
+}
 
 function openArchiveModal() {
   const overlay = document.getElementById('modal-archive-overlay');
