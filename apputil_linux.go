@@ -11,3 +11,7 @@ func openFilePlatform(path string) error {
 func revealFilePlatform(path string) error {
 	return fmt.Errorf("nicht unterstützt auf diesem Betriebssystem")
 }
+
+func openEventInConsolePlatform(_ string) error {
+	return fmt.Errorf("nicht unterstützt auf diesem Betriebssystem")
+}

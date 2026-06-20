@@ -4,15 +4,28 @@ package events
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
 const daysBack = 7
 
-// Scan liest kritische Einträge aus dem macOS Unified Log.
+// logEntry spiegelt die relevanten Felder aus dem ndjson-Output von `log show`.
+type logEntry struct {
+	Timestamp        string `json:"timestamp"`
+	EventMessage     string `json:"eventMessage"`
+	MessageType      string `json:"messageType"` // "Error", "Fault"
+	ProcessImagePath string `json:"processImagePath"`
+	ProcessID        int    `json:"processID"`
+	Subsystem        string `json:"subsystem"`
+	Category         string `json:"category"`
+}
+
+// Scan liest kritische Einträge aus dem macOS Unified Log (letzte daysBack Tage).
 func Scan() ScanResult {
 	result := ScanResult{
 		Timestamp: time.Now(),
@@ -21,10 +34,9 @@ func Scan() ScanResult {
 
 	since := time.Now().AddDate(0, 0, -daysBack).Format("2006-01-02 15:04:05")
 	out, err := exec.Command("log", "show",
-		"--style", "syslog",
+		"--style", "ndjson",
 		"--start", since,
 		"--predicate", `messageType == 16 OR messageType == 17`, // fault + error
-		"--last", fmt.Sprintf("%dd", daysBack),
 	).Output()
 	if err != nil {
 		result.Errors = append(result.Errors, ScanError{
@@ -35,32 +47,76 @@ func Scan() ScanResult {
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(string(out)))
+	scanner.Buffer(make([]byte, 4*1024*1024), 4*1024*1024) // log-Zeilen können groß sein
 	count := 0
-	for scanner.Scan() && count < 100 {
+	for scanner.Scan() && count < 200 {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "Filtering") {
+		if line == "" || line[0] != '{' {
 			continue
 		}
-		// Syslog format: "Jan  1 00:00:00 hostname process[pid]: message"
-		parts := strings.SplitN(line, ": ", 2)
-		msg := ""
-		if len(parts) == 2 {
-			msg = parts[1]
-		} else {
-			msg = line
+		var entry logEntry
+		if json.Unmarshal([]byte(line), &entry) != nil {
+			continue
 		}
-		if len(msg) > 200 {
-			msg = msg[:200] + "…"
+
+		level := LevelError
+		if entry.MessageType == "Fault" {
+			level = LevelCritical
 		}
+
+		ts := parseLogTimestamp(entry.Timestamp)
+		procName := filepath.Base(entry.ProcessImagePath)
+		if procName == "" || procName == "." {
+			procName = extractProcessFromMessage(entry.EventMessage)
+		}
+
+		subsys := entry.Subsystem
+		if entry.Category != "" && subsys != "" {
+			subsys = subsys + ":" + entry.Category
+		}
+
 		result.Events = append(result.Events, EventEntry{
-			Time:    time.Now(), // Vereinfacht — Parsing des Timestamps komplex
-			Level:   LevelError,
-			Source:  "system",
-			Message: msg,
-			Log:     "Unified Log",
+			Time:        ts,
+			Level:       level,
+			Source:      "system",
+			Message:     entry.EventMessage,
+			Log:         "Unified Log",
+			ProcessName: procName,
+			PID:         entry.ProcessID,
+			Subsystem:   subsys,
 		})
 		count++
 	}
 
 	return result
+}
+
+// parseLogTimestamp parst das Timestamp-Format des macOS Unified Log.
+// Format: "2026-06-20 22:56:31.123456+0200"
+func parseLogTimestamp(s string) time.Time {
+	formats := []string{
+		"2006-01-02 15:04:05.999999-0700",
+		"2006-01-02 15:04:05.999999+0000",
+		"2006-01-02 15:04:05-0700",
+		"2006-01-02 15:04:05",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t
+		}
+	}
+	return time.Now()
+}
+
+// extractProcessFromMessage versucht den Prozessnamen aus dem Log-Text zu lesen.
+// Viele macOS-Nachrichten beginnen mit "(ProcessName) [subsystem]..."
+func extractProcessFromMessage(msg string) string {
+	if len(msg) == 0 || msg[0] != '(' {
+		return ""
+	}
+	end := strings.Index(msg, ")")
+	if end < 1 || end > 60 {
+		return ""
+	}
+	return msg[1:end]
 }

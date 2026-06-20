@@ -11,3 +11,7 @@ func openFilePlatform(path string) error {
 func revealFilePlatform(path string) error {
 	return exec.Command("open", "-R", path).Run()
 }
+
+func openEventInConsolePlatform(processName string) error {
+	return exec.Command("open", "-a", "Console").Run()
+}

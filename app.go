@@ -679,6 +679,11 @@ func (a *App) GetHealthScore() *scoring.ScoreResult {
 	return scoring.Compute(a.lastSystemScan, a.lastAutostartScan, a.lastEventsScan)
 }
 
+// OpenEventInConsole öffnet den System-Log-Viewer (Console.app auf macOS, Ereignisanzeige auf Windows).
+func (a *App) OpenEventInConsole(processName string) error {
+	return openEventInConsolePlatform(processName)
+}
+
 // ExportSession exportiert alle bisher durchgeführten Scans der aktuellen Session.
 // format: "html" oder "json"
 // Gibt den absoluten Pfad der erzeugten Datei zurück.

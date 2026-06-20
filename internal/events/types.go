@@ -14,12 +14,15 @@ const (
 
 // EventEntry beschreibt ein einzelnes Systemereignis.
 type EventEntry struct {
-	Time    time.Time `json:"time"`
-	Level   Level     `json:"level"`
-	Source  string    `json:"source"`
-	EventID int       `json:"event_id"`
-	Message string    `json:"message"`
-	Log     string    `json:"log"` // "System", "Application"
+	Time        time.Time `json:"time"`
+	Level       Level     `json:"level"`
+	Source      string    `json:"source"`
+	EventID     int       `json:"event_id"`
+	Message     string    `json:"message"`
+	Log         string    `json:"log"`          // "System", "Application", "Unified Log"
+	ProcessName string    `json:"process_name"` // Prozessname der auslösenden App
+	PID         int       `json:"pid"`          // Prozess-ID
+	Subsystem   string    `json:"subsystem"`    // macOS Subsystem (z.B. "com.apple.coredata")
 }
 
 // ScanResult enthält die gesammelten Ereignisse.

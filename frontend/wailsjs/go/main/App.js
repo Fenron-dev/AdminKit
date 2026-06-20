@@ -244,3 +244,8 @@ export function SaveTerminalLog(arg1) {
 export function GetHealthScore() {
     return window['go']['main']['App']['GetHealthScore']();
 }
+
+// ── Ereignis-Detail ──
+export function OpenEventInConsole(arg1) {
+    return window['go']['main']['App']['OpenEventInConsole'](arg1);
+}

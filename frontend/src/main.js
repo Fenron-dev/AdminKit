@@ -39,6 +39,7 @@ import {
   PickArchiveDirectory,
   ArchiveVault,
   GetHealthScore,
+  OpenEventInConsole,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initToolsExtended();
   initPlatformTools();
   applyPlatformClass();
+  initEventDetailModal();
   loadAppInfo();
 });
 
@@ -893,6 +895,9 @@ async function runEventsScan() {
   }
 }
 
+// Globale Referenz auf das aktuell angezeigte Event für das Modal
+let _currentEventDetail = null;
+
 function renderEvents(evtList) {
   const container = document.getElementById('events-info');
   if (!container) return;
@@ -903,25 +908,102 @@ function renderEvents(evtList) {
 
   const table = document.createElement('table');
   table.className = 'data-table';
-  table.innerHTML = '<thead><tr><th>Zeit</th><th>Level</th><th>Quelle</th><th>Event-ID</th><th>Meldung</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th>Zeit</th><th>Level</th><th>Prozess</th><th>Meldung</th><th></th></tr></thead>';
   const tbody = document.createElement('tbody');
 
   evtList.forEach(e => {
     const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
     const levelIcon = e.level === 'Kritisch' ? '🔴' : (e.level === 'Fehler' ? '🟠' : '🟡');
     const time = e.time ? new Date(e.time).toLocaleString('de-DE') : '–';
+    const proc = e.process_name || e.source || '–';
+    const shortMsg = e.message && e.message.length > 120
+      ? escapeHtml(e.message.slice(0, 120)) + '<span style="color:var(--color-text-muted)">…</span>'
+      : escapeHtml(e.message || '');
+
     tr.innerHTML = `
       <td style="white-space:nowrap;font-size:11px">${escapeHtml(time)}</td>
-      <td>${levelIcon} ${escapeHtml(e.level)}</td>
-      <td style="font-size:11px">${escapeHtml(e.source)}</td>
-      <td style="text-align:center">${e.event_id || '–'}</td>
-      <td style="font-size:12px">${escapeHtml(e.message)}</td>`;
+      <td style="white-space:nowrap">${levelIcon} ${escapeHtml(e.level)}</td>
+      <td style="font-size:11px;white-space:nowrap;font-weight:500">${escapeHtml(proc)}</td>
+      <td style="font-size:12px">${shortMsg}</td>
+      <td style="white-space:nowrap"><button class="btn-event-detail" data-idx="${evtList.indexOf(e)}" title="Details anzeigen">🔍</button></td>`;
     tbody.appendChild(tr);
   });
 
   table.appendChild(tbody);
-  container.innerHTML = `<p class="section-meta">${evtList.length} kritische Ereignisse</p>`;
+  container.innerHTML = `<p class="section-meta">${evtList.length} kritische Ereignisse — Zeile anklicken für Details</p>`;
   container.appendChild(table);
+
+  // Klick auf Zeile oder Detail-Button → Modal
+  table.addEventListener('click', ev => {
+    const btn = ev.target.closest('.btn-event-detail');
+    const row = ev.target.closest('tr[data-idx], tr');
+    const idx = btn ? parseInt(btn.dataset.idx) : Array.from(tbody.children).indexOf(row);
+    if (idx >= 0 && idx < evtList.length) {
+      showEventDetail(evtList[idx]);
+    }
+  });
+}
+
+function showEventDetail(e) {
+  _currentEventDetail = e;
+  const overlay = document.getElementById('modal-event-overlay');
+  const title   = document.getElementById('modal-event-title');
+  const meta    = document.getElementById('modal-event-meta');
+  const msgEl   = document.getElementById('modal-event-msg');
+  const consBtn = document.getElementById('modal-event-console');
+  if (!overlay) return;
+
+  const levelIcon = e.level === 'Kritisch' ? '🔴' : (e.level === 'Fehler' ? '🟠' : '🟡');
+  title.textContent = `${levelIcon} ${e.level} — ${e.process_name || e.source || 'Unbekannt'}`;
+
+  const time = e.time ? new Date(e.time).toLocaleString('de-DE') : '–';
+  const rows = [
+    ['Zeit',     time],
+    ['Level',    e.level],
+    ['Prozess',  e.process_name || '–'],
+    ['PID',      e.pid || '–'],
+    ['Subsystem',e.subsystem || '–'],
+    ['Quelle',   e.source || '–'],
+    ['Log',      e.log || '–'],
+  ];
+  meta.innerHTML = rows.map(([k,v]) =>
+    `<tr><th style="width:100px;text-align:left;padding:3px 8px 3px 0;font-weight:600;color:var(--color-text-muted);font-size:12px">${escapeHtml(k)}</th>` +
+    `<td style="padding:3px 0;font-size:12px">${escapeHtml(String(v))}</td></tr>`
+  ).join('');
+
+  msgEl.textContent = e.message || '–';
+
+  // Console-Button nur anzeigen wenn Prozessname vorhanden
+  consBtn.style.display = e.process_name ? '' : 'none';
+
+  overlay.classList.remove('hidden');
+}
+
+// Event-Detail-Modal Listener (werden einmalig in initUI registriert)
+function initEventDetailModal() {
+  const overlay = document.getElementById('modal-event-overlay');
+  document.getElementById('modal-event-close')?.addEventListener('click', () => overlay?.classList.add('hidden'));
+  document.getElementById('modal-event-ok')?.addEventListener('click',    () => overlay?.classList.add('hidden'));
+  overlay?.addEventListener('click', ev => { if (ev.target === overlay) overlay.classList.add('hidden'); });
+
+  document.getElementById('modal-event-copy')?.addEventListener('click', () => {
+    if (_currentEventDetail?.message) {
+      navigator.clipboard.writeText(_currentEventDetail.message);
+      showToast('Meldung in Zwischenablage kopiert.');
+    }
+  });
+
+  document.getElementById('modal-event-console')?.addEventListener('click', async () => {
+    if (_currentEventDetail?.process_name) {
+      try {
+        await OpenEventInConsole(_currentEventDetail.process_name);
+        showToast('Console.app geöffnet — nach „' + _currentEventDetail.process_name + '" suchen.');
+      } catch (e) {
+        showToast('Konnte Console nicht öffnen: ' + e);
+      }
+    }
+  });
 }
 
 // ─── System-Tab Rendering ─────────────────────────────────────────────────────

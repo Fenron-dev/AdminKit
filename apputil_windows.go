@@ -15,3 +15,7 @@ func revealFilePlatform(path string) error {
 	winPath := strings.ReplaceAll(path, "/", "\\")
 	return exec.Command("explorer", "/select,"+winPath).Run()
 }
+
+func openEventInConsolePlatform(_ string) error {
+	return exec.Command("eventvwr").Run()
+}
