@@ -1145,3 +1145,65 @@ body.platform-mac .titlebar {
   padding-left: 80px;
 }
 
+/* ============================================================
+   Scan-Zusammenfassung Modal
+   ============================================================ */
+
+.summary-modules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 5px;
+  margin-bottom: 14px;
+  padding: 10px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius);
+}
+
+.summary-module {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.summary-module-ok      { background: rgba(22,163,74,.12);  color: var(--color-success); }
+.summary-module-warning { background: rgba(202,138,4,.12);  color: var(--color-warning); }
+.summary-module-error   { background: rgba(220,38,38,.12);  color: var(--color-error);   }
+
+[data-theme="dark"] .summary-module-ok      { background: rgba(34,197,94,.15); }
+[data-theme="dark"] .summary-module-warning { background: rgba(234,179,8,.15); }
+[data-theme="dark"] .summary-module-error   { background: rgba(239,68,68,.15); }
+
+.summary-section { margin: 10px 0; }
+
+.summary-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--color-text-muted);
+  margin-bottom: 5px;
+}
+
+.summary-finding {
+  padding: 7px 12px;
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+  margin-bottom: 3px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.summary-critical   { background: rgba(220,38,38,.07);   border-left-color: var(--color-error);        }
+.summary-warning    { background: rgba(202,138,4,.07);   border-left-color: var(--color-warning);      }
+.summary-ok         { background: rgba(22,163,74,.07);   border-left-color: var(--color-success);      }
+.summary-scan-error { background: rgba(100,116,139,.08); border-left-color: var(--color-text-muted);   }
+
+[data-theme="dark"] .summary-critical   { background: rgba(239,68,68,.1);  }
+[data-theme="dark"] .summary-warning    { background: rgba(234,179,8,.1);  }
+[data-theme="dark"] .summary-ok         { background: rgba(34,197,94,.09); }
+[data-theme="dark"] .summary-scan-error { background: rgba(148,163,184,.1); }
+

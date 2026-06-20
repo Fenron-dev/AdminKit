@@ -127,6 +127,7 @@
           <div class="panel-toolbar">
             <h2>System-Informationen</h2>
             <div class="toolbar-actions">
+              <input class="search-input" type="search" id="system-search" placeholder="Filtern (CPU, Dienste, Events…)" />
               <button class="btn btn-primary" id="btn-scan-system">🔍 System scannen</button>
               <button class="btn btn-secondary" id="btn-scan-autostart">🚀 Autostart scannen</button>
               <button class="btn btn-secondary" id="btn-scan-services">⚙ Dienste scannen</button>
@@ -416,6 +417,19 @@
           <p id="qr-modal-hint" style="font-size:12px;color:var(--color-text-muted);text-align:center"></p>
           <div class="modal-actions">
             <button class="btn btn-secondary" id="btn-qr-cancel">Schließen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scan-Zusammenfassung -->
+      <div class="modal-overlay hidden" id="modal-scan-summary">
+        <div class="modal modal-wide">
+          <button class="modal-close" id="btn-summary-close" title="Schließen">✕</button>
+          <h2>📊 Scan abgeschlossen</h2>
+          <div id="summary-modules"></div>
+          <div id="summary-findings"></div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="btn-summary-ok">OK</button>
           </div>
         </div>
       </div>

@@ -29,16 +29,20 @@ import {
 const state = {
   theme: detectInitialTheme(),
   activeTab: 'dashboard',
-  currentSession: null,        // Name der aktiven Session
-  currentSessionPath: null,    // Absoluter Pfad zur Session im Vault
-  lastScanResult: null,        // Letztes System-ScanResult
-  lastNetworkResult: null,     // Letztes Netzwerk-ScanResult
-  lastSoftwareResult: null,    // Letztes Software-ScanResult
-  lastPrinterResult: null,     // Letztes Drucker-ScanResult
-  softwareSortCol: 'name',     // Aktive Sortierspalte
-  softwareSortDir: 'asc',      // Sortierrichtung
+  currentSession: null,           // Name der aktiven Session
+  currentSessionPath: null,       // Absoluter Pfad zur Session im Vault
+  lastScanResult: null,           // Letztes System-ScanResult
+  lastNetworkResult: null,        // Letztes Netzwerk-ScanResult
+  lastSoftwareResult: null,       // Letztes Software-ScanResult
+  lastPrinterResult: null,        // Letztes Drucker-ScanResult
+  lastAutostartResult: null,      // Letztes Autostart-ScanResult
+  lastServicesResult: null,       // Letztes Dienste-ScanResult
+  lastEventsResult: null,         // Letztes Ereignislog-ScanResult
+  lastBrowserExtResult: null,     // Letztes Browser-Extensions-ScanResult
+  softwareSortCol: 'name',        // Aktive Sortierspalte
+  softwareSortDir: 'asc',         // Sortierrichtung
   isScanning: false,
-  config: null,                // Geladene Konfiguration (config.yaml)
+  config: null,                   // Geladene Konfiguration (config.yaml)
 };
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
@@ -51,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSessionHistory();
   initScanButtons();
   initSoftwareTab();
+  initSystemSearch();
   initToolsTab();
   initExport();
   initSettings();
@@ -59,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCollapsibleSections();
   initBackToTop();
   initQRModal();
+  initScanSummaryModal();
   applyPlatformClass();
   loadAppInfo();
 });
@@ -189,6 +195,16 @@ function initPrinterScan() {
  *  Netzwerk-Scan läuft im Basic-Modus (kein Passwort-Dialog). */
 async function runFullScan() {
   switchTab('system');
+  // Alte Ergebnisse löschen damit die Zusammenfassung nur den aktuellen Scan zeigt
+  state.lastScanResult = null;
+  state.lastAutostartResult = null;
+  state.lastServicesResult = null;
+  state.lastEventsResult = null;
+  state.lastPrinterResult = null;
+  state.lastNetworkResult = null;
+  state.lastSoftwareResult = null;
+  state.lastBrowserExtResult = null;
+
   await runSystemScan();
   await runAutostartScan();
   await runServicesScan();
@@ -197,6 +213,8 @@ async function runFullScan() {
   await runNetworkScanBasic(); // kein WiFi-Passwort-Dialog beim Vollscan
   await runSoftwareScan();
   await runBrowserExtScan();
+
+  showScanSummary();
 }
 
 async function runSystemScan() {
@@ -454,6 +472,7 @@ async function runAutostartScan() {
 
   try {
     const result = await ScanAutostart();
+    state.lastAutostartResult = result;
     renderAutostart(result.entries);
     setEl('autostart-count', result.entries?.length ?? 0);
     logScanErrors(result.errors, 'Autostart-Scan');
@@ -532,6 +551,7 @@ async function runServicesScan() {
 
   try {
     const result = await ScanServices();
+    state.lastServicesResult = result;
     renderServices(result.services);
     setEl('services-count', result.services?.length ?? 0);
     logScanErrors(result.errors, 'Dienste-Scan');
@@ -646,6 +666,7 @@ async function runEventsScan() {
 
   try {
     const result = await ScanEvents();
+    state.lastEventsResult = result;
     renderEvents(result.events);
     setEl('events-count', result.events?.length ?? 0);
     logScanErrors(result.errors, 'Event-Log-Scan');
@@ -1053,6 +1074,7 @@ async function runBrowserExtScan() {
 
   try {
     const result = await ScanBrowserExtensions();
+    state.lastBrowserExtResult = result;
     renderBrowserExtensions(result.extensions);
     setEl('extensions-count', result.extensions?.length ?? 0);
     logScanErrors(result.errors, 'Browser-Extensions-Scan');
@@ -1658,6 +1680,274 @@ function consoleAppend(text) {
   if (!out) return;
   out.textContent += text;
   out.scrollTop = out.scrollHeight;
+}
+
+// ─── System-Tab Suche ─────────────────────────────────────────────────────────
+
+function initSystemSearch() {
+  document.getElementById('system-search')?.addEventListener('input', e => {
+    filterSystemTab(e.target.value.trim().toLowerCase());
+  });
+}
+
+function filterSystemTab(query) {
+  const sysTab = document.getElementById('tab-system');
+  if (!sysTab) return;
+
+  // Reset: alle Elemente wieder sichtbar machen
+  sysTab.querySelectorAll('.info-key, .info-val, .smart-disk, .hw-volume-item, tbody tr, .autostart-group, .info-section').forEach(el => {
+    el.style.display = '';
+  });
+
+  if (!query) return;
+
+  const visibleGroups  = new Set();
+  const visibleSections = new Set();
+
+  // 1. Info-Grid Key-Value-Paare
+  sysTab.querySelectorAll('.info-key').forEach(keyEl => {
+    const valEl = keyEl.nextElementSibling;
+    if (!valEl?.classList.contains('info-val')) return;
+    const text = (keyEl.textContent + ' ' + valEl.textContent).toLowerCase();
+    if (text.includes(query)) {
+      visibleSections.add(keyEl.closest('.info-section'));
+    } else {
+      keyEl.style.display = 'none';
+      valEl.style.display = 'none';
+    }
+  });
+
+  // 2. Smart-Disk und Adapter-Blöcke
+  sysTab.querySelectorAll('.smart-disk').forEach(block => {
+    if (block.textContent.toLowerCase().includes(query)) {
+      visibleSections.add(block.closest('.info-section'));
+    } else {
+      block.style.display = 'none';
+    }
+  });
+
+  // 3. Speicher-Volume-Items
+  sysTab.querySelectorAll('.hw-volume-item').forEach(vol => {
+    if (vol.textContent.toLowerCase().includes(query)) {
+      visibleSections.add(vol.closest('.info-section'));
+    } else {
+      vol.style.display = 'none';
+    }
+  });
+
+  // 4. Tabellenzeilen in tbody
+  sysTab.querySelectorAll('tbody tr').forEach(tr => {
+    const group = tr.closest('.autostart-group');
+    if (tr.textContent.toLowerCase().includes(query)) {
+      if (group) visibleGroups.add(group);
+      visibleSections.add(tr.closest('.info-section'));
+    } else {
+      tr.style.display = 'none';
+    }
+  });
+
+  // 5. Autostart-Gruppen-Container auswerten (Gruppen-Titel matcht → alle Zeilen zeigen)
+  sysTab.querySelectorAll('.autostart-group').forEach(group => {
+    const titleText = (group.querySelector('.autostart-group-title')?.textContent ?? '').toLowerCase();
+    if (titleText.includes(query)) {
+      group.querySelectorAll('tbody tr').forEach(tr => { tr.style.display = ''; });
+      visibleGroups.add(group);
+      visibleSections.add(group.closest('.info-section'));
+    }
+    if (!visibleGroups.has(group)) {
+      group.style.display = 'none';
+    }
+  });
+
+  // 6. Info-Sektionen ohne sichtbaren Inhalt ausblenden
+  sysTab.querySelectorAll('.info-section').forEach(section => {
+    if (!visibleSections.has(section)) {
+      section.style.display = 'none';
+    }
+  });
+}
+
+// ─── Scan-Zusammenfassung ─────────────────────────────────────────────────────
+
+function initScanSummaryModal() {
+  document.getElementById('btn-summary-close')?.addEventListener('click', closeScanSummary);
+  document.getElementById('btn-summary-ok')?.addEventListener('click', closeScanSummary);
+  document.getElementById('modal-scan-summary')?.addEventListener('click', e => {
+    if (e.target.id === 'modal-scan-summary') closeScanSummary();
+  });
+}
+
+function closeScanSummary() {
+  document.getElementById('modal-scan-summary')?.classList.add('hidden');
+}
+
+function showScanSummary() {
+  const modal    = document.getElementById('modal-scan-summary');
+  const modGrid  = document.getElementById('summary-modules');
+  const modFindings = document.getElementById('summary-findings');
+  if (!modal || !modGrid || !modFindings) return;
+
+  // ── Modul-Status ──────────────────────────────────────────────────────────
+  const modules = [
+    { name: 'System / Hardware', result: state.lastScanResult },
+    { name: 'Autostart',         result: state.lastAutostartResult },
+    { name: 'Dienste',           result: state.lastServicesResult },
+    { name: 'Ereignislog',       result: state.lastEventsResult },
+    { name: 'Drucker',           result: state.lastPrinterResult },
+    { name: 'Netzwerk',          result: state.lastNetworkResult },
+    { name: 'Software',          result: state.lastSoftwareResult },
+    { name: 'Extensions',        result: state.lastBrowserExtResult },
+  ];
+
+  modGrid.innerHTML = '<div class="summary-modules-grid">' +
+    modules.map(m => {
+      if (!m.result) {
+        return `<div class="summary-module summary-module-error">✗ ${escapeHtml(m.name)}</div>`;
+      }
+      const errs = m.result.errors?.length ?? 0;
+      return errs > 0
+        ? `<div class="summary-module summary-module-warning">⚠ ${escapeHtml(m.name)} (${errs})</div>`
+        : `<div class="summary-module summary-module-ok">✓ ${escapeHtml(m.name)}</div>`;
+    }).join('') +
+    '</div>';
+
+  // ── Befunde analysieren ───────────────────────────────────────────────────
+  const critical = [];
+  const warnings = [];
+  const ok       = [];
+  const scanErrs = [];
+
+  const sys     = state.lastScanResult;
+  const sec     = sys?.security;
+  const auto    = state.lastAutostartResult;
+  const evtRes  = state.lastEventsResult;
+
+  // Sicherheit (Windows)
+  if (sec) {
+    if (sec.firewall_enabled === false)  critical.push('🔥 Firewall ist deaktiviert');
+    else if (sec.firewall_enabled === true) ok.push('Firewall aktiv');
+
+    if (sec.defender_enabled === false)  critical.push('🛡 Windows Defender ist deaktiviert');
+    else if (sec.defender_enabled === true)
+      ok.push(`Windows Defender aktiv${sec.defender_version ? ' (' + sec.defender_version + ')' : ''}`);
+
+    if (sec.rdp_enabled === true) {
+      if (!sec.nla_enabled) warnings.push('🖥 RDP aktiv ohne NLA (Network Level Authentication)');
+      else ok.push(`RDP aktiv mit NLA (Port ${sec.rdp_port || 3389})`);
+    } else if (sec.rdp_enabled === false) {
+      ok.push('RDP deaktiviert');
+    }
+
+    const userShares = sec.local_shares?.filter(s => !s.is_system) ?? [];
+    if (userShares.length > 0)
+      warnings.push(`📂 ${userShares.length} aktive Netzwerkfreigabe(n): ${userShares.map(s => s.name).join(', ')}`);
+
+    const unencrypted = sec.bitlocker_volumes?.filter(v => !v.encrypted) ?? [];
+    if (unencrypted.length > 0)
+      warnings.push(`🔓 ${unencrypted.length} Laufwerk(e) ohne BitLocker-Verschlüsselung`);
+    else if (sec.bitlocker_volumes?.length > 0)
+      ok.push('Alle Laufwerke mit BitLocker verschlüsselt');
+  }
+
+  // SMART
+  if (sys?.smart?.length > 0) {
+    const critDisks = sys.smart.filter(d => d.status === 'CRITICAL');
+    const warnDisks = sys.smart.filter(d => d.status === 'WARNING');
+    if (critDisks.length > 0)
+      critical.push(`💾 ${critDisks.length} Festplatte(n) KRITISCHER SMART-Status: ${critDisks.map(d => d.model).join(', ')}`);
+    if (warnDisks.length > 0)
+      warnings.push(`💾 ${warnDisks.length} Festplatte(n) mit SMART-Warnung: ${warnDisks.map(d => d.model).join(', ')}`);
+    if (critDisks.length === 0 && warnDisks.length === 0)
+      ok.push(`SMART: alle ${sys.smart.length} Disk(s) OK`);
+  }
+
+  // Lizenz / OS
+  if (sys?.os?.license_status) {
+    const ls = sys.os.license_status;
+    if (ls !== 'Licensed' && ls !== 'Lizenziert' && ls !== 'Licensed (OEM)')
+      warnings.push(`📋 Betriebssystem-Lizenz: ${ls}`);
+  }
+
+  // Speicherplatz
+  if (sys?.hardware?.volumes?.length > 0) {
+    let allOk = true;
+    sys.hardware.volumes.forEach(vol => {
+      const pct = vol.total_gb > 0 ? Math.round((vol.used_gb / vol.total_gb) * 100) : 0;
+      const lbl = vol.label || vol.letter || 'Volume';
+      if (pct >= 95)      { critical.push(`💾 ${lbl}: ${pct}% voll (${vol.free_gb} GB frei)`); allOk = false; }
+      else if (pct >= 80) { warnings.push(`💾 ${lbl}: ${pct}% voll (${vol.free_gb} GB frei)`); allOk = false; }
+    });
+    if (allOk) ok.push('Speicherplatz: alle Volumes unkritisch');
+  }
+
+  // Systemereignisse
+  if (evtRes?.events?.length > 0) {
+    const critEvts  = evtRes.events.filter(e => e.level === 'Kritisch');
+    const errorEvts = evtRes.events.filter(e => e.level === 'Fehler');
+    if (critEvts.length > 0)
+      critical.push(`⚠ ${critEvts.length} kritische Systemereignisse (letzte 7 Tage)`);
+    if (errorEvts.length > 0)
+      warnings.push(`⚠ ${errorEvts.length} Fehler-Ereignisse im Ereignislog`);
+    if (critEvts.length === 0 && errorEvts.length === 0)
+      ok.push('Ereignis-Log: keine kritischen Ereignisse');
+  } else if (evtRes) {
+    ok.push('Ereignis-Log: keine kritischen Ereignisse');
+  }
+
+  // Autostart
+  if (auto?.entries?.length > 0) {
+    const thirdParty = auto.entries.filter(e => !e.is_system && e.is_enabled);
+    if (thirdParty.length > 15)
+      warnings.push(`🚀 ${thirdParty.length} aktive Drittanbieter-Autostart-Einträge`);
+    else
+      ok.push(`Autostart: ${thirdParty.length} Drittanbieter-Einträge (${auto.entries.length} gesamt)`);
+  }
+
+  // Netzwerk
+  if (state.lastNetworkResult?.adapters?.length > 0) {
+    const connected = state.lastNetworkResult.adapters.filter(a => a.is_connected).length;
+    const total     = state.lastNetworkResult.adapters.length;
+    if (connected === 0) warnings.push('🌐 Kein Netzwerkadapter verbunden');
+    else ok.push(`Netzwerk: ${connected}/${total} Adapter verbunden`);
+  }
+
+  // Partielle Scan-Fehler aus allen Ergebnissen
+  const allResults  = [sys, auto, state.lastServicesResult, evtRes, state.lastPrinterResult,
+                       state.lastNetworkResult, state.lastSoftwareResult, state.lastBrowserExtResult];
+  const modNames    = ['System', 'Autostart', 'Dienste', 'Ereignislog', 'Drucker', 'Netzwerk', 'Software', 'Extensions'];
+  allResults.forEach((r, i) => {
+    r?.errors?.forEach(e => scanErrs.push(`[${modNames[i]}/${e.module}] ${e.message}`));
+  });
+
+  // ── HTML ausgeben ─────────────────────────────────────────────────────────
+  let html = '';
+
+  if (critical.length > 0) {
+    html += '<div class="summary-section"><div class="summary-section-title">🔴 Kritisch</div>';
+    html += critical.map(f => `<div class="summary-finding summary-critical">${escapeHtml(f)}</div>`).join('');
+    html += '</div>';
+  }
+  if (warnings.length > 0) {
+    html += '<div class="summary-section"><div class="summary-section-title">🟡 Hinweise</div>';
+    html += warnings.map(f => `<div class="summary-finding summary-warning">${escapeHtml(f)}</div>`).join('');
+    html += '</div>';
+  }
+  if (ok.length > 0) {
+    html += '<div class="summary-section"><div class="summary-section-title">🟢 OK</div>';
+    html += ok.map(f => `<div class="summary-finding summary-ok">${escapeHtml(f)}</div>`).join('');
+    html += '</div>';
+  }
+  if (scanErrs.length > 0) {
+    html += '<div class="summary-section"><div class="summary-section-title">⚙ Scan-Hinweise</div>';
+    html += scanErrs.map(f => `<div class="summary-finding summary-scan-error">${escapeHtml(f)}</div>`).join('');
+    html += '</div>';
+  }
+  if (!html) {
+    html = '<p class="info-placeholder">Keine auffälligen Befunde.</p>';
+  }
+
+  modFindings.innerHTML = html;
+  modal.classList.remove('hidden');
 }
 
 function escapeHtml(str) {
