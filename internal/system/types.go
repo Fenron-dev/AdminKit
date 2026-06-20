@@ -170,6 +170,19 @@ type BitLockerVolume struct {
 	Status    string `json:"status"`
 }
 
+// ─── Laufende Prozesse ────────────────────────────────────────────────────────
+
+// RunningProcess beschreibt einen laufenden Prozess.
+type RunningProcess struct {
+	PID      int     `json:"pid"`
+	Name     string  `json:"name"`
+	Path     string  `json:"path,omitempty"`
+	User     string  `json:"user"`
+	CPUPct   float64 `json:"cpu_pct"`
+	MemoryMB float64 `json:"memory_mb"`
+	IsSystem bool    `json:"is_system"`
+}
+
 // ─── Fehler-Tracking ──────────────────────────────────────────────────────────
 
 // ScanError ist ein nicht-fataler Fehler während des Scans.

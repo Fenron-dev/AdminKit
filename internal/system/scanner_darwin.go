@@ -783,3 +783,44 @@ func parseFreq(s string) int {
 	val, _ := strconv.Atoi(strings.TrimRight(parts[0], ",."))
 	return val
 }
+
+// ─── Prozess-Scanner ─────────────────────────────────────────────────────────
+
+// ScanProcesses gibt alle laufenden Prozesse zurück (via ps).
+func ScanProcesses() ([]RunningProcess, error) {
+	// Felder: pid, user, %cpu, rss (KB), comm (Prozessname ohne Argumente)
+	out, err := exec.Command("ps", "-axo", "pid=,user=,pcpu=,rss=,comm=").Output()
+	if err != nil {
+		return nil, fmt.Errorf("ps fehlgeschlagen: %w", err)
+	}
+
+	systemUsers := map[string]bool{
+		"root": true, "_windowserver": true, "_mdnsresponder": true,
+		"_netbios": true, "_spotlight": true, "_locationd": true,
+		"_coreaudiod": true, "_distnoted": true, "_softwareupdate": true,
+		"_usbmuxd": true, "_appleevents": true, "_driverkit": true,
+	}
+
+	var procs []RunningProcess
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 5 {
+			continue
+		}
+		pid, _ := strconv.Atoi(fields[0])
+		user := fields[1]
+		cpu, _ := strconv.ParseFloat(fields[2], 64)
+		rssKB, _ := strconv.ParseFloat(fields[3], 64)
+		name := strings.Join(fields[4:], " ")
+
+		procs = append(procs, RunningProcess{
+			PID:      pid,
+			Name:     name,
+			User:     user,
+			CPUPct:   cpu,
+			MemoryMB: rssKB / 1024,
+			IsSystem: systemUsers[strings.ToLower(user)],
+		})
+	}
+	return procs, nil
+}

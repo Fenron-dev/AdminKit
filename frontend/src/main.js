@@ -28,6 +28,7 @@ import {
   CallAI, CallLocalAI, GetAvailableAIProviders,
   GetOpenRouterModels,
   RunRawCommand,
+  GetProcesses,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -207,6 +208,7 @@ function initPrinterScan() {
   document.getElementById('btn-scan-services')?.addEventListener('click', () => runServicesScan());
   document.getElementById('btn-scan-events')?.addEventListener('click', () => runEventsScan());
   document.getElementById('btn-scan-extensions')?.addEventListener('click', () => runBrowserExtScan());
+  document.getElementById('btn-scan-processes')?.addEventListener('click', () => runProcessScan());
 }
 
 /** Vollständiger Scan: alle Scanner nacheinander.
@@ -472,7 +474,7 @@ function logScanErrors(errors, label) {
 function setScanButtonsDisabled(disabled) {
   ['btn-full-scan', 'btn-scan-system', 'btn-scan-network', 'btn-scan-software',
    'btn-scan-printers', 'btn-scan-autostart', 'btn-scan-services', 'btn-scan-events',
-   'btn-scan-extensions'].forEach(id => {
+   'btn-scan-extensions', 'btn-scan-processes'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = disabled;
   });
@@ -1398,6 +1400,75 @@ function initActionBar() {
   });
 }
 
+// ─── Prozess-Scanner ─────────────────────────────────────────────────────────
+
+async function runProcessScan() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  setScanButtonsDisabled(true);
+  setStatus('Prozess-Scan läuft…');
+  setPlaceholder('processes-info', 'Scanne laufende Prozesse…');
+
+  try {
+    const procs = await GetProcesses();
+    renderProcesses(procs);
+    setEl('processes-count', procs?.length ?? 0);
+    addAction(`Prozess-Scan: ${procs?.length ?? 0} laufende Prozesse`, 'info');
+    setStatus('Prozess-Scan abgeschlossen');
+  } catch (err) {
+    setPlaceholder('processes-info', 'Fehler: ' + err);
+    addAction('Prozess-Scan fehlgeschlagen: ' + err, 'error');
+    setStatus('Fehler beim Prozess-Scan');
+  } finally {
+    state.isScanning = false;
+    setScanButtonsDisabled(false);
+  }
+}
+
+function renderProcesses(procs) {
+  const container = document.getElementById('processes-info');
+  if (!container) return;
+  if (!procs?.length) {
+    container.innerHTML = '<div class="info-placeholder">Keine Prozesse gefunden.</div>';
+    return;
+  }
+
+  // Sortierung: CPU% absteigend, dann Speicher
+  const sorted = [...procs].sort((a, b) => (b.cpu_pct - a.cpu_pct) || (b.memory_mb - a.memory_mb));
+
+  const tbl = document.createElement('table');
+  tbl.className = 'data-table';
+  tbl.innerHTML = `<thead><tr>
+    <th class="cb-col"><input type="checkbox" class="check-all" title="Alle auswählen"></th>
+    <th>PID</th><th>Name</th><th>Benutzer</th><th>CPU%</th><th>RAM (MB)</th>
+  </tr></thead>`;
+
+  const tbody = document.createElement('tbody');
+  sorted.forEach(p => {
+    const cbId = `process:${p.pid}:${p.name}`;
+    const isHigh = p.cpu_pct > 20 || p.memory_mb > 500;
+    const tr = document.createElement('tr');
+    if (isHigh) tr.classList.add('row-warning');
+    tr.innerHTML = `
+      <td class="cb-col"><input type="checkbox" class="item-check"
+        data-id="${escapeHtml(cbId)}"
+        data-name="${escapeHtml(p.name)}"
+        data-path="${escapeHtml(p.path || '')}"
+        data-type="process"></td>
+      <td class="mono">${p.pid}</td>
+      <td>${escapeHtml(p.name)}${p.path ? `<span class="item-path" title="${escapeHtml(p.path)}"> ${escapeHtml(p.path)}</span>` : ''}</td>
+      <td>${escapeHtml(p.user || '–')}</td>
+      <td class="${p.cpu_pct > 20 ? 'text-warning' : ''}">${p.cpu_pct.toFixed(1)}</td>
+      <td class="${p.memory_mb > 500 ? 'text-warning' : ''}">${p.memory_mb.toFixed(0)}</td>`;
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+
+  container.innerHTML = '';
+  container.appendChild(tbl);
+  attachCheckboxHandlers(container);
+}
+
 // ─── VT-Check ────────────────────────────────────────────────────────────────
 
 async function runVTCheck() {
@@ -1411,7 +1482,8 @@ async function runVTCheck() {
   // VT-Key prüfen
   const vtKey = state.config?.api_keys?.virustotal ?? '';
   if (!vtKey) {
-    alert('Kein VirusTotal-API-Key konfiguriert.\nBitte in Einstellungen → API-Schlüssel eintragen.');
+    showToast('Kein VirusTotal-API-Key konfiguriert — bitte in Einstellungen → API-Schlüssel eintragen.');
+    document.getElementById('btn-settings')?.click();
     return;
   }
 

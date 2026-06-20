@@ -769,3 +769,44 @@ func smartAttrName(id uint8) string {
 	}
 	return fmt.Sprintf("Attribute 0x%02X", id)
 }
+
+// ─── Prozess-Scanner ─────────────────────────────────────────────────────────
+
+type wmiProcess struct {
+	ProcessId      uint32
+	Name           string
+	ExecutablePath string
+	WorkingSetSize uint64
+}
+
+// ScanProcesses gibt alle laufenden Prozesse zurück (via WMI).
+func ScanProcesses() ([]RunningProcess, error) {
+	var wmiProcs []wmiProcess
+	err := wmi.Query(`SELECT ProcessId, Name, ExecutablePath, WorkingSetSize FROM Win32_Process`, &wmiProcs)
+	if err != nil {
+		return nil, fmt.Errorf("WMI-Prozess-Abfrage fehlgeschlagen: %w", err)
+	}
+
+	systemPaths := []string{`C:\Windows\`, `C:\Program Files\Windows `}
+
+	var procs []RunningProcess
+	for _, p := range wmiProcs {
+		isSystem := false
+		for _, sp := range systemPaths {
+			if strings.HasPrefix(strings.ToLower(p.ExecutablePath), strings.ToLower(sp)) {
+				isSystem = true
+				break
+			}
+		}
+		procs = append(procs, RunningProcess{
+			PID:      int(p.ProcessId),
+			Name:     p.Name,
+			Path:     p.ExecutablePath,
+			User:     "",
+			CPUPct:   0,
+			MemoryMB: float64(p.WorkingSetSize) / (1024 * 1024),
+			IsSystem: isSystem,
+		})
+	}
+	return procs, nil
+}

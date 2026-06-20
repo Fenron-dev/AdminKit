@@ -263,6 +263,11 @@ func (a *App) ScanSystem() (*system.ScanResult, error) {
 	return result, nil
 }
 
+// GetProcesses gibt alle laufenden Prozesse zurück (PID, Name, User, CPU%, RAM).
+func (a *App) GetProcesses() ([]system.RunningProcess, error) {
+	return system.ScanProcesses()
+}
+
 // SaveSystemScan speichert ein Scan-Ergebnis im aktuellen Session-Ordner als Markdown.
 // sessionPath muss ein gültiger Pfad zu einem Session-Verzeichnis im Vault sein.
 func (a *App) SaveSystemScan(result *system.ScanResult, sessionPath string) error {

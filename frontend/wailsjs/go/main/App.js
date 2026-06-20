@@ -179,6 +179,10 @@ export function GetPlatform() {
     return window['go']['main']['App']['GetPlatform']();
 }
 
+export function GetProcesses() {
+    return window['go']['main']['App']['GetProcesses']();
+}
+
 // ── Terminal Log ──
 export function SaveTerminalLog(arg1) {
     return window['go']['main']['App']['SaveTerminalLog'](arg1);
