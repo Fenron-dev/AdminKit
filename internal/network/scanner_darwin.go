@@ -252,16 +252,20 @@ func scanWiFi(includePasswords bool) ([]WiFiProfile, []ScanError) {
 			IsConnected: ssid == connectedSSID,
 		}
 
-		// Passwort aus Keychain (erfordert Benutzer-Zustimmung beim ersten Aufruf)
+		// Passwort aus Keychain (erfordert Benutzer-Zustimmung pro SSID)
 		if includePasswords {
 			pw, pwErr := fetchWiFiPassword(ssid)
 			if pwErr == nil && pw != "" {
 				profile.Password = pw // NIEMALS loggen
 				profile.HasPassword = true
+			} else {
+				// Passwort existiert, aber kein Zugriff – aus Sicherheitstyp ableiten
+				profile.HasPassword = profile.Security != WiFiOpen
 			}
 		} else {
-			// Nur prüfen ob Passwort existiert, ohne es zu holen
-			profile.HasPassword = checkWiFiPasswordExists(ssid)
+			// Keine Keychain-Abfrage: HasPassword aus Sicherheitstyp ableiten
+			// → verhindert bis zu N Systemdialoge beim Vollständigen Scan
+			profile.HasPassword = profile.Security != WiFiOpen
 		}
 
 		profiles = append(profiles, profile)
@@ -285,14 +289,6 @@ func fetchWiFiPassword(ssid string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// checkWiFiPasswordExists prüft, ob ein Eintrag im Keychain existiert (ohne Passwort zu lesen).
-func checkWiFiPasswordExists(ssid string) bool {
-	err := exec.Command("security", "find-generic-password",
-		"-D", "AirPort network password",
-		"-a", ssid,
-	).Run()
-	return err == nil
-}
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 

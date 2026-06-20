@@ -268,6 +268,24 @@ func (a *App) ScanNetwork() (*network.ScanResult, error) {
 	return result, nil
 }
 
+// ScanNetworkBasic führt einen Netzwerk-Scan ohne WiFi-Passwörter durch.
+// Wird beim Vollständigen Scan verwendet damit kein Admin-Dialog erscheint.
+func (a *App) ScanNetworkBasic() (*network.ScanResult, error) {
+	logging.Info("Network", "Netzwerk-Scan (Basic) gestartet")
+	result, err := network.Scan(false) // immer ohne Passwörter
+	if err != nil {
+		logging.Errorf("Network", "Basic-Scan fehlgeschlagen: %v", err)
+		return nil, err
+	}
+	for _, e := range result.Errors {
+		logging.Warnf("Network", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Network", "Netzwerk-Scan (Basic) abgeschlossen: %d Adapter, %d WiFi-Profile",
+		len(result.Adapters), len(result.WiFi))
+	a.lastNetworkScan = result
+	return result, nil
+}
+
 // SaveNetworkScan speichert ein Netzwerk-Scan-Ergebnis im Session-Ordner.
 func (a *App) SaveNetworkScan(result *network.ScanResult, sessionPath string) error {
 	if sessionPath == "" {
@@ -376,6 +394,32 @@ func (a *App) GetSessions() ([]vault.SessionInfo, error) {
 		return nil, nil
 	}
 	return a.vault.ListSessions()
+}
+
+// StartService startet einen Dienst per Name.
+// Auf macOS: launchctl start; auf Windows: sc start.
+// System-Dienste erfordern Admin-Rechte (einmaliger Dialog).
+func (a *App) StartService(name string) (string, error) {
+	logging.Infof("Services", "Starte Dienst: %s", name)
+	out, err := services.StartService(name)
+	if err != nil {
+		logging.Warnf("Services", "Starten fehlgeschlagen (%s): %v", name, err)
+		return "", err
+	}
+	logging.Infof("Services", "Dienst gestartet: %s", name)
+	return out, nil
+}
+
+// StopService beendet einen Dienst per Name.
+func (a *App) StopService(name string) (string, error) {
+	logging.Infof("Services", "Beende Dienst: %s", name)
+	out, err := services.StopService(name)
+	if err != nil {
+		logging.Warnf("Services", "Beenden fehlgeschlagen (%s): %v", name, err)
+		return "", err
+	}
+	logging.Infof("Services", "Dienst beendet: %s", name)
+	return out, nil
 }
 
 // ScanPrinters listet alle installierten Drucker auf.

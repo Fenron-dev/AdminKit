@@ -14,7 +14,9 @@ import {
   ScanPrinters, SavePrinterScan,
   ScanAutostart, ScanServices, ScanEvents,
   ScanBrowserExtensions,
+  ScanNetworkBasic,
   GetSessions,
+  StartService, StopService,
   RunConsoleTool, BackupVault, GetClipboard, GetUptime,
   ExportSession, ExportCSV,
   SaveConfig,
@@ -183,7 +185,8 @@ function initPrinterScan() {
   document.getElementById('btn-scan-extensions')?.addEventListener('click', () => runBrowserExtScan());
 }
 
-/** Vollständiger Scan: alle Scanner nacheinander */
+/** Vollständiger Scan: alle Scanner nacheinander.
+ *  Netzwerk-Scan läuft im Basic-Modus (kein Passwort-Dialog). */
 async function runFullScan() {
   switchTab('system');
   await runSystemScan();
@@ -191,7 +194,7 @@ async function runFullScan() {
   await runServicesScan();
   await runEventsScan();
   await runPrinterScan();
-  await runNetworkScan();
+  await runNetworkScanBasic(); // kein WiFi-Passwort-Dialog beim Vollscan
   await runSoftwareScan();
   await runBrowserExtScan();
 }
@@ -263,6 +266,41 @@ async function runNetworkScan() {
     setStatus('Netzwerk-Scan abgeschlossen');
   } catch (err) {
     console.error('Netzwerk-Scan fehlgeschlagen:', err);
+    addAction('Netzwerk-Scan fehlgeschlagen: ' + err, 'error');
+    setStatus('Fehler beim Netzwerk-Scan');
+  } finally {
+    state.isScanning = false;
+    setScanButtonsDisabled(false);
+  }
+}
+
+/** Netzwerk-Scan ohne WiFi-Passwörter — für den Vollständigen Scan. */
+async function runNetworkScanBasic() {
+  if (state.isScanning) return;
+  state.isScanning = true;
+  setStatus('Netzwerk-Scan läuft…');
+  setScanButtonsDisabled(true);
+  addAction('Netzwerk-Scan (Basic) gestartet', 'info');
+
+  setPlaceholder('adapter-info', 'Scanne Netzwerkadapter…');
+  setPlaceholder('shares-info',  'Scanne Netzlaufwerke…');
+  setPlaceholder('wifi-info',    'Scanne WiFi-Profile…');
+
+  try {
+    const result = await ScanNetworkBasic();
+    state.lastNetworkResult = result;
+    renderAdapters(result.adapters);
+    renderShares(result.shares);
+    renderWiFi(result.wifi);
+    updateNetworkBadge(result);
+
+    if (state.currentSessionPath) {
+      await SaveNetworkScan(result, state.currentSessionPath);
+    }
+
+    logScanErrors(result.errors, 'Netzwerk-Scan');
+    setStatus('Netzwerk-Scan abgeschlossen');
+  } catch (err) {
     addAction('Netzwerk-Scan fehlgeschlagen: ' + err, 'error');
     setStatus('Fehler beim Netzwerk-Scan');
   } finally {
@@ -543,16 +581,56 @@ function buildServicesTable(list, title) {
   wrap.innerHTML = `<div class="autostart-group-title">${escapeHtml(title)}</div>`;
   const tbl = document.createElement('table');
   tbl.className = 'data-table';
-  tbl.innerHTML = '<thead><tr><th>Name</th><th>Starttyp</th><th>Status</th></tr></thead>';
+  tbl.innerHTML = '<thead><tr><th>Name</th><th>Starttyp</th><th>Status</th><th>Aktion</th></tr></thead>';
   const tbody = document.createElement('tbody');
   list.forEach(s => {
     const tr = document.createElement('tr');
+    tr.dataset.serviceName = s.name;
     const stateIcon = s.state === 'Läuft' ? '🟢' : (s.state === 'Gestoppt' ? '🔴' : '🟡');
-    tr.innerHTML = `<td><strong>${escapeHtml(s.display_name)}</strong><br><span class="text-muted" style="font-size:11px">${escapeHtml(s.name)}</span></td><td>${escapeHtml(s.start_type)}</td><td>${stateIcon} ${escapeHtml(s.state)}</td>`;
+    const isRunning = s.state === 'Läuft';
+    const startBtn = !isRunning
+      ? `<button class="svc-btn svc-start" data-name="${escapeHtml(s.name)}" title="Dienst starten">▶ Starten</button>`
+      : '';
+    const stopBtn = isRunning
+      ? `<button class="svc-btn svc-stop" data-name="${escapeHtml(s.name)}" title="Dienst beenden">■ Beenden</button>`
+      : '';
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(s.display_name)}</strong><br><span class="text-muted" style="font-size:11px">${escapeHtml(s.name)}</span></td>
+      <td>${escapeHtml(s.start_type)}</td>
+      <td>${stateIcon} ${escapeHtml(s.state)}</td>
+      <td>${startBtn}${stopBtn}</td>`;
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
   wrap.appendChild(tbl);
+
+  // Start/Stop-Button-Handler
+  wrap.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.svc-btn');
+    if (!btn) return;
+    const name = btn.dataset.name;
+    const isStart = btn.classList.contains('svc-start');
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    try {
+      if (isStart) {
+        await StartService(name);
+        addAction(`Dienst gestartet: ${name}`, 'success');
+      } else {
+        await StopService(name);
+        addAction(`Dienst beendet: ${name}`, 'success');
+      }
+      // Dienste-Liste neu laden
+      const result = await ScanServices();
+      renderServices(result.services);
+      setEl('services-count', result.services?.length ?? 0);
+    } catch (err) {
+      addAction(`Dienst-Aktion fehlgeschlagen (${name}): ${err}`, 'error');
+      btn.disabled = false;
+      btn.textContent = isStart ? '▶ Starten' : '■ Beenden';
+    }
+  });
+
   return wrap;
 }
 
@@ -804,6 +882,7 @@ function renderShares(shares) {
 function renderWiFi(profiles) {
   const container = document.getElementById('wifi-info');
   if (!container) return;
+  setEl('wifi-count', profiles?.length ?? 0);
   if (!profiles?.length) {
     container.innerHTML = '<div class="info-placeholder">Keine WiFi-Profile gefunden (Admin-Rechte nötig).</div>';
     return;

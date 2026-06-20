@@ -936,6 +936,27 @@ html, body {
 }
 .copy-btn:hover { background: var(--color-surface-2); }
 
+/* ── Dienst Start/Stop Buttons ───────────────────────────────────────────── */
+.svc-btn {
+  border: none;
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: opacity .15s;
+}
+.svc-start {
+  background: var(--color-success);
+  color: #fff;
+}
+.svc-stop {
+  background: var(--color-error);
+  color: #fff;
+}
+.svc-btn:hover { opacity: .85; }
+.svc-btn:disabled { opacity: .5; cursor: not-allowed; }
+
 /* ── Export-Dropdown ─────────────────────────────────────────────────────── */
 
 .export-wrap {
