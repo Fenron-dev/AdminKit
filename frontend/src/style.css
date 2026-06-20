@@ -1783,6 +1783,29 @@ body.platform-mac .titlebar {
 }
 .tab-nav::-webkit-scrollbar { display: none; }
 
+/* ── Risiko-Badges ──────────────────────────────────────────────────────── */
+.risk-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: .3px;
+}
+.risk-critical { background: #FEE2E2; color: #B91C1C; }
+.risk-high     { background: #FFEDD5; color: #C2410C; }
+.risk-medium   { background: #FEF9C3; color: #92400E; }
+.risk-low      { background: #DBEAFE; color: #1D4ED8; }
+.risk-info     { background: var(--color-surface-2); color: var(--color-text-muted); }
+
+[data-theme="dark"] .risk-critical { background: #7F1D1D; color: #FCA5A5; }
+[data-theme="dark"] .risk-high     { background: #7C2D12; color: #FDBA74; }
+[data-theme="dark"] .risk-medium   { background: #713F12; color: #FDE047; }
+[data-theme="dark"] .risk-low      { background: #1E3A5F; color: #93C5FD; }
+
+.btn-xs { font-size: 11px; padding: 2px 8px; }
+
 /* ── Ereignis-Detail ────────────────────────────────────────────────────── */
 .btn-event-detail {
   background: none;

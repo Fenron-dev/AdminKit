@@ -47,7 +47,15 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 		h(title), reportCSS)
 
 	// ── Health Score berechnen ────────────────────────────────────────────────
-	score := scoring.Compute(data.System, data.Autostart, data.Events)
+	riskEventCount := 0
+	if data.Events != nil {
+		for _, e := range data.Events.Events {
+			if e.RiskScore >= 20 {
+				riskEventCount++
+			}
+		}
+	}
+	score := scoring.Compute(data.System, data.Autostart, riskEventCount)
 	scoreColor := map[string]string{
 		"green":  "#16A34A",
 		"yellow": "#D97706",

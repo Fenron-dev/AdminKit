@@ -675,6 +675,15 @@ func scanSecurity() (SecurityInfo, []ScanError) {
 	info.DefenderEnabled = true // Gatekeeper ist auf modernen Macs immer aktiv
 	info.DefenderVersion = "XProtect / Gatekeeper"
 
+	// SIP-Status (System Integrity Protection)
+	sipOut, err := exec.Command("csrutil", "status").Output()
+	if err == nil {
+		sipText := strings.ToLower(strings.TrimSpace(string(sipOut)))
+		enabled := strings.Contains(sipText, "enabled")
+		info.SIPEnabled = &enabled
+		info.SIPKnown = true
+	}
+
 	// Remote Login (SSH) als RDP-Äquivalent
 	sshOut, err := exec.Command("systemsetup", "-getremotelogin").Output()
 	if err == nil {

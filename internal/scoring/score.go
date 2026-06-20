@@ -3,7 +3,6 @@ package scoring
 
 import (
 	"adminkit/internal/autostart"
-	"adminkit/internal/events"
 	"adminkit/internal/system"
 )
 
@@ -24,11 +23,12 @@ type ScoreResult struct {
 }
 
 // Compute berechnet den Health Score aus den übergebenen Scan-Ergebnissen.
-// Nicht vorhandene Scan-Ergebnisse (nil) werden übersprungen.
+// criticalEventCount ist die Anzahl kritischer/fehler Ereignisse (vom Aufrufer gezählt,
+// um einen Import-Zyklus zwischen scoring ↔ events zu vermeiden).
 func Compute(
 	sys *system.ScanResult,
 	autostartResult *autostart.ScanResult,
-	eventsResult *events.ScanResult,
+	criticalEventCount int,
 ) *ScoreResult {
 	score := 100
 	var deductions []Deduction
@@ -49,6 +49,25 @@ func Compute(
 		// Defender / AV (nur Windows)
 		if sec.Platform == "windows" && !sec.DefenderEnabled {
 			deduct("Windows Defender deaktiviert", 15)
+		}
+
+		// SIP (macOS)
+		if sec.SIPKnown && sec.SIPEnabled != nil && !*sec.SIPEnabled {
+			deduct("System Integrity Protection (SIP) deaktiviert", 20)
+		}
+
+		// FileVault / BitLocker
+		if len(sec.BitLockerVolumes) > 0 {
+			anyUnencrypted := false
+			for _, v := range sec.BitLockerVolumes {
+				if !v.Encrypted {
+					anyUnencrypted = true
+					break
+				}
+			}
+			if anyUnencrypted {
+				deduct("Festplattenverschlüsselung (FileVault/BitLocker) deaktiviert", 15)
+			}
 		}
 
 		// Festplattenplatz: niedrigster freier Anteil aller Volumes
@@ -106,17 +125,9 @@ func Compute(
 		}
 	}
 
-	// Ereignisse: viele kritische Einträge
-	if eventsResult != nil {
-		critical := 0
-		for _, ev := range eventsResult.Events {
-			if ev.Level == events.LevelCritical || ev.Level == events.LevelError {
-				critical++
-			}
-		}
-		if critical > 10 {
-			deduct("Mehr als 10 kritische Ereignisse ("+itoa(critical)+")", 10)
-		}
+	// Ereignisse: viele kritische Einträge mit echtem Risiko (Score ≥ 20)
+	if criticalEventCount > 10 {
+		deduct("Mehr als 10 risikorelevante Ereignisse ("+itoa(criticalEventCount)+")", 10)
 	}
 
 	if score < 0 {

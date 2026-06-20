@@ -676,7 +676,16 @@ func (a *App) RevealFile(path string) error {
 
 // GetHealthScore berechnet den System-Health-Score aus den gecachten Scan-Ergebnissen.
 func (a *App) GetHealthScore() *scoring.ScoreResult {
-	return scoring.Compute(a.lastSystemScan, a.lastAutostartScan, a.lastEventsScan)
+	// Nur Events mit echtem Risiko zählen (RiskScore >= 20), um Rauschen herauszufiltern.
+	riskEventCount := 0
+	if a.lastEventsScan != nil {
+		for _, e := range a.lastEventsScan.Events {
+			if e.RiskScore >= 20 {
+				riskEventCount++
+			}
+		}
+	}
+	return scoring.Compute(a.lastSystemScan, a.lastAutostartScan, riskEventCount)
 }
 
 // OpenEventInConsole öffnet den System-Log-Viewer (Console.app auf macOS, Ereignisanzeige auf Windows).

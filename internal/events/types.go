@@ -23,6 +23,7 @@ type EventEntry struct {
 	ProcessName string    `json:"process_name"` // Prozessname der auslösenden App
 	PID         int       `json:"pid"`          // Prozess-ID
 	Subsystem   string    `json:"subsystem"`    // macOS Subsystem (z.B. "com.apple.coredata")
+	RiskScore   int       `json:"risk_score"`   // Risiko-Score 0–100 (0=Info, 100=Kritisch)
 }
 
 // ScanResult enthält die gesammelten Ereignisse.

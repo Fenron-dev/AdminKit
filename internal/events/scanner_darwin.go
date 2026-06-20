@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"adminkit/internal/scoring"
 )
 
 const daysBack = 7
@@ -75,6 +77,8 @@ func Scan() ScanResult {
 			subsys = subsys + ":" + entry.Category
 		}
 
+		risk := scoring.EventRisk(procName, subsys, entry.EventMessage)
+
 		result.Events = append(result.Events, EventEntry{
 			Time:        ts,
 			Level:       level,
@@ -84,6 +88,7 @@ func Scan() ScanResult {
 			ProcessName: procName,
 			PID:         entry.ProcessID,
 			Subsystem:   subsys,
+			RiskScore:   risk,
 		})
 		count++
 	}

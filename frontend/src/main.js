@@ -898,6 +898,20 @@ async function runEventsScan() {
 // Globale Referenz auf das aktuell angezeigte Event für das Modal
 let _currentEventDetail = null;
 
+// Risiko-Schwelle für den "Nur Risiken"-Filter
+const RISK_THRESHOLD = 20;
+
+function riskBadgeHtml(score) {
+  if (score === undefined || score === null) return '';
+  let cls, label;
+  if      (score >= 80) { cls = 'risk-critical'; label = score + ' Kritisch'; }
+  else if (score >= 50) { cls = 'risk-high';     label = score + ' Hoch'; }
+  else if (score >= 20) { cls = 'risk-medium';   label = score + ' Mittel'; }
+  else if (score >= 5)  { cls = 'risk-low';      label = score + ' Niedrig'; }
+  else                  { cls = 'risk-info';      label = score + ' Info'; }
+  return `<span class="risk-badge ${cls}">${label}</span>`;
+}
+
 function renderEvents(evtList) {
   const container = document.getElementById('events-info');
   if (!container) return;
@@ -906,43 +920,84 @@ function renderEvents(evtList) {
     return;
   }
 
-  const table = document.createElement('table');
-  table.className = 'data-table';
-  table.innerHTML = '<thead><tr><th>Zeit</th><th>Level</th><th>Prozess</th><th>Meldung</th><th></th></tr></thead>';
-  const tbody = document.createElement('tbody');
+  // Sortierung: höchster Risiko-Score zuerst
+  const sorted = [...evtList].sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0));
 
-  evtList.forEach(e => {
-    const tr = document.createElement('tr');
-    tr.style.cursor = 'pointer';
-    const levelIcon = e.level === 'Kritisch' ? '🔴' : (e.level === 'Fehler' ? '🟠' : '🟡');
-    const time = e.time ? new Date(e.time).toLocaleString('de-DE') : '–';
-    const proc = e.process_name || e.source || '–';
-    const shortMsg = e.message && e.message.length > 120
-      ? escapeHtml(e.message.slice(0, 120)) + '<span style="color:var(--color-text-muted)">…</span>'
-      : escapeHtml(e.message || '');
+  // Filter-State
+  let showAll = false;
 
-    tr.innerHTML = `
-      <td style="white-space:nowrap;font-size:11px">${escapeHtml(time)}</td>
-      <td style="white-space:nowrap">${levelIcon} ${escapeHtml(e.level)}</td>
-      <td style="font-size:11px;white-space:nowrap;font-weight:500">${escapeHtml(proc)}</td>
-      <td style="font-size:12px">${shortMsg}</td>
-      <td style="white-space:nowrap"><button class="btn-event-detail" data-idx="${evtList.indexOf(e)}" title="Details anzeigen">🔍</button></td>`;
-    tbody.appendChild(tr);
-  });
+  function buildTable(list) {
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.innerHTML = '<thead><tr><th>Risiko</th><th>Zeit</th><th>Prozess</th><th>Meldung</th><th></th></tr></thead>';
+    const tbody = document.createElement('tbody');
 
-  table.appendChild(tbody);
-  container.innerHTML = `<p class="section-meta">${evtList.length} kritische Ereignisse — Zeile anklicken für Details</p>`;
-  container.appendChild(table);
+    list.forEach((e, idx) => {
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.dataset.origIdx = sorted.indexOf(e);
+      const time = e.time ? new Date(e.time).toLocaleString('de-DE') : '–';
+      const proc = e.process_name || e.source || '–';
+      const shortMsg = e.message && e.message.length > 120
+        ? escapeHtml(e.message.slice(0, 120)) + '<span style="color:var(--color-text-muted)">…</span>'
+        : escapeHtml(e.message || '');
 
-  // Klick auf Zeile oder Detail-Button → Modal
-  table.addEventListener('click', ev => {
-    const btn = ev.target.closest('.btn-event-detail');
-    const row = ev.target.closest('tr[data-idx], tr');
-    const idx = btn ? parseInt(btn.dataset.idx) : Array.from(tbody.children).indexOf(row);
-    if (idx >= 0 && idx < evtList.length) {
-      showEventDetail(evtList[idx]);
+      tr.innerHTML = `
+        <td style="white-space:nowrap">${riskBadgeHtml(e.risk_score)}</td>
+        <td style="white-space:nowrap;font-size:11px">${escapeHtml(time)}</td>
+        <td style="font-size:11px;white-space:nowrap;font-weight:500">${escapeHtml(proc)}</td>
+        <td style="font-size:12px">${shortMsg}</td>
+        <td style="white-space:nowrap"><button class="btn-event-detail" title="Details anzeigen">🔍</button></td>`;
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    table.addEventListener('click', ev => {
+      const btn = ev.target.closest('.btn-event-detail');
+      const row = ev.target.closest('tr[data-orig-idx], tr');
+      if (!row || row.tagName !== 'TR' || row.parentElement.tagName === 'THEAD') return;
+      const origIdx = parseInt(row.dataset.origIdx ?? -1);
+      if (origIdx >= 0) showEventDetail(sorted[origIdx]);
+    });
+    return table;
+  }
+
+  function render() {
+    const riskEvents   = sorted.filter(e => (e.risk_score || 0) >= RISK_THRESHOLD);
+    const noiseEvents  = sorted.filter(e => (e.risk_score || 0) <  RISK_THRESHOLD);
+    const displayList  = showAll ? sorted : riskEvents;
+
+    container.innerHTML = '';
+    const meta = document.createElement('p');
+    meta.className = 'section-meta';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'btn btn-secondary btn-xs';
+    toggleBtn.style.marginLeft = '12px';
+
+    if (showAll) {
+      meta.textContent = `${sorted.length} Ereignisse gesamt`;
+      toggleBtn.textContent = `🔇 Rauschen ausblenden (${noiseEvents.length})`;
+    } else {
+      meta.textContent = `${riskEvents.length} risikorelevante Ereignisse`;
+      if (noiseEvents.length > 0) {
+        toggleBtn.textContent = `🔉 +${noiseEvents.length} System-Rauschen anzeigen`;
+      } else {
+        toggleBtn.textContent = '';
+      }
     }
-  });
+    toggleBtn.addEventListener('click', () => { showAll = !showAll; render(); });
+    meta.appendChild(toggleBtn);
+    container.appendChild(meta);
+
+    if (displayList.length === 0) {
+      container.insertAdjacentHTML('beforeend', '<div class="info-placeholder">Keine risikorelevanten Ereignisse — System sieht sauber aus.</div>');
+    } else {
+      container.appendChild(buildTable(displayList));
+    }
+  }
+
+  render();
 }
 
 function showEventDetail(e) {
@@ -1292,15 +1347,24 @@ function renderSecurity(sec) {
   const rows = [];
 
   if (sec.firewall_known) {
+    const fwRisk = sec.firewall_enabled ? '' : riskBadgeHtml(75);
     rows.push(['Firewall', sec.firewall_enabled
       ? '<span style="color:var(--color-success)">✓ Aktiv</span>'
-      : '<span style="color:var(--color-error)">✗ Deaktiviert</span>']);
+      : `<span style="color:var(--color-error)">✗ Deaktiviert</span> ${fwRisk}`]);
+  }
+  if (sec.sip_known) {
+    const sipOn = sec.sip_enabled;
+    const sipRisk = sipOn ? '' : riskBadgeHtml(80);
+    rows.push(['SIP (System Integrity Protection)', sipOn
+      ? '<span style="color:var(--color-success)">✓ Aktiv</span>'
+      : `<span style="color:var(--color-error)">✗ Deaktiviert</span> ${sipRisk}`]);
   }
   if (sec.defender_version || sec.defender_enabled) {
     const defLabel = isMac ? 'Gatekeeper / XProtect' : 'Windows Defender';
+    const defRisk = sec.defender_enabled ? '' : riskBadgeHtml(80);
     rows.push([defLabel, sec.defender_enabled
       ? '<span style="color:var(--color-success)">✓ Aktiv</span>'
-      : '<span style="color:var(--color-error)">✗ Deaktiviert</span>']);
+      : `<span style="color:var(--color-error)">✗ Deaktiviert</span> ${defRisk}`]);
     if (sec.defender_version) rows.push([isMac ? 'Schutz-Version' : 'Defender-Version', sec.defender_version]);
   }
   if (sec.rdp_enabled !== undefined) {
@@ -1329,7 +1393,8 @@ function renderSecurity(sec) {
     sec.bitlocker_volumes.forEach(v => {
       const tr = document.createElement('tr');
       const icon = v.encrypted ? '🔒' : '🔓';
-      tr.innerHTML = `<td>${escapeHtml(v.drive)}</td><td>${icon} ${v.encrypted ? 'Ja' : 'Nein'}</td><td>${escapeHtml(v.status || '–')}</td>`;
+      const fvRisk = v.encrypted ? '' : riskBadgeHtml(70);
+      tr.innerHTML = `<td>${escapeHtml(v.drive)}</td><td>${icon} ${v.encrypted ? 'Ja' : 'Nein'} ${fvRisk}</td><td>${escapeHtml(v.status || '–')}</td>`;
       tbody.appendChild(tr);
     });
     tbl.appendChild(tbody);

@@ -154,6 +154,8 @@ type SecurityInfo struct {
 	RDPPort               int               `json:"rdp_port,omitempty"`
 	NLAEnabled            bool              `json:"nla_enabled"`
 	LocalShares           []LocalShare      `json:"local_shares,omitempty"`
+	SIPEnabled            *bool             `json:"sip_enabled,omitempty"` // nil = nicht ermittelbar (non-macOS)
+	SIPKnown              bool              `json:"sip_known"`             // true = Status konnte ermittelt werden
 }
 
 // LocalShare beschreibt eine lokale Netzwerkfreigabe des Systems.
