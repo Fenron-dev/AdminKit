@@ -983,34 +983,38 @@ function renderSecurity(sec) {
   container.innerHTML = '';
 
   // Allgemeine Sicherheitsstatus-Zeilen
+  const isMac = sec.platform === 'darwin';
   const rows = [];
-  if (sec.firewall_enabled !== undefined) {
+
+  if (sec.firewall_known) {
     rows.push(['Firewall', sec.firewall_enabled
       ? '<span style="color:var(--color-success)">✓ Aktiv</span>'
       : '<span style="color:var(--color-error)">✗ Deaktiviert</span>']);
   }
-  if (sec.defender_enabled !== undefined) {
-    rows.push(['Windows Defender', sec.defender_enabled
+  if (sec.defender_version || sec.defender_enabled) {
+    const defLabel = isMac ? 'Gatekeeper / XProtect' : 'Windows Defender';
+    rows.push([defLabel, sec.defender_enabled
       ? '<span style="color:var(--color-success)">✓ Aktiv</span>'
       : '<span style="color:var(--color-error)">✗ Deaktiviert</span>']);
+    if (sec.defender_version) rows.push([isMac ? 'Schutz-Version' : 'Defender-Version', sec.defender_version]);
   }
-  if (sec.defender_version) rows.push(['Defender-Version', sec.defender_version]);
   if (sec.rdp_enabled !== undefined) {
+    const rdpLabel = isMac ? 'Remote Login (SSH)' : 'RDP';
     const rdpStr = sec.rdp_enabled
-      ? `<span style="color:var(--color-warning)">Aktiviert (Port ${sec.rdp_port || 3389})</span>${sec.nla_enabled ? ' · NLA: ✓' : ' · <span style="color:var(--color-error)">NLA: ✗</span>'}`
+      ? `<span style="color:var(--color-warning)">Aktiviert (Port ${sec.rdp_port || (isMac ? 22 : 3389)})</span>${!isMac ? (sec.nla_enabled ? ' · NLA: ✓' : ' · <span style="color:var(--color-error)">NLA: ✗</span>') : ''}`
       : '<span style="color:var(--color-success)">✓ Deaktiviert</span>';
-    rows.push(['RDP', rdpStr]);
+    rows.push([rdpLabel, rdpStr]);
   }
 
   if (rows.length > 0) {
     container.appendChild(buildInfoGrid(rows, true));
   }
 
-  // BitLocker-Volumes
+  // BitLocker / FileVault-Volumes
   if (sec.bitlocker_volumes?.length > 0) {
     const title = document.createElement('div');
     title.className = 'autostart-group-title';
-    title.textContent = 'BitLocker';
+    title.textContent = isMac ? 'FileVault' : 'BitLocker';
     container.appendChild(title);
 
     const tbl = document.createElement('table');
@@ -1822,20 +1826,27 @@ function showScanSummary() {
   const auto    = state.lastAutostartResult;
   const evtRes  = state.lastEventsResult;
 
-  // Sicherheit (Windows)
+  // Sicherheit
   if (sec) {
-    if (sec.firewall_enabled === false)  critical.push('🔥 Firewall ist deaktiviert');
-    else if (sec.firewall_enabled === true) ok.push('Firewall aktiv');
+    const isMac = sec.platform === 'darwin';
+    const encLabel = isMac ? 'FileVault' : 'BitLocker';
+    const defLabel = isMac ? 'Gatekeeper / XProtect' : 'Windows Defender';
 
-    if (sec.defender_enabled === false)  critical.push('🛡 Windows Defender ist deaktiviert');
+    if (sec.firewall_known) {
+      if (sec.firewall_enabled === false) critical.push('🔥 Firewall ist deaktiviert');
+      else if (sec.firewall_enabled === true) ok.push('Firewall aktiv');
+    }
+
+    if (sec.defender_enabled === false) critical.push(`🛡 ${defLabel} ist deaktiviert`);
     else if (sec.defender_enabled === true)
-      ok.push(`Windows Defender aktiv${sec.defender_version ? ' (' + sec.defender_version + ')' : ''}`);
+      ok.push(`${defLabel} aktiv${sec.defender_version ? ' (' + sec.defender_version + ')' : ''}`);
 
     if (sec.rdp_enabled === true) {
-      if (!sec.nla_enabled) warnings.push('🖥 RDP aktiv ohne NLA (Network Level Authentication)');
-      else ok.push(`RDP aktiv mit NLA (Port ${sec.rdp_port || 3389})`);
+      const rdpLabel = isMac ? 'Remote Login (SSH)' : 'RDP';
+      if (!isMac && !sec.nla_enabled) warnings.push(`🖥 ${rdpLabel} aktiv ohne NLA (Network Level Authentication)`);
+      else ok.push(`${rdpLabel} aktiv (Port ${sec.rdp_port || (isMac ? 22 : 3389)})`);
     } else if (sec.rdp_enabled === false) {
-      ok.push('RDP deaktiviert');
+      ok.push(isMac ? 'Remote Login (SSH) deaktiviert' : 'RDP deaktiviert');
     }
 
     const userShares = sec.local_shares?.filter(s => !s.is_system) ?? [];
@@ -1844,9 +1855,9 @@ function showScanSummary() {
 
     const unencrypted = sec.bitlocker_volumes?.filter(v => !v.encrypted) ?? [];
     if (unencrypted.length > 0)
-      warnings.push(`🔓 ${unencrypted.length} Laufwerk(e) ohne BitLocker-Verschlüsselung`);
+      warnings.push(`🔓 ${unencrypted.length} Laufwerk(e) ohne ${encLabel}-Verschlüsselung`);
     else if (sec.bitlocker_volumes?.length > 0)
-      ok.push('Alle Laufwerke mit BitLocker verschlüsselt');
+      ok.push(`Alle Laufwerke mit ${encLabel} verschlüsselt`);
   }
 
   // SMART

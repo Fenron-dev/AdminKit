@@ -580,12 +580,26 @@ func scanSecurity() (SecurityInfo, []ScanError) {
 		}}
 	}
 
-	// Firewall
-	fwOut, err := exec.Command("defaults", "read",
-		"/Library/Preferences/com.apple.alf", "globalstate").Output()
+	info.Platform = "darwin"
+
+	// Firewall: socketfilterfw ist die zuverlässige Methode auf modernem macOS
+	fwOut, err := exec.Command(
+		"/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").Output()
 	if err == nil {
-		val := strings.TrimSpace(string(fwOut))
-		info.FirewallEnabled = val != "0"
+		lower := strings.ToLower(string(fwOut))
+		// Output: "Firewall is enabled. (State = 1)" oder "Firewall is disabled. (State = 0)"
+		info.FirewallEnabled = strings.Contains(lower, "enabled")
+		info.FirewallKnown = true
+	} else {
+		// Fallback: Plist direkt lesen (ältere macOS-Versionen)
+		fwOut2, err2 := exec.Command("defaults", "read",
+			"/Library/Preferences/com.apple.alf", "globalstate").Output()
+		if err2 == nil {
+			info.FirewallEnabled = strings.TrimSpace(string(fwOut2)) != "0"
+			info.FirewallKnown = true
+		} else {
+			errs = append(errs, ScanError{"security.firewall", "Firewall-Status nicht ermittelbar"})
+		}
 	}
 
 	// XProtect / Gatekeeper als Defender-Äquivalent

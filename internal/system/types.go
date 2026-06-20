@@ -134,11 +134,13 @@ type UserInfo struct {
 // ─── Sicherheit ───────────────────────────────────────────────────────────────
 
 type SecurityInfo struct {
+	Platform              string            `json:"platform"`              // "darwin", "windows", "linux"
 	BitLockerVolumes      []BitLockerVolume `json:"bitlocker_volumes"`
 	DefenderEnabled       bool              `json:"defender_enabled"`
 	DefenderSignatureDate time.Time         `json:"defender_signature_date"`
 	DefenderVersion       string            `json:"defender_version"`
 	FirewallEnabled       bool              `json:"firewall_enabled"`
+	FirewallKnown         bool              `json:"firewall_known"`        // true = Status konnte ermittelt werden
 	RDPEnabled            bool              `json:"rdp_enabled"`
 	RDPPort               int               `json:"rdp_port,omitempty"`
 	NLAEnabled            bool              `json:"nla_enabled"`

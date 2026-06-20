@@ -468,11 +468,14 @@ func fetchAdminGroupMembers(errs *[]ScanError) map[string]bool {
 
 func scanSecurity() (SecurityInfo, []ScanError) {
 	info := SecurityInfo{}
+	info.Platform = "windows"
 	var errs []ScanError
 
 	info.BitLockerVolumes = scanBitLocker(&errs)
 	scanDefender(&info, &errs)
-	info.FirewallEnabled = checkFirewall(&errs)
+	fw := checkFirewall(&errs)
+	info.FirewallEnabled = fw
+	info.FirewallKnown = true
 	info.LocalShares = scanLocalShares(&errs)
 	scanRDP(&info, &errs)
 
