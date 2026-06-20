@@ -102,8 +102,8 @@ func runPing(target string) (string, error) {
 	if target == "" {
 		return "", fmt.Errorf("kein Ziel angegeben")
 	}
-	// -c 4: 4 Pakete, -W 2: 2s Timeout
-	out, err := exec.Command("ping", "-c", "4", "-W", "2", target).CombinedOutput()
+	// -c 4: 4 Pakete, -W 2000: 2000ms Timeout pro Paket
+	out, err := exec.Command("ping", "-c", "4", "-W", "2000", target).CombinedOutput()
 	if err != nil && len(out) == 0 {
 		return "", fmt.Errorf("ping fehlgeschlagen: %w", err)
 	}

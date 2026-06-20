@@ -1476,6 +1476,24 @@ body.platform-mac .titlebar {
 [data-theme="light"] .console-info-block pre { background: #1e1e2e; color: #cdd6f4; }
 .console-info-block p { margin: 0; font-size: 12px; color: var(--color-text); line-height: 1.55; }
 
+/* Interpretation / Tipps — pastell-orange Hintergrund */
+.console-info-box .console-info-block:last-child {
+  background: rgba(251, 146, 60, .12);
+  border: 1px solid rgba(251, 146, 60, .28);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 8px 12px;
+}
+.console-info-box .console-info-block:last-child strong {
+  color: #c2500a;
+}
+[data-theme="dark"] .console-info-box .console-info-block:last-child {
+  background: rgba(251, 146, 60, .10);
+  border-color: rgba(251, 146, 60, .22);
+}
+[data-theme="dark"] .console-info-box .console-info-block:last-child strong {
+  color: #fb923c;
+}
+
 /* ── Terminal ── */
 .terminal-wrap {
   display: flex;
@@ -1527,6 +1545,20 @@ body.platform-mac .titlebar {
   border-radius: var(--radius);
   padding: 6px 10px;
 }
+/* Sticky footer container for terminal actions + input */
+.terminal-footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--color-bg);
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10;
+  border-top: 1px solid var(--color-border);
+  margin-top: 2px;
+}
+
 .terminal-actions-row {
   display: flex;
   gap: 6px;

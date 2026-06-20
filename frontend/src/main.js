@@ -17,7 +17,7 @@ import {
   ScanNetworkBasic,
   GetSessions,
   StartService, StopService,
-  RunConsoleTool, BackupVault, GetClipboard, GetUptime, GetPlatform,
+  RunConsoleTool, BackupVault, GetClipboard, GetUptime, GetPlatform, SaveTerminalLog,
   ExportSession, ExportCSV,
   SaveConfig,
   PickLogoFile,
@@ -2072,14 +2072,27 @@ const CONSOLE_PRESETS = {
 
 const TOOL_INFO = {
   ping: {
-    desc: 'Sendet ICMP-Pakete an einen Host und misst die Antwortzeit (Latenz in ms). Prüft grundlegend ob ein Host erreichbar ist.',
-    example: `PING google.com (142.250.185.78): 56 bytes\n64 bytes from 142.250.185.78: ttl=118 time=12.3 ms\n64 bytes from 142.250.185.78: ttl=118 time=11.8 ms\n\n--- google.com ping statistics ---\n4 packets transmitted, 4 received, 0% packet loss`,
-    interpret: '< 20 ms = ausgezeichnet · 20–80 ms = gut · > 100 ms = verzögert · 100 % Verlust = Host nicht erreichbar oder Firewall blockiert ICMP.',
+    desc: 'Sendet 4 ICMP-Pakete an einen Host und misst die Antwortzeit (Latenz). Zeigt individuelle Paket-Antworten und eine Statistik am Ende.',
+    example: `PING google.com (142.250.185.78): 56 data bytes
+64 bytes from 142.250.185.78: icmp_seq=0 ttl=118 time=12.345 ms
+64 bytes from 142.250.185.78: icmp_seq=1 ttl=118 time=11.234 ms
+64 bytes from 142.250.185.78: icmp_seq=2 ttl=118 time=11.998 ms
+64 bytes from 142.250.185.78: icmp_seq=3 ttl=118 time=12.021 ms
+
+--- google.com ping statistics ---
+4 packets transmitted, 4 received, 0.0% packet loss
+round-trip min/avg/max/stddev = 11.234/11.899/12.345/0.432 ms`,
+    interpret: '< 20 ms = ausgezeichnet · 20–80 ms = gut · > 100 ms = verzögert · 100 % Verlust = Host nicht erreichbar oder Firewall blockiert ICMP. Hohe Stddev = schwankende Verbindungsqualität.',
   },
   traceroute: {
-    desc: 'Zeigt den vollständigen Netzwerkpfad (alle Router-Hops) zum Ziel und misst die Latenz an jedem Schritt.',
-    example: `1  192.168.1.1 (Router)    1.2 ms\n2  10.0.0.1                8.4 ms\n3  * * *                   (kein Antwort)\n4  142.250.185.78         12.3 ms`,
-    interpret: '"* * *" = Router antwortet nicht auf Traceroute (sehr häufig, kein Fehler). Hohe Latenz ab einem bestimmten Hop = Engpass. "!" am Ende = Verbindung aktiv blockiert.',
+    desc: 'Zeigt den vollständigen Netzwerkpfad (alle Router-Hops) zum Ziel und misst die Latenz an jedem Schritt. 3 Messungen pro Hop.',
+    example: `traceroute to google.com (142.250.185.78), 20 hops max
+ 1  192.168.1.1 (192.168.1.1)   1.234 ms   1.098 ms   0.987 ms
+ 2  * * *
+ 3  10.0.12.1 (10.0.12.1)       8.432 ms   8.211 ms   8.399 ms
+ 4  142.250.x.x                 10.211 ms  10.456 ms  10.123 ms
+ 5  142.250.185.78              12.345 ms  11.987 ms  12.100 ms`,
+    interpret: '"* * *" = Router antwortet nicht auf Traceroute (sehr häufig, kein Fehler). Hohe Latenz ab einem bestimmten Hop = Engpass dort. "!H" = Host unerreichbar, "!X" = Verbindung administrativ blockiert.',
   },
   dns: {
     desc: 'Fragt einen DNS-Server nach der IP-Adresse eines Hostnamens — oder umgekehrt (Reverse Lookup für IP → Hostname).',
@@ -2293,14 +2306,29 @@ function initToolsExtended() {
     if (termOutput) termOutput.innerHTML = '<span class="console-placeholder">Terminal geleert.</span>';
   });
   document.getElementById('btn-terminal-copy')?.addEventListener('click', () => {
-    const text = termOutput?.textContent ?? '';
+    const text = getTerminalText();
     navigator.clipboard.writeText(text).catch(() => {});
     showToast('Terminal-Ausgabe kopiert');
   });
   document.getElementById('btn-terminal-ai')?.addEventListener('click', () => {
-    const text = termOutput?.textContent ?? '';
+    const text = getTerminalText();
     if (!text.trim()) return;
     sendOutputToAI('Terminal-Ausgabe', text);
+  });
+  document.getElementById('btn-terminal-save')?.addEventListener('click', async () => {
+    const text = getTerminalText();
+    if (!text.trim()) { showToast('Terminal ist leer.'); return; }
+    const btn = document.getElementById('btn-terminal-save');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    try {
+      const path = await SaveTerminalLog(text);
+      showToast('Log gespeichert: ' + path.split('/').pop());
+      addAction('Terminal-Log gespeichert: ' + path, 'info');
+    } catch (err) {
+      showToast('Fehler beim Speichern: ' + err);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '💾 Log speichern'; }
+    }
   });
 
   // ── VT Datei-Scanner ──────────────────────────────────────────────────────
@@ -2344,6 +2372,18 @@ function initToolsExtended() {
   document.getElementById('btn-load-or-models')?.addEventListener('click', loadOpenRouterModels);
   document.getElementById('or-model-search')?.addEventListener('input', filterORModels);
   document.getElementById('or-only-free')?.addEventListener('change', filterORModels);
+}
+
+/** Liest den sichtbaren Text aus dem Terminal-Output als plain text. */
+function getTerminalText() {
+  const out = document.getElementById('terminal-output');
+  if (!out) return '';
+  // Iteriere über alle Blöcke und baue formatierten Text
+  return Array.from(out.querySelectorAll('.terminal-block')).map(block => {
+    const cmd = block.querySelector('.terminal-cmd')?.textContent ?? '';
+    const res = block.querySelector('.terminal-result')?.textContent ?? '';
+    return cmd + (res ? '\n' + res : '');
+  }).join('\n\n') || out.textContent;
 }
 
 function termWrite(header, body) {

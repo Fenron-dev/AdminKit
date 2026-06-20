@@ -127,6 +127,24 @@ func (a *App) GetVaultPath() string {
 	return a.vault.RootPath
 }
 
+// SaveTerminalLog speichert den Terminal-Inhalt als Textdatei im Vault-Unterordner "logs/".
+// Gibt den vollständigen Pfad der gespeicherten Datei zurück.
+func (a *App) SaveTerminalLog(content string) (string, error) {
+	if a.vault == nil {
+		return "", fmt.Errorf("keine Vault initialisiert")
+	}
+	logsDir := filepath.Join(a.vault.RootPath, "logs")
+	if err := os.MkdirAll(logsDir, 0o755); err != nil {
+		return "", fmt.Errorf("Log-Verzeichnis konnte nicht erstellt werden: %w", err)
+	}
+	ts := time.Now().Format("2006-01-02_15-04-05")
+	filePath := filepath.Join(logsDir, fmt.Sprintf("terminal_%s.txt", ts))
+	if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("Log konnte nicht gespeichert werden: %w", err)
+	}
+	return filePath, nil
+}
+
 // GetAppVersion gibt die AdminKit-Version zurück.
 func (a *App) GetAppVersion() string {
 	return "0.6.0"
