@@ -61,8 +61,7 @@
 }
 
 html, body {
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
   font-family: var(--font);
   font-size: 14px;
   color: var(--color-text);
@@ -73,14 +72,16 @@ html, body {
 #app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 /* ============================================================
    Titelleiste
    ============================================================ */
 .titlebar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
   height: var(--titlebar-h);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
@@ -145,6 +146,9 @@ html, body {
    Tab-Navigation
    ============================================================ */
 .tab-nav {
+  position: sticky;
+  top: var(--titlebar-h);
+  z-index: 199;
   height: var(--tabnav-h);
   background: var(--color-tab-bg);
   border-bottom: 1px solid var(--color-border);
@@ -185,14 +189,10 @@ html, body {
    ============================================================ */
 .tab-content {
   flex: 1;
-  overflow: hidden;
-  position: relative;
 }
 
 .tab-panel {
   display: none;
-  height: calc(100vh - var(--titlebar-h) - var(--tabnav-h) - var(--statusbar-h));
-  overflow-y: auto;
   padding: 20px;
   padding-bottom: 60px;
   animation: fadeIn .15s ease;
@@ -623,6 +623,9 @@ html, body {
    Statusleiste
    ============================================================ */
 .statusbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 200;
   height: var(--statusbar-h);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
