@@ -919,19 +919,34 @@ func (a *App) readLogoBase64() string {
 }
 
 // resolveVaultPath sucht den Vault-Pfad in dieser Reihenfolge:
-// 1. Neben der Binary (portabler Betrieb auf USB-Stick, Windows .exe)
-// 2. Home-Verzeichnis (macOS .app aus Finder, read-only Bundle-Pfad)
-// 3. Relatives Fallback ./adminkit_vault
+// 1. Neben dem .app-Bundle (portabler Betrieb: USB-Stick mit AdminKit.app daneben)
+// 2. Neben der Binary (Windows .exe, Linux Binary)
+// 3. Home-Verzeichnis (macOS .app aus /Applications, read-only Pfad)
+// 4. Relatives Fallback ./adminkit_vault
 func resolveVaultPath() string {
 	exe, err := os.Executable()
 	if err == nil {
 		dir := filepath.Dir(exe)
-		// Auf macOS nicht in den .app-Bundle schreiben — Pfad enthält .app/Contents/
-		if !strings.Contains(dir, ".app"+string(filepath.Separator)+"Contents") && isWritable(dir) {
+
+		// Auf macOS: .app-Bundle erkannt → Vault neben dem .app-Ordner platzieren
+		// Pfad z.B.: /Volumes/USB/AdminKit.app/Contents/MacOS/AdminKit
+		// Vault soll nach:  /Volumes/USB/adminkit_vault
+		if strings.Contains(dir, ".app"+string(filepath.Separator)+"Contents") {
+			// Gehe hoch bis zum Elternverzeichnis des .app-Bundles
+			appParent := dir
+			for strings.Contains(appParent, ".app"+string(filepath.Separator)+"Contents") {
+				appParent = filepath.Dir(appParent)
+			}
+			appParent = filepath.Dir(appParent) // ein Level über .app selbst
+			if isWritable(appParent) {
+				return filepath.Join(appParent, "adminkit_vault")
+			}
+		} else if isWritable(dir) {
+			// Windows/Linux: Vault neben der Binary
 			return filepath.Join(dir, "adminkit_vault")
 		}
 	}
-	// Fallback: ~/adminkit_vault (funktioniert immer: macOS, Windows, Linux)
+	// Fallback: ~/adminkit_vault (immer beschreibbar)
 	if home, err := os.UserHomeDir(); err == nil {
 		return filepath.Join(home, "adminkit_vault")
 	}

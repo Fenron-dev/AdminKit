@@ -909,9 +909,19 @@ function renderAutostart(entries) {
     const tbody = document.createElement('tbody');
 
     items.forEach(e => {
+      const path = (e.path || '').toLowerCase();
+      const isSuspAutostart = !e.is_system && path && (
+        path.includes('/tmp/') || path.includes('/private/tmp/') ||
+        path.includes('/var/folders/') || path.includes('/downloads/') ||
+        path.includes('appdata\\local\\temp') || path.includes('\\temp\\')
+      );
       const tr = document.createElement('tr');
-      if (!e.is_system) tr.classList.add('highlight-third-party');
-      const sys = e.is_system ? '✓' : '<span class="text-warning">⚠ Drittanbieter</span>';
+      if (isSuspAutostart) tr.classList.add('row-danger');
+      else if (!e.is_system) tr.classList.add('highlight-third-party');
+      const suspIcon = isSuspAutostart ? ' ⚠️' : '';
+      const sys = e.is_system ? '✓' : (isSuspAutostart
+        ? '<span class="text-danger">⛔ Verdächtig</span>'
+        : '<span class="text-warning">⚠ Drittanbieter</span>');
       const active = e.is_enabled ? '✓' : '<span class="text-muted">–</span>';
       const cbId = `autostart:${e.name}:${e.path || ''}`;
       const canToggle = !e.is_system && e.plist_path;
@@ -920,7 +930,7 @@ function renderAutostart(entries) {
         : '';
       tr.innerHTML = `
         <td class="cb-col"><input type="checkbox" class="item-check" data-id="${escapeHtml(cbId)}" data-name="${escapeHtml(e.name)}" data-path="${escapeHtml(e.path || '')}" data-type="autostart"></td>
-        <td><strong>${escapeHtml(e.name)}</strong></td>
+        <td><strong>${escapeHtml(e.name)}</strong>${suspIcon}</td>
         <td class="mono-cell" style="font-size:11px;word-break:break-all">${escapeHtml(e.path || '–')}</td>
         <td style="text-align:center">${sys}</td>
         <td style="text-align:center">${active}</td>
@@ -2082,6 +2092,22 @@ async function runProcessScan() {
   }
 }
 
+// Heuristik: Prozess aus verdächtigem Pfad (Temp, Downloads, kein Systemverzeichnis)
+function isSuspiciousProcessPath(p) {
+  var path = (p.path || '').toLowerCase();
+  if (!path) return false;
+  return path.includes('/tmp/') ||
+    path.includes('/private/tmp/') ||
+    path.includes('/var/folders/') ||
+    path.includes('/downloads/') ||
+    path.includes('appdata\\local\\temp') ||
+    path.includes('\\temp\\') ||
+    // Root-Prozess aus nicht-systemischen Pfaden
+    (p.user === 'root' && !path.startsWith('/usr/') && !path.startsWith('/system/') &&
+     !path.startsWith('/sbin/') && !path.startsWith('/bin/') &&
+     !path.startsWith('/library/apple/') && !path.startsWith('/private/var/db/'));
+}
+
 function renderProcesses(procs) {
   const container = document.getElementById('processes-info');
   if (!container) return;
@@ -2090,8 +2116,12 @@ function renderProcesses(procs) {
     return;
   }
 
-  // Sortierung: CPU% absteigend, dann Speicher
-  const sorted = [...procs].sort((a, b) => (b.cpu_pct - a.cpu_pct) || (b.memory_mb - a.memory_mb));
+  // Sortierung: Verdächtige zuerst, dann CPU% absteigend
+  const sorted = [...procs].sort((a, b) => {
+    var da = isSuspiciousProcessPath(a) ? 2 : (a.cpu_pct > 20 || a.memory_mb > 500 ? 1 : 0);
+    var db = isSuspiciousProcessPath(b) ? 2 : (b.cpu_pct > 20 || b.memory_mb > 500 ? 1 : 0);
+    return db - da || (b.cpu_pct - a.cpu_pct) || (b.memory_mb - a.memory_mb);
+  });
 
   const tbl = document.createElement('table');
   tbl.className = 'data-table';
@@ -2103,9 +2133,12 @@ function renderProcesses(procs) {
   const tbody = document.createElement('tbody');
   sorted.forEach(p => {
     const cbId = `process:${p.pid}:${p.name}`;
-    const isHigh = p.cpu_pct > 20 || p.memory_mb > 500;
+    const isSusp = isSuspiciousProcessPath(p);
+    const isHigh = !isSusp && (p.cpu_pct > 20 || p.memory_mb > 500);
     const tr = document.createElement('tr');
-    if (isHigh) tr.classList.add('row-warning');
+    if (isSusp) tr.classList.add('row-danger');
+    else if (isHigh) tr.classList.add('row-warning');
+    const suspIcon = isSusp ? ' <span title="Verdächtiger Pfad (Temp/Downloads)">⚠️</span>' : '';
     tr.innerHTML = `
       <td class="cb-col"><input type="checkbox" class="item-check"
         data-id="${escapeHtml(cbId)}"
@@ -2113,10 +2146,10 @@ function renderProcesses(procs) {
         data-path="${escapeHtml(p.path || '')}"
         data-type="process"></td>
       <td class="mono">${p.pid}</td>
-      <td>${escapeHtml(p.name)}${p.path ? `<span class="item-path" title="${escapeHtml(p.path)}"> ${escapeHtml(p.path)}</span>` : ''}</td>
+      <td>${escapeHtml(p.name)}${suspIcon}${p.path ? `<span class="item-path" title="${escapeHtml(p.path)}"> ${escapeHtml(p.path)}</span>` : ''}</td>
       <td>${escapeHtml(p.user || '–')}</td>
-      <td class="${p.cpu_pct > 20 ? 'text-warning' : ''}">${p.cpu_pct.toFixed(1)}</td>
-      <td class="${p.memory_mb > 500 ? 'text-warning' : ''}">${p.memory_mb.toFixed(0)}</td>`;
+      <td class="${p.cpu_pct > 20 ? (isSusp ? 'text-danger' : 'text-warning') : ''}">${p.cpu_pct.toFixed(1)}</td>
+      <td class="${p.memory_mb > 500 ? (isSusp ? 'text-danger' : 'text-warning') : ''}">${p.memory_mb.toFixed(0)}</td>`;
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
