@@ -150,11 +150,16 @@ function applyPlatformClass() {
 // ─── Zusammenklappbare Sektionen ──────────────────────────────────────────────
 
 function initCollapsibleSections() {
-  // Event-Delegation für alle .section-title – auch dynamisch hinzugefügte
   document.addEventListener('click', (e) => {
-    const title = e.target.closest('.info-section > .section-title');
-    if (!title) return;
-    title.closest('.info-section').classList.toggle('collapsed');
+    const sectionTitle = e.target.closest('.info-section > .section-title');
+    if (sectionTitle) {
+      sectionTitle.closest('.info-section').classList.toggle('collapsed');
+      return;
+    }
+    const groupTitle = e.target.closest('.autostart-group > .autostart-group-title');
+    if (groupTitle) {
+      groupTitle.closest('.autostart-group').classList.toggle('collapsed');
+    }
   });
 }
 
@@ -3631,6 +3636,9 @@ function filterSystemTab(query) {
   });
 
   if (!query) return;
+
+  // Bei aktiver Suche alle Gruppen aufklappen, damit Treffer sichtbar sind
+  sysTab.querySelectorAll('.autostart-group.collapsed').forEach(g => g.classList.remove('collapsed'));
 
   const visibleGroups  = new Set();
   const visibleSections = new Set();
