@@ -1783,6 +1783,46 @@ body.platform-mac .titlebar {
 }
 .tab-nav::-webkit-scrollbar { display: none; }
 
+/* ── Bestätigungs-Modal ─────────────────────────────────────────────────── */
+.confirm-what {
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-line;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+.confirm-impact-wrap,
+.confirm-impact {
+  margin-top: 12px;
+}
+.confirm-impact-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #D97706;
+  margin-bottom: 6px;
+}
+.confirm-impact {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 6px;
+  padding: 8px 12px;
+  white-space: pre-line;
+}
+[data-theme="dark"] .confirm-impact {
+  background: #1C1108;
+  border-color: #78350F;
+}
+
+.btn-danger {
+  background: #DC2626;
+  color: #fff;
+  border: none;
+}
+.btn-danger:hover { background: #B91C1C; }
+
 /* ── Empfehlungen (Suggestions) ─────────────────────────────────────────── */
 .suggestion-item {
   display: flex;

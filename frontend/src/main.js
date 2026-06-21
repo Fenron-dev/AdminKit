@@ -100,6 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initToolsExtended();
   initPlatformTools();
   applyPlatformClass();
+  initConfirmModal();
+  initActionResultModal();
   initEventDetailModal();
   initQuickActions();
   loadAppInfo();
@@ -305,6 +307,21 @@ async function updateHealthScore() {
   }
 }
 
+// Bestätigungs-Texte für Fix-Buttons in der Empfehlungen-Karte
+const FIX_CONFIRM = {
+  enable_firewall: {
+    title:  'Firewall aktivieren?',
+    what:   'Aktiviert die System-Firewall. Eingehende Verbindungen werden nach den aktuellen Regeln gefiltert.',
+    impact: 'Bestimmte Netzwerk-Dienste oder Anwendungen könnten blockiert werden, wenn keine Ausnahmeregel vorhanden ist.',
+  },
+  disable_ssh: {
+    title:  'Remote Login (SSH) deaktivieren?',
+    what:   'Deaktiviert den SSH-Server sofort über systemsetup -setremotelogin off.',
+    impact: 'Alle aktiven SSH-Verbindungen zu diesem Mac werden sofort getrennt. Fernzugriff ist danach nicht mehr möglich.',
+  },
+  quick_clean: QUICK_ACTION_CONFIRM.quick_clean,
+};
+
 async function updateSuggestions() {
   try {
     const suggestions = await GetSuggestions();
@@ -349,9 +366,14 @@ async function updateSuggestions() {
     list.addEventListener('click', async ev => {
       const btn = ev.target.closest('.suggestion-fix-btn');
       if (!btn) return;
-      const fixID = btn.dataset.fix;
-      const warn  = btn.dataset.warn;
-      if (warn && !confirm(warn)) return;
+      const fixID    = btn.dataset.fix;
+      const fixLabel = btn.textContent.trim();
+      const conf     = FIX_CONFIRM[fixID];
+
+      if (conf) {
+        const ok = await showConfirm(conf);
+        if (!ok) return;
+      }
 
       btn.disabled = true;
       btn.textContent = '⏳ Wird ausgeführt…';
@@ -360,15 +382,16 @@ async function updateSuggestions() {
         const result = await RunFix(fixID);
         if (result.output?.startsWith('navigate:')) {
           const dest = result.output.replace('navigate:', '');
-          if (dest === 'autostart') switchTab('system');
-          else if (dest === 'events') switchTab('system');
+          if (dest === 'autostart' || dest === 'events') switchTab('system');
           btn.textContent = '✓ Geöffnet';
+          btn.disabled = false;
         } else {
           showActionResult(result.output || '', result.success);
           btn.textContent = result.success ? '✓ Erledigt' : '✗ Fehler';
         }
       } catch (e) {
-        btn.textContent = '✗ Fehler';
+        btn.textContent = fixLabel;
+        btn.disabled = false;
         showToast('Fix fehlgeschlagen: ' + e);
       }
     }, { once: false });
@@ -399,6 +422,30 @@ function showActionResult(text, success) {
   }
 }
 
+// Bestätigungs-Texte für Quick-Actions
+const QUICK_ACTION_CONFIRM = {
+  internet_fix: {
+    title:  'Internet-Fix ausführen?',
+    what:   'Führt folgende Schritte aus:\n• DNS-Cache leeren\n• mDNSResponder neu starten (macOS) / Winsock zurücksetzen (Windows)\n• IP-Konfiguration freigeben und erneuern',
+    impact: 'Alle laufenden Netzwerkverbindungen werden kurz unterbrochen. Downloads, VPN-Verbindungen und Remote-Sessions können abbrechen.',
+  },
+  printer_fix: {
+    title:  'Drucker-Fix ausführen?',
+    what:   'Führt folgende Schritte aus:\n• Druckdienst (CUPS / Spooler) stoppen\n• Druckwarteschlange leeren\n• Druckdienst neu starten',
+    impact: 'Alle laufenden Druckaufträge werden unwiderruflich abgebrochen und aus der Warteschlange gelöscht. Sie müssen erneut gesendet werden.',
+  },
+  quick_clean: {
+    title:  'Schnellbereinigung ausführen?',
+    what:   'Führt folgende Schritte aus:\n• Temporäre Dateien in /tmp bzw. %TEMP% löschen\n• Windows-Update-Cache leeren (Windows)\n• Papierkorb leeren',
+    impact: 'Dateien im Papierkorb werden unwiderruflich gelöscht. Temporäre Dateien von laufenden Programmen können verloren gehen (z.B. nicht gespeicherte Dokumente aus Temp-Ordnern).',
+  },
+  dns_flush: {
+    title:  'DNS-Cache leeren?',
+    what:   'Löscht den lokalen DNS-Auflösungs-Cache des Betriebssystems.',
+    impact: 'Alle DNS-Einträge müssen neu abgefragt werden. Kurze Verzögerung beim ersten Aufrufen von Webseiten möglich. Keine dauerhaften Auswirkungen.',
+  },
+};
+
 function initQuickActions() {
   const actions = [
     ['qa-internet-fix',  'internet_fix',  'Internet-Fix'],
@@ -416,15 +463,23 @@ function initQuickActions() {
 
   actions.forEach(([btnId, actionId, label]) => {
     document.getElementById(btnId)?.addEventListener('click', async () => {
+      // Bestätigung einholen
+      const conf = QUICK_ACTION_CONFIRM[actionId] || { title: label + ' ausführen?', what: '', impact: '' };
+      const ok = await showConfirm(conf);
+      if (!ok) return;
+
+      // Output-Bereich einblenden
       if (qaOut) {
         qaOut.classList.remove('hidden');
         if (qaPre) qaPre.textContent = label + ' wird ausgeführt…';
-        if (qaTitle) qaTitle.textContent = label;
+        if (qaTitle) qaTitle.textContent = '⏳ ' + label;
       }
       try {
         const result = await RunQuickAction(actionId);
-        if (qaPre) qaPre.textContent = result.output || '(kein Output)';
-        if (qaTitle) qaTitle.textContent = result.success ? '✓ ' + label : '✗ ' + label + ' – Fehler';
+        if (qaOut) {
+          if (qaPre) qaPre.textContent = result.output || '(kein Output)';
+          if (qaTitle) qaTitle.textContent = result.success ? '✓ ' + label : '✗ ' + label + ' – Fehler';
+        }
         addAction(label + (result.success ? ' abgeschlossen' : ' mit Fehler'), result.success ? 'ok' : 'error');
       } catch (e) {
         if (qaPre) qaPre.textContent = 'Fehler: ' + e;
@@ -1027,6 +1082,61 @@ async function runEventsScan() {
     state.isScanning = false;
     setScanButtonsDisabled(false);
   }
+}
+
+// ─── Bestätigungs-Modal ───────────────────────────────────────────────────────
+// Vor jeder schreibenden/verändernden Aktion aufrufen.
+// Gibt Promise<boolean> zurück — true = Nutzer hat bestätigt, false = abgebrochen.
+let _confirmResolve = null;
+
+function showConfirm({ title, what, impact }) {
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    const overlay  = document.getElementById('modal-confirm-overlay');
+    const titleEl  = document.getElementById('modal-confirm-title');
+    const whatEl   = document.getElementById('modal-confirm-what');
+    const impactEl = document.getElementById('modal-confirm-impact');
+    const impactWrap = document.getElementById('modal-confirm-impact-wrap');
+    if (!overlay) { resolve(true); return; }
+
+    titleEl.textContent = title || 'Aktion bestätigen';
+    whatEl.textContent  = what  || '';
+    if (impact) {
+      impactEl.textContent = impact;
+      impactWrap.classList.remove('hidden');
+    } else {
+      impactWrap.classList.add('hidden');
+    }
+
+    overlay.classList.remove('hidden');
+    document.getElementById('modal-confirm-cancel')?.focus();
+  });
+}
+
+function initConfirmModal() {
+  const overlay = document.getElementById('modal-confirm-overlay');
+  const cancel  = document.getElementById('modal-confirm-cancel');
+  const proceed = document.getElementById('modal-confirm-proceed');
+
+  cancel?.addEventListener('click',  () => { overlay?.classList.add('hidden'); _confirmResolve?.(false); });
+  proceed?.addEventListener('click', () => { overlay?.classList.add('hidden'); _confirmResolve?.(true);  });
+  overlay?.addEventListener('click', ev => {
+    if (ev.target === overlay) { overlay.classList.add('hidden'); _confirmResolve?.(false); }
+  });
+  document.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape' && !overlay?.classList.contains('hidden')) {
+      overlay?.classList.add('hidden');
+      _confirmResolve?.(false);
+    }
+  });
+}
+
+// Aktions-Ergebnis-Modal initialisieren
+function initActionResultModal() {
+  const overlay = document.getElementById('modal-action-result-overlay');
+  document.getElementById('modal-action-result-close')?.addEventListener('click', () => overlay?.classList.add('hidden'));
+  document.getElementById('modal-action-result-ok')?.addEventListener('click',    () => overlay?.classList.add('hidden'));
+  overlay?.addEventListener('click', ev => { if (ev.target === overlay) overlay.classList.add('hidden'); });
 }
 
 // Globale Referenz auf das aktuell angezeigte Event für das Modal
