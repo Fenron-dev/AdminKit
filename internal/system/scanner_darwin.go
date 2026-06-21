@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -125,7 +126,7 @@ func scanHardware() (HardwareInfo, []ScanError) {
 			}
 
 			arch := "x64"
-			if strings.Contains(strings.ToLower(cpuName), "apple") {
+			if strings.Contains(strings.ToLower(cpuName), "apple") || runtime.GOARCH == "arm64" {
 				arch = "ARM64"
 			}
 

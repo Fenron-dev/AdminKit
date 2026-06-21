@@ -697,61 +697,408 @@
         <section class="tab-panel" id="tab-help">
           <div class="tab-panel-simple">
             <div class="help-content">
-              <h2>AdminKit – Hilfe & Handbuch</h2>
+              <h2>AdminKit – Hilfe &amp; Handbuch</h2>
+              <p class="help-intro">Vollständige Erklärung aller Bereiche, Tabs und Funktionen von AdminKit.</p>
 
-              <div class="help-section">
-                <h3>Was ist AdminKit?</h3>
-                <p>AdminKit ist ein lokales System-Analyse-Tool für IT-Administratoren. Es scannt Hardware, Betriebssystem, Netzwerk, Software und Sicherheitskonfiguration — ohne Cloud, ohne Datenübertragung.</p>
+              <!-- Inhaltsverzeichnis -->
+              <div class="help-toc">
+                <strong>Inhaltsverzeichnis:</strong>
+                <a href="#help-quickstart">Schnellstart</a> ·
+                <a href="#help-dashboard">Dashboard</a> ·
+                <a href="#help-system">System</a> ·
+                <a href="#help-autostart">Autostart</a> ·
+                <a href="#help-dienste">Dienste</a> ·
+                <a href="#help-ereignisse">Ereignisse</a> ·
+                <a href="#help-prozesse">Prozesse</a> ·
+                <a href="#help-netzwerk">Netzwerk</a> ·
+                <a href="#help-software">Software</a> ·
+                <a href="#help-browser">Browser-Erweiterungen</a> ·
+                <a href="#help-usb">USB-Geräte</a> ·
+                <a href="#help-benutzer">Benutzerkonten</a> ·
+                <a href="#help-profile">Konfigurationsprofile</a> ·
+                <a href="#help-vt">VirusTotal</a> ·
+                <a href="#help-ki">KI-Analyse</a> ·
+                <a href="#help-export">Export</a> ·
+                <a href="#help-vault">Vault &amp; Sessions</a>
               </div>
 
-              <div class="help-section">
+              <!-- Schnellstart -->
+              <div class="help-section" id="help-quickstart">
                 <h3>Schnellstart</h3>
                 <ol>
-                  <li><strong>Session erstellen</strong> — oben rechts auf „+ Session" klicken und einen Namen vergeben (z.B. Kundenname + Datum).</li>
+                  <li><strong>Session erstellen</strong> — oben rechts auf „+ Session" klicken, Namen vergeben (z.B. Kundenname + Datum).</li>
                   <li><strong>Vollständiger Scan</strong> — Dashboard → „Vollständiger Scan" startet alle Scanner sequentiell.</li>
-                  <li><strong>Einzelscans</strong> — In der linken Sidebar jedes Tabs gibt es ↺-Buttons für Einzel-Scans.</li>
+                  <li><strong>Einzelscans</strong> — In jedem Tab gibt es einen ↺-Button für Einzel-Scans.</li>
                   <li><strong>Export</strong> — Einstellungen → Export → HTML- oder CSV-Report erstellen.</li>
                 </ol>
+                <p><strong>Hinweis:</strong> Alle Scans laufen lokal auf dem Gerät. Es werden keine Daten an externe Server übertragen (außer bei VirusTotal/KI, wenn explizit ausgelöst).</p>
               </div>
 
-              <div class="help-section">
-                <h3>Tabs & Bereiche</h3>
+              <!-- Dashboard -->
+              <div class="help-section" id="help-dashboard">
+                <h3>Dashboard</h3>
+                <p>Zentrale Übersicht des Systemzustands. Der <strong>Health Score</strong> (0–100%) bewertet das System anhand aller gesammelten Daten.</p>
                 <table class="help-table">
-                  <tr><th>Tab</th><th>Inhalt</th></tr>
-                  <tr><td>Dashboard</td><td>Übersicht, Health Score, Empfehlungen, Schnellaktionen</td></tr>
-                  <tr><td>System</td><td>Hardware, OS, SMART, Autostart, Dienste, Ereignisse, Benutzer, USB</td></tr>
-                  <tr><td>Netzwerk</td><td>Adapter, Shares, WiFi, Ports, Verbindungen, ARP, Routing</td></tr>
-                  <tr><td>Software</td><td>Installierte Programme, Browser, Erweiterungen</td></tr>
-                  <tr><td>Tools</td><td>Diagnose-Werkzeuge, Terminal, VirusTotal, KI-Analyse</td></tr>
-                  <tr><td>Wiki</td><td>macOS/Windows Befehle, Shortcuts, Tipps</td></tr>
+                  <tr><th>Badge</th><th>Was wird bewertet?</th><th>Worauf achten?</th></tr>
+                  <tr><td>Hardware</td><td>CPU-Modell vorhanden, Kernerkennung</td><td>„Kein CPU-Name" = Scan evtl. unvollständig</td></tr>
+                  <tr><td>Betriebssystem</td><td>OS-Name und Version</td><td>Veraltete Versionen = Sicherheitsrisiko</td></tr>
+                  <tr><td>SMART</td><td>Festplatten-Gesundheit (Self-Monitoring)</td><td>„CRITICAL" = Datenverlustgefahr, sofort Backup!</td></tr>
+                  <tr><td>Netzwerk</td><td>Adapter, offene Ports, Firewall</td><td>Viele offene Ports = Angriffsfläche</td></tr>
+                </table>
+                <h4>Schnellaktionen</h4>
+                <p>Vordefinierte Reparaturschritte (DNS leeren, Netzwerk reparieren, Temp-Bereinigung). Jede Aktion zeigt einen Bestätigungs-Dialog — lesen, bevor ausgeführt wird! Einige Aktionen erfordern ggf. Neustart.</p>
+                <h4>Empfehlungen (Fixes)</h4>
+                <p>AdminKit erkennt häufige Konfigurationsprobleme und schlägt konkrete Fixes vor. Grüne Punkte = kein Handlungsbedarf, Orange/Rot = Aktion empfohlen.</p>
+              </div>
+
+              <!-- System -->
+              <div class="help-section" id="help-system">
+                <h3>System-Tab</h3>
+                <p>Detaillierte Hardware- und Betriebssystem-Informationen.</p>
+                <h4>Hardware-Übersicht</h4>
+                <table class="help-table">
+                  <tr><th>Feld</th><th>Bedeutung</th></tr>
+                  <tr><td>CPU / Chip</td><td>Prozessor-Modell. Bei Apple Silicon (M-Chips) steht hier z.B. „Apple M3 Pro".</td></tr>
+                  <tr><td>Kerne / Threads</td><td>Physische Kerne und logische Threads. Mehr = schneller für Multitasking.</td></tr>
+                  <tr><td>RAM</td><td>Arbeitsspeicher gesamt. Einzelne Slots zeigen Typ (LPDDR5), Takt und Hersteller.</td></tr>
+                  <tr><td>Mainboard</td><td>Hersteller, Modell und Seriennummer. Bei Macs: Modellbezeichnung.</td></tr>
+                  <tr><td>GPU</td><td>Grafikkarte(n). VRAM-Größe relevant für grafikintensive Anwendungen.</td></tr>
+                </table>
+                <h4>SMART-Status</h4>
+                <p>Festplatten-Selbstdiagnose. Werte werden direkt von der Festplatten-Firmware gelesen.</p>
+                <table class="help-table">
+                  <tr><th>Status</th><th>Bedeutung &amp; Aktion</th></tr>
+                  <tr><td>✅ OK</td><td>Festplatte gesund. Kein Handlungsbedarf.</td></tr>
+                  <tr><td>⚠️ WARNING</td><td>Erste Anzeichen von Verschleiß. Backup erstellen, Festplatte beobachten.</td></tr>
+                  <tr><td>🔴 CRITICAL</td><td>Festplatte kurz vor Ausfall. <strong>Sofort Backup!</strong> Festplatte austauschen.</td></tr>
+                  <tr><td>⚪ UNKNOWN</td><td>Kein SMART-Zugriff (z.B. externe USB-Festplatten, NVMe ohne Treiber).</td></tr>
                 </table>
               </div>
 
-              <div class="help-section">
-                <h3>Bestätigungs-Dialoge</h3>
-                <p>Alle Aktionen die das System verändern (Schnellaktionen, Autostart deaktivieren, USB auswerfen) zeigen vorher einen Hinweis-Dialog mit Beschreibung und Abbruchmöglichkeit.</p>
+              <!-- Autostart -->
+              <div class="help-section" id="help-autostart">
+                <h3>Autostart</h3>
+                <p>Programme und Dienste, die beim Systemstart oder Login automatisch ausgeführt werden. Dies ist eine der wichtigsten Stellen für Sicherheitsanalysen — Malware versteckt sich oft hier.</p>
+                <h4>Typen-Erklärung (macOS)</h4>
+                <table class="help-table">
+                  <tr><th>Typ</th><th>Was ist das?</th><th>Speicherort</th><th>Wer kann es stoppen?</th></tr>
+                  <tr>
+                    <td><strong>LaunchAgent</strong></td>
+                    <td>Dienst/Programm das beim Login eines Benutzers startet. Läuft im Kontext des Benutzers (mit Benutzerrechten).</td>
+                    <td><code>~/Library/LaunchAgents/</code> (Benutzer)<br><code>/Library/LaunchAgents/</code> (System, alle Nutzer)</td>
+                    <td>Admin kann deaktivieren; Benutzer kann eigene deaktivieren</td>
+                  </tr>
+                  <tr>
+                    <td><strong>LaunchDaemon</strong></td>
+                    <td>Systemdienst der beim Systemstart startet, <em>bevor</em> sich ein Benutzer anmeldet. Läuft als Root.</td>
+                    <td><code>/Library/LaunchDaemons/</code><br><code>/System/Library/LaunchDaemons/</code> (Apple-intern)</td>
+                    <td>Nur Admin; System-Daemons durch SIP geschützt</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Login Item</strong></td>
+                    <td>App die beim Benutzer-Login startet (über macOS Systemeinstellungen). Neuerer Mechanismus für App Store Apps.</td>
+                    <td>Systemeinstellungen → Allgemein → Anmeldeelemente</td>
+                    <td>Benutzer kann über Systemeinstellungen deaktivieren</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Cron-Job</strong></td>
+                    <td>Zeitgesteuerter Task (Unix-Standard). Läuft zu festgelegten Zeiten.</td>
+                    <td><code>crontab -l</code> im Terminal</td>
+                    <td>Benutzer der den Cron erstellt hat</td>
+                  </tr>
+                </table>
+                <h4>Was ist verdächtig?</h4>
+                <ul>
+                  <li>Einträge mit unleserlichen/zufälligen Namen (z.B. <code>com.xjk93nq.agent</code>)</li>
+                  <li>Pfade in Temp-Ordnern (<code>/tmp/</code>, <code>~/.cache/</code>)</li>
+                  <li>LaunchDaemons von unbekannten Herstellern die als Root laufen</li>
+                  <li>Einträge ohne gültige Signatur (VirusTotal-Prüfung empfohlen)</li>
+                  <li><code>is_system: false</code> + unbekannter Hersteller = genauer prüfen</li>
+                </ul>
+                <h4>Deaktivieren / Aktivieren</h4>
+                <p>Über die ⏸/▶-Buttons in der Tabelle. Dabei wird <code>launchctl unload -w</code> / <code>load -w</code> ausgeführt. Der Eintrag bleibt erhalten, wird aber nicht mehr geladen. Bestätigungsdialog erscheint vor jeder Aktion.</p>
               </div>
 
-              <div class="help-section">
-                <h3>KI-Analyse</h3>
-                <p>Dienste, Ereignisse und Autostart-Einträge können per KI analysiert werden. In den Einstellungen → KI-Anbieter den gewünschten Anbieter konfigurieren:</p>
+              <!-- Dienste -->
+              <div class="help-section" id="help-dienste">
+                <h3>Dienste</h3>
+                <p>Systemdienste die dauerhaft im Hintergrund laufen (ähnlich wie Windows-Dienste). Auf macOS sind das hauptsächlich LaunchDaemons.</p>
+                <h4>Was sehe ich hier?</h4>
                 <ul>
-                  <li><strong>ChatGPT / Claude.ai / Grok</strong> — Öffnet den Browser, Prompt wird in Zwischenablage kopiert</li>
-                  <li><strong>Ollama / LM Studio</strong> — Lokale KI, keine Internet-Verbindung, kein API-Key nötig</li>
-                  <li><strong>OpenAI / Anthropic / Groq</strong> — API-Key in Einstellungen eintragen</li>
+                  <li><strong>Name / Label</strong> — Kennung des Dienstes (z.B. <code>com.apple.mdmclient</code>)</li>
+                  <li><strong>Status</strong> — Läuft / Gestoppt / Deaktiviert</li>
+                  <li><strong>PID</strong> — Prozess-ID wenn aktiv (0 = nicht laufend)</li>
+                  <li><strong>Hersteller</strong> — Wer hat den Dienst installiert</li>
+                  <li><strong>System</strong> — Apple-eigene Dienste vs. Drittanbieter</li>
+                </ul>
+                <h4>Worauf achten?</h4>
+                <ul>
+                  <li>Drittanbieter-Dienste die dauerhaft laufen und hohen CPU/RAM verbrauchen</li>
+                  <li>Dienste mit unbekanntem Pfad oder aus temporären Verzeichnissen</li>
+                  <li>MDM-Dienste (<code>mdmclient</code>) zeigen an, dass das Gerät verwaltet wird</li>
+                  <li>Netzwerkdienste (z.B. <code>com.openssh.sshd</code>) nur wenn bewusst aktiviert</li>
+                </ul>
+                <h4>Starten / Stoppen</h4>
+                <p>Über die Buttons in der Tabelle. <strong>Achtung:</strong> System-Dienste (<code>is_system: true</code>) können nicht dauerhaft deaktiviert werden — sie werden beim nächsten Neustart wiederhergestellt. Nur Drittanbieter-Dienste dauerhaft änderbar.</p>
+              </div>
+
+              <!-- Ereignisse -->
+              <div class="help-section" id="help-ereignisse">
+                <h3>Ereignisse (System-Log)</h3>
+                <p>Systemereignisse aus dem macOS Unified Log (oder Windows Ereignisprotokoll). Zeigt was auf dem System passiert ist — Fehler, Warnungen, Sicherheitsereignisse.</p>
+                <h4>Ereignis-Typen</h4>
+                <table class="help-table">
+                  <tr><th>Typ</th><th>Bedeutung</th><th>Wann relevant?</th></tr>
+                  <tr><td>🔴 ERROR / FAULT</td><td>Schwerwiegende Fehler, Abstürze, fehlgeschlagene Operationen</td><td>Immer untersuchen — zeigt echte Probleme</td></tr>
+                  <tr><td>⚠️ WARNING</td><td>Warnungen, nicht-kritische Probleme</td><td>Häufige Wiederholungen = Problem vorhanden</td></tr>
+                  <tr><td>ℹ️ INFO / DEBUG</td><td>Normale Betriebsmeldungen</td><td>Meist ignorieren, bei Fehlersuche nützlich</td></tr>
+                  <tr><td>🔒 AUTH / LOGIN</td><td>An-/Abmeldungen, Authentifizierungen</td><td>Unerwartete Logins = Sicherheitsalarm!</td></tr>
+                  <tr><td>🔋 KERNEL</td><td>Betriebssystem-Kern Ereignisse, Treiberfehler</td><td>Kernel Panics, Hardware-Probleme</td></tr>
+                </table>
+                <h4>Was macht die KI-Analyse?</h4>
+                <p>Markiere einzelne Ereignisse per Checkbox oder nutze „Alle mit KI analysieren". Die KI bewertet die Ereignisse und erklärt was passiert ist, ob etwas besorgniserregend ist und welche Schritte sinnvoll wären.</p>
+                <h4>Tipps zur Interpretation</h4>
+                <ul>
+                  <li><strong>Zeitstempel</strong> — Wann trat das Ereignis auf? Korreliert mit Nutzerbeschwerden?</li>
+                  <li><strong>Häufigkeit</strong> — Einmaliger Fehler oft harmlos; 100x in einer Stunde = Problem</li>
+                  <li><strong>Quelle</strong> — Apple-eigene Quellen meist harmlos; unbekannte Prozesse genauer prüfen</li>
+                  <li><strong>Meldungstext</strong> — Suchbegriffe in Google/VirusTotal recherchieren</li>
                 </ul>
               </div>
 
-              <div class="help-section">
+              <!-- Prozesse -->
+              <div class="help-section" id="help-prozesse">
+                <h3>Prozesse</h3>
+                <p>Alle aktuell laufenden Prozesse mit CPU, RAM-Auslastung und Pfad. Ermöglicht das Erkennen von verdächtiger oder ressourcenfressender Software.</p>
+                <h4>Spalten-Erklärung</h4>
+                <table class="help-table">
+                  <tr><th>Spalte</th><th>Bedeutung</th></tr>
+                  <tr><td>PID</td><td>Prozess-ID (eindeutige Nummer, ändert sich nach Neustart)</td></tr>
+                  <tr><td>Name</td><td>Prozessname (z.B. <code>Google Chrome Helper</code>)</td></tr>
+                  <tr><td>CPU %</td><td>Aktueller Prozessor-Anteil. Dauerhaft hohe Werte = Problem</td></tr>
+                  <tr><td>RAM (MB)</td><td>Arbeitsspeicher-Verbrauch. Hohe Werte bei vielen Prozessen = System langsam</td></tr>
+                  <tr><td>Pfad</td><td>Wo liegt die ausführbare Datei? Unbekannte Pfade = verdächtig</td></tr>
+                  <tr><td>Benutzer</td><td>Unter welchem Konto läuft der Prozess (root = hohe Rechte)</td></tr>
+                </table>
+                <h4>Verdächtige Muster erkennen</h4>
+                <ul>
+                  <li>Prozesse aus <code>/tmp/</code>, <code>/var/folders/</code>, oder dem Downloads-Ordner</li>
+                  <li>Prozesse die als <code>root</code> laufen und nicht von Apple sind</li>
+                  <li>Viele identische Prozesse (z.B. 50x gleicher Name) = mögliche Endlosschleife oder Angriff</li>
+                  <li>Prozesse mit zufälligen Namen (z.B. <code>aX7kQ9</code>)</li>
+                  <li>Hoher CPU-Verbrauch ohne erkennbaren Grund = Krypto-Mining oder Malware möglich</li>
+                </ul>
+                <p>Verdächtige Prozesse per Checkbox markieren und mit VT/KI analysieren lassen.</p>
+              </div>
+
+              <!-- Netzwerk -->
+              <div class="help-section" id="help-netzwerk">
+                <h3>Netzwerk-Tab</h3>
+                <h4>Adapter</h4>
+                <p>Alle Netzwerkschnittstellen (Ethernet, WiFi, VPN, Loopback). Zeigt IP-Adresse, MAC-Adresse und Status.</p>
+                <h4>Offene Ports</h4>
+                <p>Dienste die auf eingehende Verbindungen warten. <strong>Wichtig für Sicherheit:</strong></p>
+                <table class="help-table">
+                  <tr><th>Port</th><th>Typischer Dienst</th><th>Risiko</th></tr>
+                  <tr><td>22</td><td>SSH</td><td>Hoch — nur wenn bewusst aktiviert</td></tr>
+                  <tr><td>80/443</td><td>HTTP/HTTPS (Webserver)</td><td>Mittel — warum läuft ein Webserver?</td></tr>
+                  <tr><td>548</td><td>AFP (Apple Dateifreigabe)</td><td>Mittel — Datenzugriff im Netz</td></tr>
+                  <tr><td>3389</td><td>RDP (Windows Fernzugriff)</td><td>Hoch — häufiges Angriffsziel</td></tr>
+                  <tr><td>5900</td><td>VNC (Fernsteuerung)</td><td>Hoch — nur mit Passwortschutz</td></tr>
+                </table>
+                <h4>Aktive Verbindungen</h4>
+                <p>Zeigt laufende TCP/UDP-Verbindungen. Interessant: Verbindungen zu unbekannten IP-Adressen oder seltsame ausgehende Verbindungen.</p>
+                <h4>Netzwerk-Shares</h4>
+                <p>Freigegebene Ordner im Netzwerk. Nur was tatsächlich geteilt werden soll sollte hier erscheinen.</p>
+                <h4>ARP-Tabelle</h4>
+                <p>MAC-Adressen der Geräte im lokalen Netzwerk. Unbekannte Geräte im Netzwerk = Sicherheitscheck empfohlen.</p>
+              </div>
+
+              <!-- Software -->
+              <div class="help-section" id="help-software">
+                <h3>Software-Inventarisierung</h3>
+                <p>Alle installierten Anwendungen, Programme und Pakete. Wichtig für Lizenz-Management, Sicherheitsupdates und Compliance.</p>
+                <h4>Was sehe ich hier?</h4>
+                <ul>
+                  <li><strong>Name &amp; Version</strong> — Aktueller Versionsstand der Software</li>
+                  <li><strong>Hersteller / Publisher</strong> — Wer hat die Software entwickelt</li>
+                  <li><strong>Installationsdatum</strong> — Wann wurde die App installiert (hilfreich bei Problemsuche)</li>
+                  <li><strong>Pfad</strong> — Wo ist die App installiert</li>
+                </ul>
+                <h4>Worauf achten?</h4>
+                <ul>
+                  <li>Software mit sehr alten Versionen (mögliche Sicherheitslücken)</li>
+                  <li>Unbekannte Software die der Nutzer nicht kennt</li>
+                  <li>Mehrere Versionen derselben App (z.B. zwei Java-Versionen)</li>
+                  <li>Remote-Access-Tools (TeamViewer, AnyDesk) — nur wenn bewusst installiert</li>
+                  <li>P2P-Software (BitTorrent etc.) — mögliche Lizenz- und Sicherheitsprobleme</li>
+                </ul>
+              </div>
+
+              <!-- Browser-Erweiterungen -->
+              <div class="help-section" id="help-browser">
+                <h3>Browser-Erweiterungen</h3>
+                <p>Installierte Erweiterungen in Chrome, Firefox, Safari und Edge. Erweiterungen haben weitreichende Zugriffsrechte auf besuchte Webseiten — daher kritisch für Sicherheit und Datenschutz.</p>
+                <h4>Was können Erweiterungen sehen/tun?</h4>
+                <ul>
+                  <li>Alle besuchten Webseiten lesen und modifizieren</li>
+                  <li>Passwörter und Formulardaten abfangen (bei schlechten Erweiterungen)</li>
+                  <li>Werbung einschleusen oder Seiten umleiten</li>
+                  <li>Suchergebnisse manipulieren</li>
+                </ul>
+                <h4>Verdächtige Erweiterungen erkennen</h4>
+                <ul>
+                  <li>Erweiterungen die der Nutzer nicht kennt und nicht bewusst installiert hat</li>
+                  <li>Ad-Injector / Coupon-Apps (oft mit Datenweitergabe)</li>
+                  <li>Erweiterungen mit Namen wie „PDF Converter", „Video Downloader" von unbekanntem Hersteller</li>
+                  <li>Deaktivierte Erweiterungen mit erzwungenem Autostart (via Policy)</li>
+                  <li>Vergleich: Anzahl der Erweiterungen heute vs. letzter Scan</li>
+                </ul>
+                <p><strong>Tipp:</strong> VT-Scan auf Erweiterungs-IDs und Pfade empfohlen bei Verdacht.</p>
+              </div>
+
+              <!-- USB -->
+              <div class="help-section" id="help-usb">
+                <h3>USB-Geräte</h3>
+                <p>Alle aktuell angeschlossenen USB-Geräte. Wichtig für: Inventarisierung, Datensicherheit (unbekannte USB-Sticks), Hardware-Diagnose.</p>
+                <h4>Was sehe ich hier?</h4>
+                <table class="help-table">
+                  <tr><th>Feld</th><th>Bedeutung</th></tr>
+                  <tr><td>Name / Hersteller</td><td>Produktname und Hersteller-ID des Geräts</td></tr>
+                  <tr><td>Klasse</td><td>Gerätetyp: Mass Storage, HID (Maus/Tastatur), Audio, Network, etc.</td></tr>
+                  <tr><td>Seriennummer</td><td>Eindeutige Gerätekennung (hilfreich für Whitelist/Blacklist)</td></tr>
+                  <tr><td>Vendor-ID / Product-ID</td><td>Hex-Codes für genaue Geräteerkennung</td></tr>
+                </table>
+                <h4>Sicherheitshinweise</h4>
+                <ul>
+                  <li>Unbekannte USB-Speichergeräte = Datenverlust- oder Einschleusungsrisiko</li>
+                  <li>„BadUSB"-Angriffe: Ein USB-Stick täuscht vor eine Tastatur zu sein und führt Befehle aus</li>
+                  <li>In Unternehmensumgebungen: USB-Richtlinien (nur genehmigte Geräte) empfohlen</li>
+                  <li>Auswerfen-Button sicher trennen wenn Daten gerade geschrieben werden könnten</li>
+                </ul>
+              </div>
+
+              <!-- Benutzerkonten -->
+              <div class="help-section" id="help-benutzer">
+                <h3>Benutzerkonten</h3>
+                <p>Alle lokalen Benutzerkonten auf dem System. Kritisch für Sicherheitsaudits.</p>
+                <h4>Was sehe ich hier?</h4>
+                <table class="help-table">
+                  <tr><th>Feld</th><th>Bedeutung</th></tr>
+                  <tr><td>Name / Anmeldename</td><td>Benutzername für Login</td></tr>
+                  <tr><td>Typ</td><td>Administrator, Standard, Gast, System-Account</td></tr>
+                  <tr><td>Aktiviert</td><td>Aktive vs. deaktivierte Konten</td></tr>
+                  <tr><td>Letzter Login</td><td>Wann war der Benutzer zuletzt aktiv</td></tr>
+                  <tr><td>Passwort-Änderung</td><td>Wann wurde das Passwort zuletzt geändert</td></tr>
+                </table>
+                <h4>Worauf achten?</h4>
+                <ul>
+                  <li><strong>Zu viele Admins</strong> — Prinzip der minimalen Rechte: nur wer Admin-Rechte braucht, soll sie haben</li>
+                  <li><strong>Inaktive Konten</strong> — Konten die nie oder lange nicht genutzt wurden sollten deaktiviert werden</li>
+                  <li><strong>Gast-Account</strong> — Sollte in Unternehmensumgebungen deaktiviert sein</li>
+                  <li><strong>Unbekannte Konten</strong> — System-Accounts von Software-Installationen vs. echte Personen unterscheiden</li>
+                  <li><strong>Kein Passwort</strong> — Konten ohne Passwort sind ein gravierendes Sicherheitsrisiko</li>
+                </ul>
+              </div>
+
+              <!-- Konfigurationsprofile -->
+              <div class="help-section" id="help-profile">
+                <h3>Konfigurationsprofile (macOS)</h3>
+                <p>MDM-Profile (Mobile Device Management) und Konfigurationsprofile die Systemeinstellungen festlegen. Werden oft von IT-Abteilungen oder Software installiert.</p>
+                <h4>Was können Profile tun?</h4>
+                <ul>
+                  <li>Systemeinstellungen sperren (z.B. Firewall erzwingen)</li>
+                  <li>Zertifikate installieren (ermöglicht HTTPS-Entschlüsselung = Man-in-the-Middle)</li>
+                  <li>VPN- und WiFi-Verbindungen konfigurieren</li>
+                  <li>Apps installieren oder blockieren</li>
+                  <li>Screen Time / Sperren einrichten</li>
+                </ul>
+                <h4>Worauf achten?</h4>
+                <ul>
+                  <li>Profile die nicht von der eigenen IT-Abteilung stammen</li>
+                  <li>Profile mit installierten <strong>Root-Zertifikaten</strong> von unbekannten Ausstellern — sehr gefährlich!</li>
+                  <li>Profile die unter „Nicht entfernbar" markiert sind (MDM-Kontrolle)</li>
+                  <li>Profile von Adware/Schadsoftware (oft als „Chrome Policy", „PDF Helper" etc.)</li>
+                </ul>
+              </div>
+
+              <!-- VirusTotal -->
+              <div class="help-section" id="help-vt">
                 <h3>VirusTotal</h3>
-                <p>Autostart-Einträge und Dienste können per VirusTotal geprüft werden. API-Key (kostenlos unter <em>virustotal.com</em> erhältlich) in Einstellungen → API-Schlüssel eintragen. Limit: 4 Anfragen/Min, 500/Tag.</p>
+                <p>Prüft Datei-Hashes gegen die VirusTotal-Datenbank (70+ Antiviren-Engines). Gibt schnellen Überblick ob eine Datei bekannte Schadsoftware ist.</p>
+                <h4>Einrichtung</h4>
+                <ol>
+                  <li>Kostenlosen Account auf <em>virustotal.com</em> erstellen</li>
+                  <li>API-Key kopieren (Profil → API-Key)</li>
+                  <li>In AdminKit: Einstellungen → API-Schlüssel → VirusTotal eintragen</li>
+                </ol>
+                <h4>Wie funktioniert es?</h4>
+                <p>AdminKit berechnet den SHA256-Hash der Datei und fragt nur diesen Hash ab — die Datei selbst wird <em>nie</em> hochgeladen. Privacy-sicher für bekannte Software. Nur bei neuen/unbekannten Dateien (kein VT-Eintrag) ist ein Upload nötig.</p>
+                <h4>Ergebnisse interpretieren</h4>
+                <table class="help-table">
+                  <tr><th>Ergebnis</th><th>Bedeutung</th></tr>
+                  <tr><td>✅ Sauber</td><td>0 von 70+ Engines schlagen Alarm. Wahrscheinlich sauber.</td></tr>
+                  <tr><td>⚠️ Verdächtig</td><td>1–5 Engines. Könnte False Positive sein, genauer prüfen.</td></tr>
+                  <tr><td>🔴 Schädlich</td><td>Mehrere Engines bestätigen Malware. Sofort handeln!</td></tr>
+                  <tr><td>⚪ Nicht gefunden</td><td>Unbekannte Datei (evtl. neu/selbst kompiliert). Upload prüfen.</td></tr>
+                </table>
+                <p><strong>Limit:</strong> Kostenloser API-Key: 4 Anfragen/Minute, 500/Tag. Premium für größere Scans empfohlen.</p>
               </div>
 
-              <div class="help-section">
-                <h3>Vault & Sessions</h3>
-                <p>Alle Scan-Ergebnisse werden in der Vault gespeichert (<code>adminkit_vault/</code> neben der App). Jede Session ist ein Unterordner. Vault-Pfad ist in der Statusleiste sichtbar.</p>
+              <!-- KI-Analyse -->
+              <div class="help-section" id="help-ki">
+                <h3>KI-Analyse</h3>
+                <p>Ausgewählte Einträge (Dienste, Autostart, Ereignisse, Prozesse) können an eine KI übergeben werden für Erklärungen und Sicherheitsbewertungen.</p>
+                <h4>Anbieter-Typen</h4>
+                <table class="help-table">
+                  <tr><th>Anbieter</th><th>Wie?</th><th>Datenschutz</th><th>Kosten</th></tr>
+                  <tr><td>ChatGPT, Claude.ai, Grok</td><td>Browser öffnet sich, Prompt in Zwischenablage kopiert</td><td>Daten gehen an Anbieter</td><td>Kostenlos (mit Account)</td></tr>
+                  <tr><td>Ollama / LM Studio</td><td>Direkt im App, läuft lokal</td><td>100% lokal, keine Datenweitergabe</td><td>Kostenlos</td></tr>
+                  <tr><td>OpenAI / Anthropic / Groq</td><td>Direkt im App via API</td><td>Daten gehen an Anbieter</td><td>API-Kosten (pro Token)</td></tr>
+                </table>
+                <h4>Was frage ich die KI?</h4>
+                <ul>
+                  <li>„Ist dieser Prozess/Dienst normal oder verdächtig?"</li>
+                  <li>„Was bedeutet dieses Ereignis und wie schlimm ist es?"</li>
+                  <li>„Welche dieser Autostart-Einträge sollte ich deaktivieren?"</li>
+                  <li>„Gibt es in dieser Liste Anzeichen für Malware oder unerwünschte Software?"</li>
+                </ul>
               </div>
 
+              <!-- Export -->
+              <div class="help-section" id="help-export">
+                <h3>Export</h3>
+                <p>Scan-Ergebnisse als professioneller Bericht exportieren.</p>
+                <h4>HTML-Export</h4>
+                <p>Vollständiger Bericht als HTML-Datei. Enthält Zusammenfassung, Health Score, alle Scan-Ergebnisse mit Tabellen, Firmen-Logo und Back-to-Top-Button. Ideal für Kunden-Reports — im Browser öffnen und drucken/als PDF speichern.</p>
+                <h4>CSV-Export</h4>
+                <p>Rohdaten für Weiterverarbeitung in Excel oder anderen Tools. Alle Tabellen werden als einzelne CSV-Dateien exportiert.</p>
+                <h4>Tipps</h4>
+                <ul>
+                  <li>Firmenname, Techniker-Name und Logo in Einstellungen hinterlegen — erscheint im Report-Header</li>
+                  <li>HTML-Report: Rechtsklick im Browser → Drucken → Als PDF speichern für professionelle PDF-Reports</li>
+                  <li>Für Vergleiche: mehrere Sessions anlegen und HTML-Reports archivieren</li>
+                </ul>
+              </div>
+
+              <!-- Vault & Sessions -->
+              <div class="help-section" id="help-vault">
+                <h3>Vault &amp; Sessions</h3>
+                <p>AdminKit speichert alle Daten lokal im Vault-Ordner (<code>adminkit_vault/</code> neben der App-Datei).</p>
+                <h4>Sessions</h4>
+                <p>Jede Session entspricht einem Scan-Vorgang (z.B. pro Kundenbesuch). Innerhalb einer Session werden alle Einzel-Scans gespeichert. Sessions können verglichen werden um Veränderungen über Zeit zu erkennen.</p>
+                <h4>Dateistruktur</h4>
+                <ul>
+                  <li><code>adminkit_vault/config.yaml</code> — Einstellungen (Firmenname, API-Keys)</li>
+                  <li><code>adminkit_vault/&lt;session&gt;/system.json</code> — Hardware- und OS-Scan</li>
+                  <li><code>adminkit_vault/&lt;session&gt;/network.json</code> — Netzwerk-Scan</li>
+                  <li><code>adminkit_vault/&lt;session&gt;/software.json</code> — Software-Inventar</li>
+                  <li><code>adminkit_vault/&lt;session&gt;/vt_audit.json</code> — VirusTotal-Ergebnisse</li>
+                </ul>
+                <p><strong>Datenschutz:</strong> Vault enthält ggf. sensible Systemdaten. Vault-Ordner nicht in Cloud-Sync (iCloud, OneDrive) ablegen. Niemals in Git oder öffentliche Repositories pushen.</p>
+              </div>
+
+              <!-- Tastaturkürzel & Feedback -->
               <div class="help-section">
                 <h3>Tastaturkürzel</h3>
                 <table class="help-table">
@@ -761,9 +1108,10 @@
               </div>
 
               <div class="help-section">
-                <h3>Feedback & Fehler</h3>
+                <h3>Feedback &amp; Fehler</h3>
                 <p>Bugs und Feature-Wünsche bitte als GitHub-Issue melden: <strong>github.com/Fenron-dev/AdminKit</strong></p>
               </div>
+
             </div>
           </div>
         </section>

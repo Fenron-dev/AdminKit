@@ -2591,7 +2591,15 @@ function updateDashboardBadges(result) {
   } catch(e) { console.error('updateDashboardBadges users:', e); }
 
   try {
-    var hwName = (result.hardware && result.hardware.cpu && result.hardware.cpu.name) ? result.hardware.cpu.name : '';
+    var hw = result.hardware;
+    var hwName = (hw && hw.cpu && hw.cpu.name) ? hw.cpu.name : '';
+    if (!hwName && hw) {
+      // Fallback: Kerne + RAM wenn cpu.name leer (z.B. Apple Silicon macOS 26)
+      var parts = [];
+      if (hw.cpu && hw.cpu.cores > 0) parts.push(hw.cpu.cores + '-Kern CPU');
+      if (hw.total_ram_gb > 0) parts.push(hw.total_ram_gb + ' GB RAM');
+      if (parts.length > 0) hwName = parts.join(', ');
+    }
     setBadge('badge-hardware', 'detail-hardware', hwName ? 'OK' : 'UNKNOWN', hwName || 'Kein CPU-Name');
   } catch(e) { console.error('updateDashboardBadges hw:', e); }
 
