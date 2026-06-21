@@ -28,6 +28,7 @@ type spUSBItem struct {
 	SerialNumber string      `json:"serial_num,omitempty"`
 	Speed        string      `json:"device_speed,omitempty"`
 	Location     string      `json:"location_id,omitempty"`
+	BSDName      string      `json:"bsd_name,omitempty"` // bei Massenspeicher-Medien
 	Items        []spUSBItem `json:"_items,omitempty"`
 }
 
@@ -56,9 +57,22 @@ func Scan() (*ScanResult, error) {
 	return result, nil
 }
 
-// collectItems rekursiv alle USB-Geräte aus der Baumstruktur einsammeln.
+// collectItems sammelt rekursiv alle USB-Geräte aus der Baumstruktur.
 func collectItems(items []spUSBItem, out *[]USBDevice) {
 	for _, item := range items {
+		isHub := strings.Contains(strings.ToLower(item.Name), "hub")
+
+		// BSD-Name aus dem aktuellen Item oder aus Media-Subitems
+		bsdName := item.BSDName
+		if bsdName == "" {
+			for _, sub := range item.Items {
+				if sub.BSDName != "" {
+					bsdName = sub.BSDName
+					break
+				}
+			}
+		}
+
 		dev := USBDevice{
 			Name:         item.Name,
 			Manufacturer: item.Manufacturer,
@@ -67,12 +81,13 @@ func collectItems(items []spUSBItem, out *[]USBDevice) {
 			SerialNumber: item.SerialNumber,
 			Speed:        normalizeSpeed(item.Speed),
 			Location:     item.Location,
-			IsHub:        strings.Contains(strings.ToLower(item.Name), "hub"),
+			BSDName:      bsdName,
+			IsHub:        isHub,
 		}
 
 		if item.ProductID != "" || item.VendorID != "" || item.SerialNumber != "" {
 			*out = append(*out, dev)
-		} else if item.Name != "" && !dev.IsHub {
+		} else if item.Name != "" && !isHub {
 			*out = append(*out, dev)
 		}
 

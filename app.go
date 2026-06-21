@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
@@ -1234,6 +1235,48 @@ func fetchOpenRouterModels(onlyFree bool) ([]OpenRouterModel, error) {
 		})
 	}
 	return out, nil
+}
+
+// EjectUSBDevice wirft ein USB-Gerät (Massenspeicher) aus.
+// name = Gerätename wie er im USB-Scan erscheint (für die Log-Ausgabe).
+// bsdName = Gerätedatei, z.B. "disk2" — wird von diskutil eject verwendet.
+func (a *App) EjectUSBDevice(bsdName string) error {
+	if bsdName == "" {
+		return fmt.Errorf("kein BSD-Name angegeben")
+	}
+	logging.Infof("USB", "Auswerfen: %s", bsdName)
+	out, err := exec.Command("diskutil", "eject", bsdName).CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		logging.Warnf("USB", "Auswerfen fehlgeschlagen (%s): %v — %s", bsdName, err, msg)
+		return fmt.Errorf("diskutil eject: %s", msg)
+	}
+	logging.Infof("USB", "Ausgeworfen: %s", bsdName)
+	return nil
+}
+
+// ToggleAutostartEntry aktiviert oder deaktiviert einen LaunchAgent/LaunchDaemon via launchctl.
+// plistPath = vollständiger Pfad zur .plist-Datei.
+// enable = true → launchctl load; false → launchctl unload -w.
+func (a *App) ToggleAutostartEntry(plistPath string, enable bool) error {
+	if plistPath == "" {
+		return fmt.Errorf("kein Plist-Pfad angegeben")
+	}
+	action := "unload"
+	args := []string{"unload", "-w", plistPath}
+	if enable {
+		action = "load"
+		args = []string{"load", "-w", plistPath}
+	}
+	logging.Infof("Autostart", "%s: %s", action, plistPath)
+	out, err := exec.Command("launchctl", args...).CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		logging.Warnf("Autostart", "%s fehlgeschlagen (%s): %v — %s", action, plistPath, err, msg)
+		return fmt.Errorf("launchctl %s: %s", action, msg)
+	}
+	logging.Infof("Autostart", "%s erfolgreich: %s", action, plistPath)
+	return nil
 }
 
 // isWritable prüft, ob in einem Verzeichnis geschrieben werden kann.

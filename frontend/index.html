@@ -55,6 +55,8 @@
         <button class="tab-btn" data-tab="network">Netzwerk</button>
         <button class="tab-btn" data-tab="software">Software</button>
         <button class="tab-btn" data-tab="tools">Tools</button>
+        <button class="tab-btn" data-tab="wiki">Wiki</button>
+        <button class="tab-btn" data-tab="help">Hilfe</button>
       </nav>
 
       <!-- Vollscan-Fortschrittsleiste (nur während Vollscan sichtbar) -->
@@ -509,6 +511,43 @@
               </div>
             </div>
 
+            <!-- macOS System-Apps Shortcuts -->
+            <div class="tools-group" id="tools-system-apps">
+              <h3 class="tools-group-title">macOS System-Apps</h3>
+              <div class="tools-grid">
+                <button class="tool-btn tool-btn-sysapp" data-app="Activity Monitor" data-path="/System/Applications/Utilities/Activity Monitor.app">
+                  <span class="tool-icon">📊</span><span>Aktivitätsanzeige</span>
+                </button>
+                <button class="tool-btn tool-btn-sysapp" data-app="Console" data-path="/System/Applications/Utilities/Console.app">
+                  <span class="tool-icon">📋</span><span>Konsole</span>
+                </button>
+                <button class="tool-btn tool-btn-sysapp" data-app="Disk Utility" data-path="/System/Applications/Utilities/Disk Utility.app">
+                  <span class="tool-icon">💽</span><span>Festplattendienstprogramm</span>
+                </button>
+                <button class="tool-btn tool-btn-sysapp" data-app="System Information" data-path="/System/Applications/Utilities/System Information.app">
+                  <span class="tool-icon">ℹ</span><span>Systeminformationen</span>
+                </button>
+                <button class="tool-btn tool-btn-sysapp" data-app="Keychain Access" data-path="/System/Applications/Utilities/Keychain Access.app">
+                  <span class="tool-icon">🔑</span><span>Schlüsselbundverwaltung</span>
+                </button>
+                <button class="tool-btn tool-btn-sysapp" data-app="Network Utility" data-path="/System/Library/CoreServices/Applications/Network Utility.app">
+                  <span class="tool-icon">🌐</span><span>Netzwerkdienstprogramm</span>
+                </button>
+                <button class="tool-btn tool-btn-sysapp" data-app="Directory Utility" data-path="/System/Library/CoreServices/Applications/Directory Utility.app">
+                  <span class="tool-icon">📂</span><span>Verzeichnisdienste</span>
+                </button>
+                <button class="tool-btn tool-btn-sysapp" data-app="Wireless Diagnostics" data-path="/System/Library/CoreServices/Applications/Wireless Diagnostics.app">
+                  <span class="tool-icon">📡</span><span>WLAN-Diagnose</span>
+                </button>
+                <button class="tool-btn tool-btn-sysapp" data-app="Terminal" data-path="/System/Applications/Utilities/Terminal.app">
+                  <span class="tool-icon">💻</span><span>Terminal</span>
+                </button>
+                <button class="tool-btn tool-btn-sysapp" data-app="Migration Assistant" data-path="/System/Applications/Utilities/Migration Assistant.app">
+                  <span class="tool-icon">📦</span><span>Migrationsassistent</span>
+                </button>
+              </div>
+            </div>
+
             <!-- VirusTotal Datei-Scanner -->
             <div class="tools-group">
               <h3 class="tools-group-title">VirusTotal Datei-Scanner</h3>
@@ -631,6 +670,99 @@
                   <span class="console-placeholder">Werkzeug auswählen &amp; ausführen — oder oben eigenen Befehl eingeben…</span>
                 </div>
 
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Wiki-Tab ─────────────────────────────────────────────────── -->
+        <section class="tab-panel" id="tab-wiki">
+          <div class="tab-panel-simple">
+            <div class="wiki-header">
+              <h2 class="wiki-title">Wiki — Befehle, Shortcuts & Tipps</h2>
+              <div class="wiki-filter-wrap">
+                <input type="text" id="wiki-search" class="wiki-search" placeholder="Suchen…">
+                <select id="wiki-os-filter" class="wiki-os-filter">
+                  <option value="all">Alle Betriebssysteme</option>
+                  <option value="macos" selected>macOS</option>
+                  <option value="windows">Windows</option>
+                </select>
+              </div>
+            </div>
+            <div id="wiki-content" class="wiki-content"></div>
+          </div>
+        </section>
+
+        <!-- ── Help-Tab ─────────────────────────────────────────────────── -->
+        <section class="tab-panel" id="tab-help">
+          <div class="tab-panel-simple">
+            <div class="help-content">
+              <h2>AdminKit – Hilfe & Handbuch</h2>
+
+              <div class="help-section">
+                <h3>Was ist AdminKit?</h3>
+                <p>AdminKit ist ein lokales System-Analyse-Tool für IT-Administratoren. Es scannt Hardware, Betriebssystem, Netzwerk, Software und Sicherheitskonfiguration — ohne Cloud, ohne Datenübertragung.</p>
+              </div>
+
+              <div class="help-section">
+                <h3>Schnellstart</h3>
+                <ol>
+                  <li><strong>Session erstellen</strong> — oben rechts auf „+ Session" klicken und einen Namen vergeben (z.B. Kundenname + Datum).</li>
+                  <li><strong>Vollständiger Scan</strong> — Dashboard → „Vollständiger Scan" startet alle Scanner sequentiell.</li>
+                  <li><strong>Einzelscans</strong> — In der linken Sidebar jedes Tabs gibt es ↺-Buttons für Einzel-Scans.</li>
+                  <li><strong>Export</strong> — Einstellungen → Export → HTML- oder CSV-Report erstellen.</li>
+                </ol>
+              </div>
+
+              <div class="help-section">
+                <h3>Tabs & Bereiche</h3>
+                <table class="help-table">
+                  <tr><th>Tab</th><th>Inhalt</th></tr>
+                  <tr><td>Dashboard</td><td>Übersicht, Health Score, Empfehlungen, Schnellaktionen</td></tr>
+                  <tr><td>System</td><td>Hardware, OS, SMART, Autostart, Dienste, Ereignisse, Benutzer, USB</td></tr>
+                  <tr><td>Netzwerk</td><td>Adapter, Shares, WiFi, Ports, Verbindungen, ARP, Routing</td></tr>
+                  <tr><td>Software</td><td>Installierte Programme, Browser, Erweiterungen</td></tr>
+                  <tr><td>Tools</td><td>Diagnose-Werkzeuge, Terminal, VirusTotal, KI-Analyse</td></tr>
+                  <tr><td>Wiki</td><td>macOS/Windows Befehle, Shortcuts, Tipps</td></tr>
+                </table>
+              </div>
+
+              <div class="help-section">
+                <h3>Bestätigungs-Dialoge</h3>
+                <p>Alle Aktionen die das System verändern (Schnellaktionen, Autostart deaktivieren, USB auswerfen) zeigen vorher einen Hinweis-Dialog mit Beschreibung und Abbruchmöglichkeit.</p>
+              </div>
+
+              <div class="help-section">
+                <h3>KI-Analyse</h3>
+                <p>Dienste, Ereignisse und Autostart-Einträge können per KI analysiert werden. In den Einstellungen → KI-Anbieter den gewünschten Anbieter konfigurieren:</p>
+                <ul>
+                  <li><strong>ChatGPT / Claude.ai / Grok</strong> — Öffnet den Browser, Prompt wird in Zwischenablage kopiert</li>
+                  <li><strong>Ollama / LM Studio</strong> — Lokale KI, keine Internet-Verbindung, kein API-Key nötig</li>
+                  <li><strong>OpenAI / Anthropic / Groq</strong> — API-Key in Einstellungen eintragen</li>
+                </ul>
+              </div>
+
+              <div class="help-section">
+                <h3>VirusTotal</h3>
+                <p>Autostart-Einträge und Dienste können per VirusTotal geprüft werden. API-Key (kostenlos unter <em>virustotal.com</em> erhältlich) in Einstellungen → API-Schlüssel eintragen. Limit: 4 Anfragen/Min, 500/Tag.</p>
+              </div>
+
+              <div class="help-section">
+                <h3>Vault & Sessions</h3>
+                <p>Alle Scan-Ergebnisse werden in der Vault gespeichert (<code>adminkit_vault/</code> neben der App). Jede Session ist ein Unterordner. Vault-Pfad ist in der Statusleiste sichtbar.</p>
+              </div>
+
+              <div class="help-section">
+                <h3>Tastaturkürzel</h3>
+                <table class="help-table">
+                  <tr><th>Kürzel</th><th>Aktion</th></tr>
+                  <tr><td>Escape</td><td>Aktives Modal schließen</td></tr>
+                </table>
+              </div>
+
+              <div class="help-section">
+                <h3>Feedback & Fehler</h3>
+                <p>Bugs und Feature-Wünsche bitte als GitHub-Issue melden: <strong>github.com/Fenron-dev/AdminKit</strong></p>
               </div>
             </div>
           </div>

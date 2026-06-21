@@ -240,6 +240,16 @@ export function SaveTerminalLog(arg1) {
     return window['go']['main']['App']['SaveTerminalLog'](arg1);
 }
 
+// ── USB Auswerfen ──
+export function EjectUSBDevice(arg1) {
+    return window['go']['main']['App']['EjectUSBDevice'](arg1);
+}
+
+// ── Autostart Toggle ──
+export function ToggleAutostartEntry(arg1, arg2) {
+    return window['go']['main']['App']['ToggleAutostartEntry'](arg1, arg2);
+}
+
 // ── Health Score ──
 export function GetHealthScore() {
     return window['go']['main']['App']['GetHealthScore']();

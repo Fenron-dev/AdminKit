@@ -89,15 +89,16 @@ type VolumeInfo struct {
 
 type OSInfo struct {
 	Name             string    `json:"name"`
+	Hostname         string    `json:"hostname"`
 	Version          string    `json:"version"`
 	Build            string    `json:"build"`
 	Architecture     string    `json:"architecture"`
 	InstallDate      time.Time `json:"install_date"`
 	LastBootTime     time.Time `json:"last_boot_time"`
-	LicenseStatus    string    `json:"license_status"`   // Licensed, Unlicensed, Unknown
+	LicenseStatus    string    `json:"license_status"`
 	SerialNumber     string    `json:"serial_number"`
 	LastUpdateDate   time.Time `json:"last_update_date,omitempty"`
-	PendingUpdates   int       `json:"pending_updates,omitempty"` // -1 = nicht ermittelt
+	PendingUpdates   int       `json:"pending_updates,omitempty"`
 }
 
 // ─── SMART ────────────────────────────────────────────────────────────────────

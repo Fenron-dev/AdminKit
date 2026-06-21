@@ -45,6 +45,8 @@ import {
   RunQuickAction,
   ScanEventsRange,
   GetDiagnosticReport,
+  EjectUSBDevice,
+  ToggleAutostartEntry,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -108,6 +110,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initQuickActions();
   initDiagnosticReport();
   initSidebarNav();
+  initSysPrefsLinks();
+  initWikiTab();
   loadAppInfo();
 });
 
@@ -890,27 +894,63 @@ function renderAutostart(entries) {
 
     const table = document.createElement('table');
     table.className = 'data-table';
-    table.innerHTML = `<thead><tr><th class="cb-col"><input type="checkbox" class="check-all" title="Alle auswählen"></th><th>Name</th><th>Pfad / Befehl</th><th>System</th><th>Aktiv</th></tr></thead>`;
+    table.innerHTML = `<thead><tr><th class="cb-col"><input type="checkbox" class="check-all" title="Alle auswählen"></th><th>Name</th><th>Pfad / Befehl</th><th>System</th><th>Aktiv</th><th></th></tr></thead>`;
     const tbody = document.createElement('tbody');
 
     items.forEach(e => {
       const tr = document.createElement('tr');
       if (!e.is_system) tr.classList.add('highlight-third-party');
       const sys = e.is_system ? '✓' : '<span class="text-warning">⚠ Drittanbieter</span>';
-      const active = e.is_enabled ? '✓' : '–';
+      const active = e.is_enabled ? '✓' : '<span class="text-muted">–</span>';
       const cbId = `autostart:${e.name}:${e.path || ''}`;
+      const canToggle = !e.is_system && e.path && (e.path.endsWith('.plist'));
+      const toggleBtn = canToggle
+        ? `<button class="btn-action btn-autostart-toggle" data-path="${escapeHtml(e.path)}" data-name="${escapeHtml(e.name)}" data-enabled="${e.is_enabled ? '1' : '0'}" title="${e.is_enabled ? 'Deaktivieren' : 'Aktivieren'}">${e.is_enabled ? '⏸' : '▶'}</button>`
+        : '';
       tr.innerHTML = `
         <td class="cb-col"><input type="checkbox" class="item-check" data-id="${escapeHtml(cbId)}" data-name="${escapeHtml(e.name)}" data-path="${escapeHtml(e.path || '')}" data-type="autostart"></td>
         <td><strong>${escapeHtml(e.name)}</strong></td>
         <td class="mono-cell" style="font-size:11px;word-break:break-all">${escapeHtml(e.path || '–')}</td>
         <td style="text-align:center">${sys}</td>
-        <td style="text-align:center">${active}</td>`;
+        <td style="text-align:center">${active}</td>
+        <td style="text-align:center">${toggleBtn}</td>`;
       tbody.appendChild(tr);
     });
 
     table.appendChild(tbody);
     section.appendChild(table);
     container.appendChild(section);
+
+    // Autostart-Toggle (launchctl load/unload)
+    tbody.addEventListener('click', async function(e) {
+      const btn = e.target.closest('.btn-autostart-toggle');
+      if (!btn) return;
+      const plistPath = btn.dataset.path;
+      const name      = btn.dataset.name;
+      const enabled   = btn.dataset.enabled === '1';
+      const action    = enabled ? 'deaktivieren' : 'aktivieren';
+      const ok = await showConfirm({
+        title: `Autostart-Eintrag ${action}`,
+        what: `"${name}" wird per launchctl ${enabled ? 'entladen (unload -w)' : 'geladen (load -w)'}.`,
+        impact: enabled
+          ? 'Das Programm startet beim nächsten Login nicht mehr automatisch.'
+          : 'Das Programm startet ab dem nächsten Login wieder automatisch.',
+      });
+      if (!ok) return;
+      try {
+        await ToggleAutostartEntry(plistPath, !enabled);
+        btn.dataset.enabled = enabled ? '0' : '1';
+        btn.textContent = enabled ? '▶' : '⏸';
+        btn.title = enabled ? 'Aktivieren' : 'Deaktivieren';
+        const td = btn.closest('td').previousElementSibling;
+        if (td) td.innerHTML = enabled ? '<span class="text-muted">–</span>' : '✓';
+        showToast(`${name} ${enabled ? 'deaktiviert' : 'aktiviert'}.`);
+        addAction(`Autostart ${enabled ? 'deaktiviert' : 'aktiviert'}: ${name}`, 'success');
+      } catch (err) {
+        showToast(`Fehler: ${err}`, 'error');
+        addAction(`Autostart-Toggle fehlgeschlagen: ${err}`, 'error');
+      }
+    });
 
     // "Alle auswählen"-Checkbox
     table.querySelector('.check-all')?.addEventListener('change', e => {
@@ -1241,6 +1281,19 @@ function _doRenderEvents() {
   }
   toggleBtn.addEventListener('click', function() { _evtShowAll = !_evtShowAll; _doRenderEvents(); });
   meta.appendChild(toggleBtn);
+
+  // KI-Analyse-Button für sichtbare Risiko-Ereignisse
+  if (riskEvents.length > 0) {
+    var aiBtn = document.createElement('button');
+    aiBtn.style.cssText = 'margin-left:12px;padding:3px 10px;font-size:12px;font-weight:600;border-radius:99px;cursor:pointer;border:1px solid var(--color-primary);background:color-mix(in srgb,var(--color-primary) 12%,transparent);color:var(--color-primary);';
+    aiBtn.textContent = '🤖 KI analysieren (' + riskEvents.length + ')';
+    aiBtn.addEventListener('click', function() {
+      var provider = document.getElementById('ai-provider-select')?.value ?? 'chatgpt';
+      runEventsAIAnalyze(riskEvents, provider);
+    });
+    meta.appendChild(aiBtn);
+  }
+
   _evtContainer.appendChild(meta);
 
   if (displayList.length === 0) {
@@ -1248,6 +1301,45 @@ function _doRenderEvents() {
   } else {
     _evtContainer.appendChild(_buildEventTable(displayList));
   }
+}
+
+function runEventsAIAnalyze(events, provider) {
+  var prompt = '=== AdminKit: Systemereignis-Analyse ===\n\n';
+  prompt += 'Die folgenden ' + events.length + ' risikorelevanten Systemereignisse wurden auf diesem Mac gefunden:\n\n';
+  events.slice(0, 50).forEach(function(e, i) {
+    var time = e.time ? new Date(e.time).toLocaleString('de-DE') : '–';
+    prompt += '[' + (i+1) + '] Risiko: ' + (e.risk_score || 0) + ' | Zeit: ' + time +
+      ' | Prozess: ' + (e.process_name || e.source || '–') +
+      ' | Meldung: ' + (e.message || '–').slice(0, 200) + '\n';
+  });
+  if (events.length > 50) prompt += '… (' + (events.length - 50) + ' weitere Ereignisse ausgelassen)\n';
+  prompt += '\n=== Frage ===\n';
+  prompt += 'Welche dieser Ereignisse sind echte Sicherheitsrisiken vs. normales Systemverhalten? ' +
+    'Was sollte der Administrator prüfen oder tun? Bitte auf Deutsch antworten.';
+
+  if (AI_BROWSER_URLS[provider]) {
+    try { navigator.clipboard.writeText(prompt); } catch(_) {}
+    if (window.runtime?.BrowserOpenURL) window.runtime.BrowserOpenURL(AI_BROWSER_URLS[provider]);
+    showToast('Prompt kopiert. Füge ihn im Browser ein.');
+    return;
+  }
+  var modal = document.getElementById('modal-ai-response');
+  var title = document.getElementById('ai-response-title');
+  var pre   = document.getElementById('ai-response-text');
+  if (!modal || !pre) return;
+  title.textContent = '🤖 Ereignis-Analyse (' + provider + ')';
+  pre.textContent = 'Analyse läuft…';
+  modal.classList.remove('hidden');
+  var p;
+  if (provider === 'ollama' || provider === 'lmstudio') {
+    var baseURL = provider === 'ollama' ? 'http://localhost:11434' : 'http://localhost:1234';
+    var model = provider === 'ollama' ? (state.config?.ai_models?.ollama || 'llama3.2') : (state.config?.ai_models?.lmstudio || 'local-model');
+    p = CallLocalAI(baseURL, model, prompt);
+  } else {
+    p = CallAI(provider, state.config?.ai_models?.[provider] || defaultModelFor(provider), prompt);
+  }
+  p.then(function(r) { pre.textContent = r; addAction('Ereignis-KI-Analyse abgeschlossen', 'success'); })
+   .catch(function(err) { pre.textContent = 'Fehler: ' + err; addAction('Ereignis-KI-Analyse fehlgeschlagen: ' + err, 'error'); });
 }
 
 function showEventDetail(e) {
@@ -2465,48 +2557,50 @@ function updateNetworkBadge(result) {
 
 // ─── Dashboard-Badges aktualisieren ──────────────────────────────────────────
 
-// var statt const — vermeidet Terser-TDZ bei Referenz in updateDashboardBadges
-var SmartStatus = { OK: 'OK', WARNING: 'WARNING', CRITICAL: 'CRITICAL', UNKNOWN: 'UNKNOWN' };
-
 function updateDashboardBadges(result) {
-  if (result.os) {
-    setEl('info-hostname', result.os.name || '–');
-    setEl('info-os', (result.os.name || '') + ' ' + (result.os.build || ''));
-    if (result.os.last_boot_time) {
-      setEl('info-uptime', calcUptime(result.os.last_boot_time));
+  try {
+    if (result.os) {
+      setEl('info-hostname', result.os.hostname || result.os.name || '–');
+      setEl('info-os', (result.os.name || '') + ' ' + (result.os.build || ''));
+      if (result.os.last_boot_time) {
+        setEl('info-uptime', calcUptime(result.os.last_boot_time));
+      }
     }
-  }
+  } catch(e) { console.error('updateDashboardBadges os:', e); }
 
-  // Letzte Anmeldung: aktivierten, nicht-System-Benutzer mit neuester LastLogon
-  // var statt const — Terser-TDZ-Schutz
-  if (result.users && result.users.length) {
-    var lastUser = result.users
-      .filter(function(u) { return u.is_enabled && u.last_logon && !u.last_logon.startsWith('0001'); })
-      .sort(function(a, b) { return new Date(b.last_logon) - new Date(a.last_logon); })[0];
-    if (lastUser) {
-      setEl('info-lastlogin', lastUser.name + ' (' + formatDate(lastUser.last_logon) + ')');
+  try {
+    if (result.users && result.users.length) {
+      var lastUser = result.users
+        .filter(function(u) { return u.is_enabled && u.last_logon && String(u.last_logon).indexOf('0001') !== 0; })
+        .sort(function(a, b) { return new Date(b.last_logon) - new Date(a.last_logon); })[0];
+      if (lastUser) {
+        setEl('info-lastlogin', lastUser.name + ' (' + formatDate(lastUser.last_logon) + ')');
+      }
     }
-  }
+  } catch(e) { console.error('updateDashboardBadges users:', e); }
 
-  var hwName = result.hardware && result.hardware.cpu && result.hardware.cpu.name ? result.hardware.cpu.name : '';
-  setBadge('badge-hardware', 'detail-hardware',
-    hwName ? SmartStatus.OK : SmartStatus.UNKNOWN,
-    hwName || 'Keine Daten'
-  );
+  try {
+    var hwName = (result.hardware && result.hardware.cpu && result.hardware.cpu.name) ? result.hardware.cpu.name : '';
+    setBadge('badge-hardware', 'detail-hardware', hwName ? 'OK' : 'UNKNOWN', hwName || 'Kein CPU-Name');
+  } catch(e) { console.error('updateDashboardBadges hw:', e); }
 
-  var osName = result.os && result.os.name ? result.os.name : '';
-  setBadge('badge-os', 'detail-os',
-    osName ? SmartStatus.OK : SmartStatus.UNKNOWN,
-    osName || 'Keine Daten'
-  );
+  try {
+    var osName = (result.os && result.os.name) ? result.os.name : '';
+    var osDetail = osName ? (osName + (result.os.version ? ' ' + result.os.version : '')) : 'Keine Daten';
+    setBadge('badge-os', 'detail-os', osName ? 'OK' : 'UNKNOWN', osDetail);
+  } catch(e) { console.error('updateDashboardBadges os badge:', e); }
 
-  if (result.smart && result.smart.length > 0) {
-    var worst = result.smart.reduce(function(acc, d) {
-      var order = { CRITICAL: 3, WARNING: 2, UNKNOWN: 1, OK: 0 };
-      return ((order[d.status] || 0) > (order[acc.status] || 0)) ? d : acc;
-    }, result.smart[0]);
-    setBadge('badge-smart', 'detail-smart', worst.status, result.smart.length + ' Disk(s) — schlechtester: ' + worst.status);
-  }
+  try {
+    if (result.smart && result.smart.length > 0) {
+      var worst = result.smart.reduce(function(acc, d) {
+        var order = { CRITICAL: 3, WARNING: 2, UNKNOWN: 1, OK: 0 };
+        return ((order[d.status] || 0) > (order[acc.status] || 0)) ? d : acc;
+      }, result.smart[0]);
+      setBadge('badge-smart', 'detail-smart', worst.status, result.smart.length + ' Disk(s) — ' + worst.status);
+    } else {
+      setBadge('badge-smart', 'detail-smart', 'UNKNOWN', 'Keine SMART-Daten');
+    }
+  } catch(e) { console.error('updateDashboardBadges smart:', e); }
 }
 
 function setBadge(badgeId, detailId, status, detail) {
@@ -2682,6 +2776,18 @@ function formatTime(date) {
 // ─── Tools-Tab ────────────────────────────────────────────────────────────────
 
 function initToolsTab() {
+  // ── macOS System-Apps ────────────────────────────────────────────────────
+  document.querySelectorAll('.tool-btn-sysapp').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var appPath = btn.dataset.path;
+      var appName = btn.dataset.app;
+      if (!appPath) return;
+      RunRawCommand('open "' + appPath + '"')
+        .then(function() { addAction('Geöffnet: ' + appName, 'info'); })
+        .catch(function(err) { showToast('Fehler: ' + err); });
+    });
+  });
+
   // ── Diagnose-Werkzeuge ────────────────────────────────────────────────────
   document.getElementById('tool-full-scan')?.addEventListener('click', () => {
     switchTab('dashboard');
@@ -3724,27 +3830,57 @@ function renderUSBDevices(result) {
     return;
   }
 
-  const rows = result.devices.map(d => {
-    const hubCls = d.is_hub ? 'style="color:var(--muted-color)"' : '';
-    return `<tr>
-      <td ${hubCls}>${escapeHtml(d.name)}</td>
+  const tbody = document.createElement('tbody');
+  result.devices.forEach(d => {
+    const tr = document.createElement('tr');
+    if (d.is_hub) tr.style.color = 'var(--color-muted)';
+    const ejectBtn = d.bsd_name && !d.is_hub
+      ? `<button class="btn-action btn-eject-usb" data-bsd="${escapeHtml(d.bsd_name)}" data-name="${escapeHtml(d.name)}" title="Gerät auswerfen">⏏</button>`
+      : '';
+    tr.innerHTML = `
+      <td>${escapeHtml(d.name)}</td>
       <td>${escapeHtml(d.manufacturer || '–')}</td>
       <td class="mono">${escapeHtml(d.vendor_id || '–')}</td>
       <td class="mono">${escapeHtml(d.product_id || '–')}</td>
       <td class="mono" style="font-size:11px">${escapeHtml(d.serial_number || '–')}</td>
       <td>${escapeHtml(d.speed || '–')}</td>
-    </tr>`;
-  }).join('');
+      <td>${ejectBtn}</td>`;
+    tbody.appendChild(tr);
+  });
 
-  container.innerHTML = `
-    <div class="table-wrapper">
-      <table class="data-table">
-        <thead><tr>
-          <th>Name</th><th>Hersteller</th><th>VID</th><th>PID</th><th>Seriennummer</th><th>Geschwindigkeit</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+  container.innerHTML = '';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'table-wrapper';
+  const tbl = document.createElement('table');
+  tbl.className = 'data-table';
+  tbl.innerHTML = `<thead><tr>
+    <th>Name</th><th>Hersteller</th><th>VID</th><th>PID</th><th>Seriennummer</th><th>Geschwindigkeit</th><th></th>
+  </tr></thead>`;
+  tbl.appendChild(tbody);
+  wrapper.appendChild(tbl);
+  container.appendChild(wrapper);
+
+  container.addEventListener('click', async function(e) {
+    const btn = e.target.closest('.btn-eject-usb');
+    if (!btn) return;
+    const bsd  = btn.dataset.bsd;
+    const name = btn.dataset.name;
+    const ok = await showConfirm({
+      title: 'USB-Gerät auswerfen',
+      what: `"${name}" (${bsd}) wird sicher ausgeworfen.`,
+      impact: 'Laufende Dateiübertragungen werden unterbrochen. Gerät erst danach physisch entfernen.',
+    });
+    if (!ok) return;
+    try {
+      await EjectUSBDevice(bsd);
+      btn.closest('tr').remove();
+      showToast(`${name} wurde ausgeworfen.`);
+      addAction(`USB ausgeworfen: ${name}`, 'success');
+    } catch (err) {
+      showToast('Auswerfen fehlgeschlagen: ' + err, 'error');
+      addAction('USB-Auswerfen fehlgeschlagen: ' + err, 'error');
+    }
+  });
 }
 
 async function runAutoVTScan() {
@@ -4455,11 +4591,184 @@ function initSidebarNav() {
   });
 }
 
+// ─── Systemeinstellungen Quick-Links ─────────────────────────────────────────
+// Fügt kleine ⚙-Buttons in Sektions-Titelzeilen ein die direkt
+// zur passenden macOS-Systemeinstellungs-Seite öffnen.
+function initSysPrefsLinks() {
+  // Mapping: SektionsID → { url, label }
+  var sysPrefsMap = {
+    'section-hw':        { url: 'x-apple.systempreferences:com.apple.settings.Storage',           label: 'Lagerung' },
+    'section-os':        { url: 'x-apple.systempreferences:com.apple.preference.softwareupdate',   label: 'Software-Aktualisierung' },
+    'section-smart':     { url: 'x-apple.systempreferences:com.apple.settings.Storage',           label: 'Lagerung' },
+    'section-autostart': { url: 'x-apple.systempreferences:com.apple.LoginItems-Settings.extension', label: 'Anmeldeobjekte' },
+    'section-security':  { url: 'x-apple.systempreferences:com.apple.preference.security',        label: 'Datenschutz & Sicherheit' },
+    'section-users':     { url: 'x-apple.systempreferences:com.apple.preference.accounts',        label: 'Benutzer:innen & Gruppen' },
+    'section-printer':   { url: 'x-apple.systempreferences:com.apple.preference.printfax',        label: 'Drucker & Scanner' },
+    'section-profiles':  { url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_DeviceManagement', label: 'Profile (Datenschutz)' },
+    'section-adapter':   { url: 'x-apple.systempreferences:com.apple.preference.network',         label: 'Netzwerk' },
+    'section-wifi':      { url: 'x-apple.systempreferences:com.apple.WiFiSettings',               label: 'WLAN' },
+    'section-shares':    { url: 'x-apple.systempreferences:com.apple.preferences.sharing',        label: 'Sharing' },
+  };
+  Object.keys(sysPrefsMap).forEach(function(id) {
+    var section = document.getElementById(id);
+    if (!section) return;
+    var h3 = section.querySelector('.section-title');
+    if (!h3) return;
+    var info = sysPrefsMap[id];
+    var btn = document.createElement('button');
+    btn.className = 'btn-sysprefs';
+    btn.title = 'Systemeinstellungen → ' + info.label;
+    btn.textContent = '⚙';
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (window.runtime?.BrowserOpenURL) {
+        window.runtime.BrowserOpenURL(info.url);
+      } else {
+        RunRawCommand('open "' + info.url + '"').catch(function(){});
+      }
+    });
+    h3.appendChild(btn);
+  });
+}
+
 function initDashboardCardNav() {
   document.querySelectorAll('.card-nav[data-nav-tab]').forEach(card => {
     card.addEventListener('click', () => {
       const tab = card.dataset.navTab;
       if (tab) switchTab(tab);
+    });
+  });
+}
+
+// ─── Wiki-Tab ─────────────────────────────────────────────────────────────────
+
+var WIKI_DATA = [
+  // macOS Befehle
+  { os: 'macos', cat: 'Netzwerk',    title: 'Ping',                cmd: 'ping -c 4 google.com',                       desc: 'Erreichbarkeit eines Hosts prüfen (4 Pakete)' },
+  { os: 'macos', cat: 'Netzwerk',    title: 'Traceroute',          cmd: 'traceroute google.com',                      desc: 'Netzwerkpfad zum Ziel anzeigen' },
+  { os: 'macos', cat: 'Netzwerk',    title: 'DNS-Lookup',          cmd: 'nslookup google.com',                        desc: 'DNS-Auflösung eines Hostnamens' },
+  { os: 'macos', cat: 'Netzwerk',    title: 'Netzwerkadapter',     cmd: 'ifconfig',                                   desc: 'Alle Netzwerkinterfaces und IP-Adressen' },
+  { os: 'macos', cat: 'Netzwerk',    title: 'Offene Ports',        cmd: 'sudo lsof -iTCP -sTCP:LISTEN -n -P',        desc: 'Alle lauschenden TCP-Ports' },
+  { os: 'macos', cat: 'Netzwerk',    title: 'DNS-Cache leeren',    cmd: 'sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder', desc: 'macOS DNS-Cache zurücksetzen' },
+  { os: 'macos', cat: 'Netzwerk',    title: 'ARP-Tabelle',         cmd: 'arp -a',                                     desc: 'MAC-Adressen im lokalen Netzwerk' },
+  { os: 'macos', cat: 'Netzwerk',    title: 'Aktive Verbindungen', cmd: 'netstat -an | grep ESTABLISHED',             desc: 'Aktive TCP-Verbindungen' },
+
+  { os: 'macos', cat: 'System',      title: 'Systeminformation',   cmd: 'system_profiler SPHardwareDataType',         desc: 'Hardware-Übersicht (CPU, RAM, Seriennummer)' },
+  { os: 'macos', cat: 'System',      title: 'macOS-Version',       cmd: 'sw_vers',                                    desc: 'Produktname, Version und Build-Nummer' },
+  { os: 'macos', cat: 'System',      title: 'Uptime',              cmd: 'uptime',                                     desc: 'Systemlaufzeit und Durchschnittslast' },
+  { os: 'macos', cat: 'System',      title: 'Laufende Prozesse',   cmd: 'ps aux | head -20',                          desc: 'Top-20 laufende Prozesse' },
+  { os: 'macos', cat: 'System',      title: 'Festplatten',         cmd: 'diskutil list',                              desc: 'Alle Datenträger und Partitionen' },
+  { os: 'macos', cat: 'System',      title: 'Speicherplatz',       cmd: 'df -h',                                      desc: 'Belegter und freier Speicherplatz' },
+  { os: 'macos', cat: 'System',      title: 'RAM-Nutzung',         cmd: 'vm_stat',                                    desc: 'Virtueller Speicher Statistik' },
+  { os: 'macos', cat: 'System',      title: 'Kernel-Version',      cmd: 'uname -a',                                   desc: 'Kernel-Version und Architektur' },
+  { os: 'macos', cat: 'System',      title: 'FileVault-Status',    cmd: 'fdesetup status',                            desc: 'Festplattenverschlüsselung Status' },
+  { os: 'macos', cat: 'System',      title: 'SIP-Status',          cmd: 'csrutil status',                             desc: 'System Integrity Protection Status' },
+
+  { os: 'macos', cat: 'Benutzer',    title: 'Aktueller Benutzer',  cmd: 'whoami',                                     desc: 'Angemeldeter Benutzername' },
+  { os: 'macos', cat: 'Benutzer',    title: 'Alle Benutzer',       cmd: 'dscl . -list /Users',                        desc: 'Alle lokalen Benutzerkonten' },
+  { os: 'macos', cat: 'Benutzer',    title: 'Admin-Gruppe',        cmd: 'dscl . -read /Groups/admin GroupMembership', desc: 'Mitglieder der Admin-Gruppe' },
+  { os: 'macos', cat: 'Benutzer',    title: 'Login-Items',         cmd: 'osascript -e \'tell application "System Events" to get the name of every login item\'', desc: 'Autostart-Programme (Login-Objekte)' },
+
+  { os: 'macos', cat: 'LaunchCtl',   title: 'Dienste auflisten',   cmd: 'launchctl list | grep -v "com.apple"',       desc: 'Drittanbieter-LaunchAgents' },
+  { os: 'macos', cat: 'LaunchCtl',   title: 'Dienst starten',      cmd: 'launchctl load -w ~/Library/LaunchAgents/com.example.service.plist', desc: 'LaunchAgent aktivieren' },
+  { os: 'macos', cat: 'LaunchCtl',   title: 'Dienst stoppen',      cmd: 'launchctl unload -w ~/Library/LaunchAgents/com.example.service.plist', desc: 'LaunchAgent deaktivieren' },
+
+  { os: 'macos', cat: 'Shortcuts',   title: 'Aktivitätsanzeige',   cmd: '⌘ Space → Aktivitätsanzeige',               desc: 'CPU, RAM, Netzwerk, Energie überwachen' },
+  { os: 'macos', cat: 'Shortcuts',   title: 'Force Quit',          cmd: '⌥ ⌘ Escape',                                desc: 'Nicht reagierende App sofort beenden' },
+  { os: 'macos', cat: 'Shortcuts',   title: 'Screenshot',          cmd: '⌘ ⇧ 4',                                     desc: 'Bereichs-Screenshot (in Zwischenablage: + Ctrl)' },
+  { os: 'macos', cat: 'Shortcuts',   title: 'Spotlight',           cmd: '⌘ Space',                                    desc: 'Suche, Apps starten, Berechnungen' },
+  { os: 'macos', cat: 'Shortcuts',   title: 'Mission Control',     cmd: '⌃ ↑',                                       desc: 'Alle offenen Fenster Übersicht' },
+
+  // Windows Befehle
+  { os: 'windows', cat: 'Netzwerk',  title: 'Ping',                cmd: 'ping -n 4 google.com',                       desc: 'Erreichbarkeit prüfen (4 Pakete)' },
+  { os: 'windows', cat: 'Netzwerk',  title: 'Traceroute',          cmd: 'tracert google.com',                         desc: 'Netzwerkpfad anzeigen' },
+  { os: 'windows', cat: 'Netzwerk',  title: 'DNS-Lookup',          cmd: 'nslookup google.com',                        desc: 'DNS-Auflösung' },
+  { os: 'windows', cat: 'Netzwerk',  title: 'Netzwerkadapter',     cmd: 'ipconfig /all',                              desc: 'Alle Netzwerkinterfaces' },
+  { os: 'windows', cat: 'Netzwerk',  title: 'DNS-Cache leeren',    cmd: 'ipconfig /flushdns',                         desc: 'DNS-Cache zurücksetzen' },
+  { os: 'windows', cat: 'Netzwerk',  title: 'Offene Verbindungen', cmd: 'netstat -an',                                desc: 'Aktive Ports und Verbindungen' },
+
+  { os: 'windows', cat: 'System',    title: 'Systeminfo',          cmd: 'systeminfo',                                 desc: 'Hardware, OS und Patch-Level' },
+  { os: 'windows', cat: 'System',    title: 'Windows-Version',     cmd: 'winver',                                     desc: 'Windows-Version anzeigen' },
+  { os: 'windows', cat: 'System',    title: 'Laufende Prozesse',   cmd: 'tasklist',                                   desc: 'Alle laufenden Prozesse' },
+  { os: 'windows', cat: 'System',    title: 'Prozess beenden',     cmd: 'taskkill /PID <PID> /F',                     desc: 'Prozess per PID beenden' },
+  { os: 'windows', cat: 'System',    title: 'Festplatten',         cmd: 'diskpart → list disk',                       desc: 'Alle Datenträger auflisten' },
+  { os: 'windows', cat: 'System',    title: 'Speicherplatz',       cmd: 'dir C:\\ /s',                                desc: 'Speicherbelegung C-Laufwerk' },
+  { os: 'windows', cat: 'System',    title: 'BitLocker-Status',    cmd: 'manage-bde -status',                         desc: 'Verschlüsselungsstatus aller Laufwerke' },
+
+  { os: 'windows', cat: 'Shortcuts', title: 'Task-Manager',        cmd: 'Ctrl + Shift + Esc',                         desc: 'Prozesse, CPU, RAM überwachen' },
+  { os: 'windows', cat: 'Shortcuts', title: 'Ausführen',           cmd: 'Win + R',                                    desc: 'Programme, Pfade, Befehle starten' },
+  { os: 'windows', cat: 'Shortcuts', title: 'Geräte-Manager',      cmd: 'Win + X → M',                               desc: 'Hardware-Treiber verwalten' },
+  { os: 'windows', cat: 'Shortcuts', title: 'Ereignisanzeige',     cmd: 'Win + R → eventvwr',                        desc: 'Windows Ereignisprotokoll' },
+];
+
+function initWikiTab() {
+  renderWiki('macos', '');
+
+  document.getElementById('wiki-search')?.addEventListener('input', function(e) {
+    var os = document.getElementById('wiki-os-filter')?.value ?? 'all';
+    renderWiki(os, e.target.value.trim().toLowerCase());
+  });
+  document.getElementById('wiki-os-filter')?.addEventListener('change', function(e) {
+    var q = document.getElementById('wiki-search')?.value.trim().toLowerCase() ?? '';
+    renderWiki(e.target.value, q);
+  });
+}
+
+function renderWiki(osFilter, query) {
+  var container = document.getElementById('wiki-content');
+  if (!container) return;
+
+  var data = WIKI_DATA.filter(function(item) {
+    if (osFilter !== 'all' && item.os !== osFilter) return false;
+    if (query) {
+      var haystack = (item.title + ' ' + item.cmd + ' ' + item.desc + ' ' + item.cat).toLowerCase();
+      return haystack.indexOf(query) !== -1;
+    }
+    return true;
+  });
+
+  if (data.length === 0) {
+    container.innerHTML = '<div class="info-placeholder">Keine Einträge gefunden.</div>';
+    return;
+  }
+
+  // Nach Kategorie gruppieren
+  var groups = {};
+  data.forEach(function(item) {
+    var key = item.os + ':' + item.cat;
+    if (!groups[key]) groups[key] = { os: item.os, cat: item.cat, items: [] };
+    groups[key].items.push(item);
+  });
+
+  container.innerHTML = '';
+  Object.values(groups).forEach(function(g) {
+    var sec = document.createElement('div');
+    sec.className = 'wiki-section';
+    var osLabel = g.os === 'macos' ? '🍎 macOS' : '🪟 Windows';
+    sec.innerHTML = '<h3 class="wiki-cat-title">' + osLabel + ' — ' + escapeHtml(g.cat) + '</h3>';
+    var tbl = document.createElement('table');
+    tbl.className = 'wiki-table';
+    tbl.innerHTML = '<thead><tr><th>Aktion</th><th>Befehl / Kürzel</th><th>Beschreibung</th><th></th></tr></thead>';
+    var tbody = document.createElement('tbody');
+    g.items.forEach(function(item) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td><strong>' + escapeHtml(item.title) + '</strong></td>' +
+        '<td><code class="wiki-cmd">' + escapeHtml(item.cmd) + '</code></td>' +
+        '<td class="wiki-desc">' + escapeHtml(item.desc) + '</td>' +
+        '<td><button class="btn-action wiki-copy-btn" title="Kopieren" data-cmd="' + escapeHtml(item.cmd) + '">📋</button></td>';
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    sec.appendChild(tbl);
+    container.appendChild(sec);
+  });
+
+  container.querySelectorAll('.wiki-copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      navigator.clipboard.writeText(btn.dataset.cmd).then(function() {
+        btn.textContent = '✓';
+        setTimeout(function() { btn.textContent = '📋'; }, 1500);
+      }).catch(function() {});
     });
   });
 }

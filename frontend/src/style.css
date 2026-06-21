@@ -2100,6 +2100,38 @@ body.platform-mac .titlebar {
 }
 .btn-event-detail:hover { background: var(--color-surface-2); }
 
+/* ⚙ Systemeinstellungen Quick-Link in Sektions-Titelzeilen */
+.btn-sysprefs {
+  margin-left: auto;
+  margin-right: 20px; /* Platz vor dem ▼ Collapse-Pfeil */
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  opacity: .6;
+  transition: opacity .15s, background .15s;
+  flex-shrink: 0;
+}
+.btn-sysprefs:hover { opacity: 1; background: var(--color-surface-3, var(--color-surface-2)); border-color: var(--color-border); }
+
+/* ⏏ USB auswerfen / ⏸▶ Autostart-Toggle */
+.btn-action {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background .1s, color .1s;
+}
+.btn-action:hover { background: var(--color-surface-2); color: var(--color-text); }
+.btn-eject-usb:hover { color: var(--color-warning); border-color: var(--color-warning); }
+.btn-autostart-toggle:hover { color: var(--color-primary); border-color: var(--color-primary); }
+
 .event-detail-msg {
   margin-top: 14px;
   background: var(--color-surface-2);
@@ -2277,4 +2309,163 @@ body.platform-mac .titlebar {
   font-size: 10px;
   opacity: 0.65;
   font-style: italic;
+}
+
+/* ── Wiki-Tab ─────────────────────────────────────────────────────────── */
+.wiki-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 8px;
+  flex-wrap: wrap;
+}
+.wiki-search {
+  flex: 1 1 200px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+}
+.wiki-os-filter {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+}
+.wiki-content {
+  padding: 0 16px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+.wiki-section {
+  margin-bottom: 24px;
+}
+.wiki-cat-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+.wiki-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.wiki-table thead th {
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--color-border);
+}
+.wiki-table tbody tr {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent 50%);
+}
+.wiki-table tbody tr:last-child { border-bottom: none; }
+.wiki-table tbody tr:hover { background: var(--color-hover, rgba(255,255,255,0.04)); }
+.wiki-table td {
+  padding: 7px 10px;
+  vertical-align: middle;
+}
+.wiki-cmd {
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--color-accent, #3B82F6);
+  white-space: nowrap;
+}
+.wiki-desc { color: var(--color-text-muted); font-size: 12px; }
+.wiki-copy-btn {
+  padding: 3px 7px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  color: var(--color-text);
+  transition: background 0.15s;
+}
+.wiki-copy-btn:hover { background: var(--color-card); }
+
+/* ── Help-Tab ─────────────────────────────────────────────────────────── */
+.help-content {
+  padding: 16px 20px;
+  max-width: 760px;
+  overflow-y: auto;
+  flex: 1;
+}
+.help-section {
+  margin-bottom: 28px;
+}
+.help-section h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 10px 0;
+  color: var(--color-text);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+.help-section p, .help-section li {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  margin: 4px 0;
+}
+.help-section ul { padding-left: 18px; margin: 0; }
+.help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.help-table th {
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--color-border);
+}
+.help-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent 50%);
+  vertical-align: top;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.help-table td:first-child { font-weight: 600; color: var(--color-text); white-space: nowrap; }
+.help-table tr:last-child td { border-bottom: none; }
+.help-table kbd {
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 11px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--color-text);
+}
+
+/* ── Tab-Panel-Simple (Wiki/Help) ──────────────────────────────────────── */
+.tab-panel-simple {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }

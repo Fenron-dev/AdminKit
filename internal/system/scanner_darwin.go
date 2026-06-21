@@ -48,15 +48,14 @@ type spHardware struct {
 	SPHardwareDataType []struct {
 		ModelIdentifier   string `json:"machine_model"`
 		ModelName         string `json:"machine_name"`
-		CPUType           string `json:"cpu_type"`
+		ChipType          string `json:"chip_type"`          // Apple Silicon: "Apple M3 Pro"
+		CPUType           string `json:"cpu_type"`           // Intel/fallback: Prozessortyp
 		CPUSpeed          string `json:"current_processor_speed"`
 		NumCPUs           int    `json:"number_processors"`
-		NumCores          int    `json:"packages"` // system_profiler nennt es "packages" manchmal
+		NumCores          int    `json:"packages"`
 		PhysMemory        string `json:"physical_memory"`
 		SerialNumber      string `json:"serial_number"`
 		HardwareUUID      string `json:"platform_UUID"`
-		ProcessorName     string `json:"cpu_type"`
-		CoreCount         string `json:"number_processors"`
 	} `json:"SPHardwareDataType"`
 }
 
@@ -95,14 +94,17 @@ func scanHardware() (HardwareInfo, []ScanError) {
 		if jsonErr := json.Unmarshal(out, &data); jsonErr == nil && len(data.SPHardwareDataType) > 0 {
 			d := data.SPHardwareDataType[0]
 
-			// CPU via sysctl für präzisere Werte
+			// CPU via sysctl (Intel) oder chip_type (Apple Silicon)
 			cpuName, _ := sysctl("machdep.cpu.brand_string")
 			physCores, _ := sysctlInt("hw.physicalcpu")
 			logCores, _ := sysctlInt("hw.logicalcpu")
 			cpuFreqHz, _ := sysctlInt64("hw.cpufrequency")
 
 			if cpuName == "" {
-				cpuName = d.CPUType
+				cpuName = d.ChipType // Apple Silicon: "Apple M3 Pro"
+			}
+			if cpuName == "" {
+				cpuName = d.CPUType // generischer Fallback
 			}
 
 			arch := "x64"
@@ -499,6 +501,10 @@ func scanOS() (OSInfo, []ScanError) {
 	info.Name = strings.TrimSpace(prodName)
 	info.Version = strings.TrimSpace(prodVersion)
 	info.Build = strings.TrimSpace(buildVersion)
+
+	if h, hErr := execOutput("hostname"); hErr == nil {
+		info.Hostname = strings.TrimSpace(h)
+	}
 	info.LicenseStatus = "Licensed" // macOS ist immer lizenziert wenn macOS läuft
 
 	// Seriennummer aus system_profiler SPHardwareDataType
