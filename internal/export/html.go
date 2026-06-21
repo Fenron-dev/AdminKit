@@ -1111,7 +1111,7 @@ func writeScanSummary(sb *strings.Builder, data *SessionExport, score *scoring.S
 	// Zähler aufbauen
 	softwareCount := 0
 	if data.Software != nil {
-		softwareCount = len(data.Software.Applications)
+		softwareCount = len(data.Software.Programs)
 	}
 	autostartCount := 0
 	thirdPartyAutostart := 0
