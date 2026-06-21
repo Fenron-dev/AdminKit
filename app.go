@@ -141,6 +141,12 @@ func (a *App) GetVaultPath() string {
 	return a.vault.RootPath
 }
 
+// GetHostname gibt den Hostnamen des Geräts zurück (für Session-Namen).
+func (a *App) GetHostname() string {
+	name, _ := os.Hostname()
+	return name
+}
+
 // SaveTerminalLog speichert den Terminal-Inhalt als Textdatei im Vault-Unterordner "logs/".
 // Gibt den vollständigen Pfad der gespeicherten Datei zurück.
 func (a *App) SaveTerminalLog(content string) (string, error) {

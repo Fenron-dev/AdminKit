@@ -899,15 +899,23 @@
                   <tr><td>Pfad</td><td>Wo liegt die ausführbare Datei? Unbekannte Pfade = verdächtig</td></tr>
                   <tr><td>Benutzer</td><td>Unter welchem Konto läuft der Prozess (root = hohe Rechte)</td></tr>
                 </table>
+                <h4>Farbmarkierungen in der Prozesstabelle</h4>
+                <table class="help-table">
+                  <tr><th>Farbe</th><th>Bedeutung</th><th>Bedingung</th></tr>
+                  <tr><td>🔴 Rote Zeile</td><td>Verdächtiger Pfad — manuell prüfen!</td><td>Prozess läuft aus <code>/tmp/</code>, <code>/Downloads/</code>, <code>/var/folders/</code> oder AppData\Temp</td></tr>
+                  <tr><td>🟡 Gelbe Zeile</td><td>Hohe Ressourcennutzung</td><td>CPU &gt; 20% oder RAM &gt; 500 MB</td></tr>
+                  <tr><td>⚪ Normal</td><td>Unauffällig</td><td>Kein verdächtiger Pfad, moderate Auslastung</td></tr>
+                </table>
+                <p><strong>Wichtig:</strong> Rote Zeilen sind Heuristiken — nicht jeder Prozess aus <code>/tmp/</code> ist Malware (z.B. Systemdienste nutzen temporäre Pfade legitim). Immer im Kontext beurteilen und ggf. VT/KI-Analyse nutzen.</p>
                 <h4>Verdächtige Muster erkennen</h4>
                 <ul>
-                  <li>Prozesse aus <code>/tmp/</code>, <code>/var/folders/</code>, oder dem Downloads-Ordner</li>
+                  <li>Prozesse aus <code>/tmp/</code>, <code>/var/folders/</code>, oder dem Downloads-Ordner → <strong>rot markiert</strong></li>
                   <li>Prozesse die als <code>root</code> laufen und nicht von Apple sind</li>
                   <li>Viele identische Prozesse (z.B. 50x gleicher Name) = mögliche Endlosschleife oder Angriff</li>
                   <li>Prozesse mit zufälligen Namen (z.B. <code>aX7kQ9</code>)</li>
-                  <li>Hoher CPU-Verbrauch ohne erkennbaren Grund = Krypto-Mining oder Malware möglich</li>
+                  <li>Hoher CPU-Verbrauch ohne erkennbaren Grund → <strong>gelb markiert</strong> — Krypto-Mining oder Malware möglich</li>
                 </ul>
-                <p>Verdächtige Prozesse per Checkbox markieren und mit VT/KI analysieren lassen.</p>
+                <p>Verdächtige Prozesse per Checkbox markieren und mit VT/KI analysieren lassen. Spalten durch Klick auf den Spaltenkopf sortieren.</p>
               </div>
 
               <!-- Netzwerk -->
@@ -1384,11 +1392,18 @@
       <!-- Session-Dialog -->
       <div class="modal-overlay hidden" id="modal-session">
         <div class="modal">
-          <h2>Neue Session</h2>
-          <p>Gib den Kundennamen für diese Session ein:</p>
-          <input class="modal-input" type="text" id="session-name-input" placeholder="z.B. MusterGmbH" />
+          <h2>Session erstellen</h2>
+          <p class="session-modal-hint">Gib den <strong>Kundennamen</strong> ein. Name und Gerät werden automatisch ergänzt.</p>
+          <div class="session-field-row">
+            <label for="session-customer-input">Kundenname</label>
+            <input class="modal-input" type="text" id="session-customer-input" placeholder="z.B. MusterGmbH" autocomplete="off" />
+          </div>
+          <div class="session-preview-wrap">
+            <span class="session-preview-label">Session-Name:</span>
+            <code id="session-name-preview" class="session-name-preview">–</code>
+          </div>
           <div class="modal-actions">
-            <button class="btn btn-secondary" id="btn-session-cancel">Abbrechen</button>
+            <button class="btn btn-secondary" id="btn-session-cancel">Überspringen</button>
             <button class="btn btn-primary" id="btn-session-create">Session erstellen</button>
           </div>
         </div>

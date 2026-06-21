@@ -48,6 +48,7 @@ import {
   EjectUSBDevice,
   ToggleAutostartEntry,
   GetCleanupSizes,
+  GetHostname,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -197,14 +198,15 @@ function switchTab(tabId) {
 
 async function loadAppInfo() {
   try {
-    const [version, vaultPath, cfg] = await Promise.all([
-      GetAppVersion(), GetVaultPath(), GetConfig(),
+    const [version, vaultPath, cfg, hostname] = await Promise.all([
+      GetAppVersion(), GetVaultPath(), GetConfig(), GetHostname(),
     ]);
     setEl('app-version', `v${version}`);
     setEl('vault-label', shortenPath(vaultPath));
     setEl('status-vault', shortenPath(vaultPath));
 
-    state.config = cfg;
+    state.config   = cfg;
+    state.hostname = hostname || '';
     updateBrandingBar();
 
     if (cfg?.ui?.theme && !localStorage.getItem('adminkit-theme') && cfg.ui.theme !== 'system') {
@@ -212,12 +214,49 @@ async function loadAppInfo() {
       applyTheme(state.theme);
     }
     setStatus('Bereit');
+
+    // Beim ersten Start direkt Session-Dialog anzeigen
+    if (!state.currentSession) {
+      openStartupSessionModal();
+    }
+
+    // Prozesse sofort beim Start scannen (schnell, kein Full-Scan)
+    runProcessScan();
   } catch (err) {
     console.warn('Wails-Backend nicht verfügbar (Dev-Modus):', err);
     setEl('app-version', 'v1.0.0-dev');
     setEl('vault-label', './adminkit_vault');
     setStatus('Dev-Modus');
   }
+}
+
+// Erzeugt den Vorschlags-Sessionsnamen: YYYY-MM-DD_Techniker_Gerät
+function buildDefaultSessionName(customer) {
+  var today  = new Date().toISOString().slice(0, 10);
+  var tech   = (state.config?.technician || '').replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_').replace(/_+/g, '_');
+  var device = (state.hostname || '').replace(/[^a-zA-Z0-9äöüÄÖÜß\-]/g, '_').replace(/_+/g, '_');
+  var cust   = (customer || '').trim().replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_').replace(/_+/g, '_');
+  var parts  = [today];
+  if (tech)   parts.push(tech);
+  if (cust)   parts.push(cust);
+  if (device) parts.push(device);
+  return parts.join('_');
+}
+
+function openStartupSessionModal() {
+  var modal   = document.getElementById('modal-session');
+  var custIn  = document.getElementById('session-customer-input');
+  var preview = document.getElementById('session-name-preview');
+  if (!modal) return;
+  // Preview aktualisieren während Eingabe
+  function refreshPreview() {
+    if (preview) preview.textContent = buildDefaultSessionName(custIn?.value || '');
+  }
+  refreshPreview();
+  custIn?.removeEventListener('input', refreshPreview);
+  custIn?.addEventListener('input', refreshPreview);
+  modal.classList.remove('hidden');
+  custIn?.focus();
 }
 
 // ─── Scan-Buttons ─────────────────────────────────────────────────────────────
@@ -885,6 +924,39 @@ async function runAutostartScan() {
   }
 }
 
+// ─── Generische Spalten-Sortierung ────────────────────────────────────────────
+// Macht alle <th> in einem data-table klickbar für auf-/absteigende Sortierung.
+// Spalten mit class="cb-col" oder ohne Text werden übersprungen.
+function makeSortable(table) {
+  var headers = table.querySelectorAll('thead th');
+  var sortCol = -1;
+  var sortDir = 1;
+  headers.forEach(function(th, colIdx) {
+    if (th.classList.contains('cb-col') || !th.textContent.trim()) return;
+    th.style.cursor = 'pointer';
+    th.title = 'Klicken zum Sortieren';
+    th.addEventListener('click', function() {
+      if (sortCol === colIdx) sortDir = -sortDir;
+      else { sortCol = colIdx; sortDir = 1; }
+      // Sortier-Pfeil
+      headers.forEach(function(h) { h.classList.remove('sort-asc', 'sort-desc'); });
+      th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+      var tbody = table.querySelector('tbody');
+      if (!tbody) return;
+      var rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort(function(a, b) {
+        var ta = (a.querySelectorAll('td')[colIdx]?.textContent || '').trim().toLowerCase();
+        var tb = (b.querySelectorAll('td')[colIdx]?.textContent || '').trim().toLowerCase();
+        // Zahlen-Vergleich
+        var na = parseFloat(ta), nb = parseFloat(tb);
+        if (!isNaN(na) && !isNaN(nb)) return sortDir * (na - nb);
+        return sortDir * ta.localeCompare(tb, 'de');
+      });
+      rows.forEach(function(r) { tbody.appendChild(r); });
+    });
+  });
+}
+
 function renderAutostart(entries) {
   const container = document.getElementById('autostart-info');
   if (!container) return;
@@ -1085,6 +1157,7 @@ function buildServicesTable(list, title) {
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
+  makeSortable(tbl);
   wrap.appendChild(tbl);
 
   // "Alle auswählen"-Checkbox
@@ -1299,6 +1372,7 @@ function _buildEventTable(list) {
     var origIdx = parseInt(row.dataset.origIdx || -1);
     if (origIdx >= 0 && _evtSorted) showEventDetail(_evtSorted[origIdx]);
   });
+  makeSortable(table);
   return table;
 }
 
@@ -2184,6 +2258,7 @@ function renderProcesses(procs) {
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
+  makeSortable(tbl);
 
   container.innerHTML = '';
   container.appendChild(tbl);
@@ -2693,30 +2768,32 @@ function setBadge(badgeId, detailId, status, detail) {
 // ─── Session-Modal ────────────────────────────────────────────────────────────
 
 function initSessionModal() {
-  const modal = document.getElementById('modal-session');
-  const input = document.getElementById('session-name-input');
+  const modal   = document.getElementById('modal-session');
+  const custIn  = document.getElementById('session-customer-input');
+  const preview = document.getElementById('session-name-preview');
 
   document.getElementById('btn-new-session')?.addEventListener('click', () => {
-    modal?.classList.remove('hidden');
-    input?.focus();
+    if (custIn) custIn.value = '';
+    if (preview) preview.textContent = buildDefaultSessionName('');
+    openStartupSessionModal();
   });
-  document.getElementById('btn-session-cancel')?.addEventListener('click', () =>
-    modal?.classList.add('hidden')
-  );
-  document.getElementById('btn-session-create')?.addEventListener('click', () =>
-    createSession(input?.value?.trim())
-  );
-  input?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') createSession(input.value.trim());
+  document.getElementById('btn-session-cancel')?.addEventListener('click', () => {
+    modal?.classList.add('hidden');
+    // "Überspringen" → Auto-Session mit Datum+Gerät anlegen
+    if (!state.currentSession) createSession(buildDefaultSessionName(''));
+  });
+  document.getElementById('btn-session-create')?.addEventListener('click', () => {
+    var name = buildDefaultSessionName(custIn?.value || '');
+    createSession(name);
+  });
+  custIn?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') createSession(buildDefaultSessionName(custIn.value));
     if (e.key === 'Escape') modal?.classList.add('hidden');
-  });
-  modal?.addEventListener('click', e => {
-    if (e.target === modal) modal.classList.add('hidden');
   });
 }
 
 async function createSession(name) {
-  if (!name) return;
+  if (!name) name = buildDefaultSessionName('');
   const modal = document.getElementById('modal-session');
   try {
     const sessionPath = await NewSession(name);
@@ -2728,7 +2805,6 @@ async function createSession(name) {
     setStatus(`Session: ${name}`);
   } catch (err) {
     console.error('Session konnte nicht erstellt werden:', err);
-    // Dev-Modus: simulieren
     state.currentSession = name;
     setEl('status-session', name);
     modal?.classList.add('hidden');

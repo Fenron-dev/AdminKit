@@ -6,6 +6,10 @@ export function GetAppVersion() {
     return window['go']['main']['App']['GetAppVersion']();
 }
 
+export function GetHostname() {
+    return window['go']['main']['App']['GetHostname']();
+}
+
 export function GetConfig() {
     return window['go']['main']['App']['GetConfig']();
 }

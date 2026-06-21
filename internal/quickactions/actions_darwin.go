@@ -88,13 +88,16 @@ func runInternetFix() Result {
 		sb.WriteString("  ✓ OK" + string(out1) + "\n")
 	}
 
-	// mDNSResponder neu starten
-	out2, err2 := exec.Command("killall", "-HUP", "mDNSResponder").CombinedOutput()
+	// mDNSResponder neu starten (benötigt Root/Admin — via osascript)
 	sb.WriteString("mDNSResponder neu starten:\n")
+	out2, err2 := exec.Command("osascript", "-e",
+		`do shell script "killall -HUP mDNSResponder" with administrator privileges`).CombinedOutput()
 	if err2 != nil {
-		sb.WriteString("  FEHLER: " + err2.Error() + "\n")
+		// Ohne Admin-Rechte nicht möglich — kein harter Fehler, DNS-Cache bereits geleert
+		sb.WriteString("  Hinweis: Admin-Rechte für Neustart nicht erteilt (dscacheutil bereits ausgeführt).\n")
+		_ = string(out2)
 	} else {
-		sb.WriteString("  ✓ OK" + string(out2) + "\n")
+		sb.WriteString("  ✓ OK\n")
 	}
 
 	// DHCP-Lease erneuern (alle aktiven Interfaces)
