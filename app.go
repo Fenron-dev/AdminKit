@@ -522,6 +522,64 @@ func (a *App) ScanEvents() (*events.ScanResult, error) {
 	return &result, nil
 }
 
+// ScanEventsRange liest Ereignisse für einen bestimmten Zeitraum mit optionalem Prozess-Filter.
+// from / to: "2006-01-02 15:04:05", leer = Standard (letzte 7 Tage / jetzt)
+// processFilter: leer = alle Prozesse
+func (a *App) ScanEventsRange(from, to, processFilter string) (*events.ScanResult, error) {
+	logging.Infof("Events", "Event-Log-Scan (Range) gestartet: from=%s to=%s filter=%s", from, to, processFilter)
+	result := events.ScanRange(from, to, processFilter)
+	for _, e := range result.Errors {
+		logging.Warnf("Events", "[%s] %s", e.Module, e.Message)
+	}
+	logging.Infof("Events", "Event-Scan (Range) abgeschlossen: %d Ereignisse", len(result.Events))
+	return &result, nil
+}
+
+// GetDiagnosticReport erstellt einen Diagnose-Bericht für einen Zeitraum.
+// Ergebnis ist als Markdown aufbereitet und kann direkt an Claude Code / Codex weitergegeben werden.
+func (a *App) GetDiagnosticReport(from, to, processFilter string) (*events.DiagnosticResult, error) {
+	logging.Infof("Events", "Diagnose-Bericht gestartet: from=%s to=%s filter=%s", from, to, processFilter)
+
+	result := events.ScanRange(from, to, processFilter)
+
+	// Zeitraum bestimmen
+	timeFrom := result.Timestamp.AddDate(0, 0, -result.DaysBack)
+	timeTo := result.Timestamp
+	if from != "" {
+		if t, err := time.Parse("2006-01-02 15:04:05", from); err == nil {
+			timeFrom = t
+		}
+	}
+	if to != "" {
+		if t, err := time.Parse("2006-01-02 15:04:05", to); err == nil {
+			timeTo = t
+		}
+	}
+
+	clusters := events.BuildClusters(result.Events)
+	crashes := events.GetCrashReports(timeFrom, timeTo)
+
+	sysName := goruntime.GOOS
+	sysVersion := ""
+	if a.lastSystemScan != nil {
+		sysName = a.lastSystemScan.OS.Name
+		sysVersion = a.lastSystemScan.OS.Version
+	}
+
+	diagResult := &events.DiagnosticResult{
+		From:          timeFrom,
+		To:            timeTo,
+		ProcessFilter: processFilter,
+		TotalEvents:   len(result.Events),
+		Clusters:      clusters,
+		CrashReports:  crashes,
+	}
+	diagResult.MarkdownReport = events.BuildMarkdownReport(diagResult, sysName, sysVersion)
+
+	logging.Infof("Events", "Diagnose-Bericht: %d Cluster, %d Crash-Reports", len(clusters), len(crashes))
+	return diagResult, nil
+}
+
 // ScanBrowserExtensions scannt installierte Browser-Erweiterungen (Chrome, Brave, Edge, Firefox).
 func (a *App) ScanBrowserExtensions() (*browserext.ScanResult, error) {
 	logging.Info("BrowserExt", "Browser-Extensions-Scan gestartet")

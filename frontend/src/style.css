@@ -2034,3 +2034,61 @@ body.platform-mac .titlebar {
 }
 [data-theme="dark"] .health-deductions li .ded-pts { color: #FCA5A5; }
 
+
+/* ── Diagnose-Bericht ─────────────────────────────────────────────────── */
+.diag-form { display: flex; flex-direction: column; gap: 8px; }
+.diag-form-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.diag-field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+.diag-field-grow { flex: 1 1 200px; }
+.diag-label { font-size: 12px; color: var(--color-text-muted); font-weight: 500; }
+.diag-hint-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.diag-preset-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.diag-result {
+  margin-top: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.diag-result.hidden { display: none; }
+.diag-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-card);
+  border-bottom: 1px solid var(--color-border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.diag-result-actions { display: flex; gap: 8px; }
+.diag-output {
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  padding: 14px 16px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 500px;
+  overflow-y: auto;
+  background: var(--color-bg);
+  color: var(--color-text);
+}

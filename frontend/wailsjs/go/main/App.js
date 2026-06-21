@@ -260,3 +260,11 @@ export function RunFix(arg1) {
 export function RunQuickAction(arg1) {
     return window['go']['main']['App']['RunQuickAction'](arg1);
 }
+
+export function ScanEventsRange(arg1, arg2, arg3) {
+    return window['go']['main']['App']['ScanEventsRange'](arg1, arg2, arg3);
+}
+
+export function GetDiagnosticReport(arg1, arg2, arg3) {
+    return window['go']['main']['App']['GetDiagnosticReport'](arg1, arg2, arg3);
+}

@@ -13,32 +13,44 @@ const daysBack = 7
 
 // Scan liest kritische journald-Einträge der letzten 7 Tage.
 func Scan() ScanResult {
+	return ScanRange("", "", "")
+}
+
+// ScanRange liest journald-Einträge für einen bestimmten Zeitraum.
+func ScanRange(from, to, processFilter string) ScanResult {
 	result := ScanResult{
 		Timestamp: time.Now(),
 		DaysBack:  daysBack,
 	}
 
-	out, err := exec.Command("journalctl",
-		"--priority=err",
-		"--since", "-7d",
-		"--no-pager",
-		"--output=short",
-	).Output()
+	args := []string{"--priority=err", "--no-pager", "--output=short"}
+	if from != "" {
+		args = append(args, "--since", from)
+	} else {
+		args = append(args, "--since", "-7d")
+	}
+	if to != "" {
+		args = append(args, "--until", to)
+	}
+	if processFilter != "" {
+		args = append(args, "--identifier="+processFilter)
+	}
+
+	out, err := exec.Command("journalctl", args...).Output()
 	if err != nil {
 		result.Errors = append(result.Errors, ScanError{Module: "journalctl", Message: err.Error()})
 		return result
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	count := 0
-	for scanner.Scan() && count < 100 {
+	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
 		msg := line
-		if len(msg) > 200 {
-			msg = msg[:200] + "…"
+		if len(msg) > 500 {
+			msg = msg[:500] + "…"
 		}
 		result.Events = append(result.Events, EventEntry{
 			Time:    time.Now(),
@@ -47,7 +59,6 @@ func Scan() ScanResult {
 			Message: msg,
 			Log:     "System Journal",
 		})
-		count++
 	}
 
 	return result

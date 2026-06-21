@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 )
 
 const daysBack = 7
+const maxEntries = 300 // Neueste N Einträge behalten
 
 // logEntry spiegelt die relevanten Felder aus dem ndjson-Output von `log show`.
 type logEntry struct {
@@ -28,18 +30,38 @@ type logEntry struct {
 }
 
 // Scan liest kritische Einträge aus dem macOS Unified Log (letzte daysBack Tage).
+// Gibt die neuesten maxEntries Einträge zurück (neueste zuerst).
 func Scan() ScanResult {
+	return ScanRange("", "", "")
+}
+
+// ScanRange liest Einträge für einen bestimmten Zeitraum und optionalen Prozess-Filter.
+// Leere Strings für from/to = Standard-Zeitraum (letzte daysBack Tage).
+func ScanRange(from, to, processFilter string) ScanResult {
 	result := ScanResult{
 		Timestamp: time.Now(),
 		DaysBack:  daysBack,
 	}
 
-	since := time.Now().AddDate(0, 0, -daysBack).Format("2006-01-02 15:04:05")
-	out, err := exec.Command("log", "show",
-		"--style", "ndjson",
-		"--start", since,
-		"--predicate", `messageType == 16 OR messageType == 17`, // fault + error
-	).Output()
+	args := []string{"show", "--style", "ndjson"}
+
+	if from != "" {
+		args = append(args, "--start", from)
+	} else {
+		since := time.Now().AddDate(0, 0, -daysBack).Format("2006-01-02 15:04:05")
+		args = append(args, "--start", since)
+	}
+	if to != "" {
+		args = append(args, "--end", to)
+	}
+
+	predicate := `messageType == 16 OR messageType == 17`
+	if processFilter != "" {
+		predicate = fmt.Sprintf(`(messageType == 16 OR messageType == 17) AND process == "%s"`, processFilter)
+	}
+	args = append(args, "--predicate", predicate)
+
+	out, err := exec.Command("log", args...).Output()
 	if err != nil {
 		result.Errors = append(result.Errors, ScanError{
 			Module:  "log",
@@ -49,9 +71,9 @@ func Scan() ScanResult {
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	scanner.Buffer(make([]byte, 4*1024*1024), 4*1024*1024) // log-Zeilen können groß sein
-	count := 0
-	for scanner.Scan() && count < 200 {
+	scanner.Buffer(make([]byte, 4*1024*1024), 4*1024*1024)
+
+	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || line[0] != '{' {
 			continue
@@ -90,14 +112,22 @@ func Scan() ScanResult {
 			Subsystem:   subsys,
 			RiskScore:   risk,
 		})
-		count++
+	}
+
+	// Neueste zuerst sortieren
+	sort.Slice(result.Events, func(i, j int) bool {
+		return result.Events[i].Time.After(result.Events[j].Time)
+	})
+
+	// Auf maxEntries begrenzen (neueste behalten)
+	if len(result.Events) > maxEntries {
+		result.Events = result.Events[:maxEntries]
 	}
 
 	return result
 }
 
 // parseLogTimestamp parst das Timestamp-Format des macOS Unified Log.
-// Format: "2026-06-20 22:56:31.123456+0200"
 func parseLogTimestamp(s string) time.Time {
 	formats := []string{
 		"2006-01-02 15:04:05.999999-0700",
@@ -113,8 +143,6 @@ func parseLogTimestamp(s string) time.Time {
 	return time.Now()
 }
 
-// extractProcessFromMessage versucht den Prozessnamen aus dem Log-Text zu lesen.
-// Viele macOS-Nachrichten beginnen mit "(ProcessName) [subsystem]..."
 func extractProcessFromMessage(msg string) string {
 	if len(msg) == 0 || msg[0] != '(' {
 		return ""

@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initActionResultModal();
   initEventDetailModal();
   initQuickActions();
+  initDiagnosticReport();
   loadAppInfo();
 });
 
@@ -4225,6 +4226,79 @@ async function saveSettings() {
     closeSettings();
     updateBrandingBar();
   }
+}
+
+// ─── Diagnose-Bericht ─────────────────────────────────────────────────────────
+
+function initDiagnosticReport() {
+  const btnRun   = document.getElementById('btn-diag-run');
+  const btnCopy  = document.getElementById('btn-diag-copy');
+  const btnClose = document.getElementById('btn-diag-close');
+  const result   = document.getElementById('diag-result');
+  const output   = document.getElementById('diag-output');
+  const summary  = document.getElementById('diag-result-summary');
+
+  // Preset-Buttons
+  document.getElementById('diag-preset-1h')?.addEventListener('click', () => setDiagPreset(1));
+  document.getElementById('diag-preset-24h')?.addEventListener('click', () => setDiagPreset(24));
+  document.getElementById('diag-preset-7d')?.addEventListener('click', () => setDiagPreset(24 * 7));
+
+  btnClose?.addEventListener('click', () => result?.classList.add('hidden'));
+
+  btnCopy?.addEventListener('click', () => {
+    const text = output?.textContent || '';
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      const prev = btnCopy.textContent;
+      btnCopy.textContent = '✓ Kopiert!';
+      setTimeout(() => { btnCopy.textContent = prev; }, 2000);
+    });
+  });
+
+  btnRun?.addEventListener('click', async () => {
+    const from    = isoToGoTime(document.getElementById('diag-from')?.value || '');
+    const to      = isoToGoTime(document.getElementById('diag-to')?.value || '');
+    const process = (document.getElementById('diag-process')?.value || '').trim();
+
+    btnRun.disabled = true;
+    btnRun.textContent = '⏳ Wird erstellt…';
+    result?.classList.add('hidden');
+
+    try {
+      const { GetDiagnosticReport } = await import('./wailsjs/go/main/App.js');
+      const report = await GetDiagnosticReport(from, to, process);
+      if (!report) throw new Error('Keine Antwort vom Backend');
+
+      const clusterCount = report.clusters?.length || 0;
+      const crashCount   = report.crash_reports?.length || 0;
+      summary.textContent = `${report.total_events} Ereignisse · ${clusterCount} Fehlermuster · ${crashCount} Crash-Reports`;
+      output.textContent  = report.markdown_report || '(Kein Bericht generiert)';
+      result?.classList.remove('hidden');
+      result?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      addAction('Diagnose-Bericht fehlgeschlagen: ' + err, 'error');
+    } finally {
+      btnRun.disabled = false;
+      btnRun.textContent = '🔬 Bericht erstellen';
+    }
+  });
+}
+
+// Setzt Von/Bis-Felder auf jetzt minus `hoursBack` Stunden
+function setDiagPreset(hoursBack) {
+  const now  = new Date();
+  const from = new Date(now.getTime() - hoursBack * 60 * 60 * 1000);
+  const fmt  = d => d.toISOString().slice(0, 16); // "yyyy-MM-ddTHH:mm"
+  const fromEl = document.getElementById('diag-from');
+  const toEl   = document.getElementById('diag-to');
+  if (fromEl) fromEl.value = fmt(from);
+  if (toEl)   toEl.value   = fmt(now);
+}
+
+// Wandelt "2024-06-15T14:30" → "2024-06-15 14:30:00" (Go-Format), leer bleibt leer
+function isoToGoTime(iso) {
+  if (!iso) return '';
+  return iso.replace('T', ' ') + ':00';
 }
 
 // ─── Dashboard-Karten Navigation ──────────────────────────────────────────────

@@ -8,37 +8,55 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"adminkit/internal/scoring"
 )
 
 const daysBack = 7
-const maxPerLog = 50
+const maxTotal = 300
 
 // Scan liest kritische Fehler aus System- und Application-Log.
 func Scan() ScanResult {
+	return ScanRange("", "", "")
+}
+
+// ScanRange liest Einträge für einen bestimmten Zeitraum und optionalen Prozess-Filter.
+func ScanRange(from, to, processFilter string) ScanResult {
 	result := ScanResult{
 		Timestamp: time.Now(),
 		DaysBack:  daysBack,
 	}
 
 	for _, logName := range []string{"System", "Application"} {
-		entries, errs := readEventLog(logName)
+		entries, errs := readEventLog(logName, from, to, processFilter)
 		result.Events = append(result.Events, entries...)
 		result.Errors = append(result.Errors, errs...)
 	}
 
-	// Neueste zuerst
 	sortByTime(result.Events)
+	if len(result.Events) > maxTotal {
+		result.Events = result.Events[:maxTotal]
+	}
 	return result
 }
 
-func readEventLog(logName string) ([]EventEntry, []ScanError) {
-	// PowerShell: Events der letzten N Tage, Level 1 (Critical) + 2 (Error)
-	since := time.Now().AddDate(0, 0, -daysBack).Format("2006-01-02")
+func readEventLog(logName, from, to, processFilter string) ([]EventEntry, []ScanError) {
+	since := from
+	if since == "" {
+		since = time.Now().AddDate(0, 0, -daysBack).Format("2006-01-02")
+	}
+	whereClause := fmt.Sprintf("$_.TimeCreated -ge '%s' -and $_.Level -le 2", since)
+	if to != "" {
+		whereClause += fmt.Sprintf(" -and $_.TimeCreated -le '%s'", to)
+	}
+	if processFilter != "" {
+		whereClause += fmt.Sprintf(" -and $_.ProviderName -like '*%s*'", processFilter)
+	}
 	script := fmt.Sprintf(`
 Get-WinEvent -LogName '%s' -ErrorAction SilentlyContinue |
-  Where-Object { $_.TimeCreated -ge '%s' -and $_.Level -le 2 } |
-  Select-Object -First %d TimeCreated,Level,ProviderName,Id,Message |
-  ConvertTo-Csv -NoTypeInformation`, logName, since, maxPerLog)
+  Where-Object { %s } |
+  Select-Object TimeCreated,Level,ProviderName,Id,Message |
+  ConvertTo-Csv -NoTypeInformation`, logName, whereClause)
 
 	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil {
@@ -71,22 +89,24 @@ Get-WinEvent -LogName '%s' -ErrorAction SilentlyContinue |
 		}
 
 		msg := unq(fields[4])
-		// Nachricht auf erste Zeile kürzen
-		if idx := strings.IndexAny(msg, "\r\n"); idx > 0 {
-			msg = msg[:idx]
-		}
-		if len(msg) > 200 {
-			msg = msg[:200] + "…"
+		// Erste Zeile als Kurznachricht
+		firstLine := msg
+		if idx := strings.IndexAny(firstLine, "\r\n"); idx > 0 {
+			firstLine = firstLine[:idx]
 		}
 
 		id, _ := strconv.Atoi(unq(fields[3]))
+		src := unq(fields[2])
+		risk := scoring.EventRisk(src, "", firstLine)
 		entries = append(entries, EventEntry{
-			Time:    t,
-			Level:   level,
-			Source:  unq(fields[2]),
-			EventID: id,
-			Message: msg,
-			Log:     logName,
+			Time:        t,
+			Level:       level,
+			Source:      src,
+			EventID:     id,
+			Message:     msg,
+			Log:         logName,
+			ProcessName: src,
+			RiskScore:   risk,
 		})
 	}
 	return entries, nil

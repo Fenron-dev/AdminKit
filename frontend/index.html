@@ -459,6 +459,53 @@
               </div>
             </div>
 
+            <!-- Diagnose-Bericht für Claude Code / Codex -->
+            <div class="tools-group tools-group-full" id="diag-report-group">
+              <h3 class="tools-group-title">Diagnose-Bericht für Claude Code / Codex</h3>
+              <p class="settings-hint" style="margin-bottom:10px">
+                Systemereignisse eines Zeitraums auswerten und als strukturierten Bericht für Claude Code / Codex aufbereiten —
+                ideal um Vibe-Code-Sitzungen zu analysieren und wiederkehrende Fehler zu beheben.
+              </p>
+              <div class="diag-form">
+                <div class="diag-form-row">
+                  <div class="diag-field">
+                    <label class="diag-label" for="diag-from">Von</label>
+                    <input class="console-input" type="datetime-local" id="diag-from" />
+                  </div>
+                  <div class="diag-field">
+                    <label class="diag-label" for="diag-to">Bis</label>
+                    <input class="console-input" type="datetime-local" id="diag-to" />
+                  </div>
+                  <div class="diag-field diag-field-grow">
+                    <label class="diag-label" for="diag-process">Prozess-Filter (optional)</label>
+                    <input class="console-input" type="text" id="diag-process" placeholder="z.B. MyApp, node, python" />
+                  </div>
+                  <button class="btn btn-primary" id="btn-diag-run" style="align-self:flex-end">
+                    🔬 Bericht erstellen
+                  </button>
+                </div>
+                <div class="diag-hint-row">
+                  <span class="settings-hint">Leer lassen für die letzten 7 Tage. Der Bericht enthält Fehlermuster, Häufigkeiten und Crash-Reports.</span>
+                  <label class="diag-preset-label">
+                    Schnellwahl:
+                    <button class="btn btn-sm btn-secondary" id="diag-preset-1h">Letzte Stunde</button>
+                    <button class="btn btn-sm btn-secondary" id="diag-preset-24h">Letzte 24h</button>
+                    <button class="btn btn-sm btn-secondary" id="diag-preset-7d">Letzte 7 Tage</button>
+                  </label>
+                </div>
+              </div>
+              <div id="diag-result" class="diag-result hidden">
+                <div class="diag-result-header">
+                  <span id="diag-result-summary"></span>
+                  <div class="diag-result-actions">
+                    <button class="btn btn-primary" id="btn-diag-copy">📋 Kopieren für Claude Code</button>
+                    <button class="btn btn-secondary" id="btn-diag-close">✕ Schließen</button>
+                  </div>
+                </div>
+                <pre class="diag-output" id="diag-output"></pre>
+              </div>
+            </div>
+
             <!-- Netzwerk-Terminal (Werkzeuge + freie Eingabe in einem) -->
             <div class="tools-group tools-group-full">
               <h3 class="tools-group-title">Netzwerk-Terminal</h3>
