@@ -1143,105 +1143,102 @@ function initActionResultModal() {
   overlay?.addEventListener('click', ev => { if (ev.target === overlay) overlay.classList.add('hidden'); });
 }
 
-// Globale Referenz auf das aktuell angezeigte Event für das Modal
-let _currentEventDetail = null;
+// var statt const/let — verhindert Terser-TDZ-Hoisting in Produktions-Build
+var _currentEventDetail = null;
+var RISK_THRESHOLD = 20;
 
-// Risiko-Schwelle für den "Nur Risiken"-Filter
-const RISK_THRESHOLD = 20;
+// Modul-level State für renderEvents (vermeidet Closures über let/const)
+var _evtSorted    = null;
+var _evtShowAll   = false;
+var _evtContainer = null;
 
 function riskBadgeHtml(score) {
   if (score === undefined || score === null) return '';
-  let cls, label;
+  var cls, label;
   if      (score >= 80) { cls = 'risk-critical'; label = score + ' Kritisch'; }
   else if (score >= 50) { cls = 'risk-high';     label = score + ' Hoch'; }
   else if (score >= 20) { cls = 'risk-medium';   label = score + ' Mittel'; }
   else if (score >= 5)  { cls = 'risk-low';      label = score + ' Niedrig'; }
   else                  { cls = 'risk-info';      label = score + ' Info'; }
-  return `<span class="risk-badge ${cls}">${label}</span>`;
+  return '<span class="risk-badge ' + cls + '">' + label + '</span>';
 }
 
 function renderEvents(evtList) {
-  const container = document.getElementById('events-info');
-  if (!container) return;
-  if (!evtList?.length) {
-    container.innerHTML = '<div class="info-placeholder">Keine kritischen Ereignisse in den letzten 7 Tagen.</div>';
+  _evtContainer = document.getElementById('events-info');
+  if (!_evtContainer) return;
+  if (!evtList || !evtList.length) {
+    _evtContainer.innerHTML = '<div class="info-placeholder">Keine kritischen Ereignisse in den letzten 7 Tagen.</div>';
     return;
   }
+  _evtSorted  = evtList.slice().sort(function(a, b) { return ((b.risk_score || 0) - (a.risk_score || 0)); });
+  _evtShowAll = false;
+  _doRenderEvents();
+}
 
-  // Sortierung: höchster Risiko-Score zuerst
-  const sorted = [...evtList].sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0));
+function _buildEventTable(list) {
+  var table = document.createElement('table');
+  table.className = 'data-table';
+  table.innerHTML = '<thead><tr><th>Risiko</th><th>Zeit</th><th>Prozess</th><th>Meldung</th><th></th></tr></thead>';
+  var tbody = document.createElement('tbody');
+  for (var i = 0; i < list.length; i++) {
+    var e    = list[i];
+    var tr   = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.dataset.origIdx = _evtSorted ? _evtSorted.indexOf(e) : i;
+    var time     = e.time ? new Date(e.time).toLocaleString('de-DE') : '–';
+    var proc     = e.process_name || e.source || '–';
+    var msg      = e.message || '';
+    var shortMsg = msg.length > 120
+      ? escapeHtml(msg.slice(0, 120)) + '<span style="color:var(--color-text-muted)">…</span>'
+      : escapeHtml(msg);
+    tr.innerHTML =
+      '<td style="white-space:nowrap">' + riskBadgeHtml(e.risk_score) + '</td>' +
+      '<td style="white-space:nowrap;font-size:11px">' + escapeHtml(time) + '</td>' +
+      '<td style="font-size:11px;white-space:nowrap;font-weight:500">' + escapeHtml(proc) + '</td>' +
+      '<td style="font-size:12px">' + shortMsg + '</td>' +
+      '<td style="white-space:nowrap"><button class="btn-event-detail" title="Details">🔍</button></td>';
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  table.addEventListener('click', function(ev) {
+    var row = ev.target.closest('tr');
+    if (!row || row.parentElement.tagName === 'THEAD') return;
+    var origIdx = parseInt(row.dataset.origIdx || -1);
+    if (origIdx >= 0 && _evtSorted) showEventDetail(_evtSorted[origIdx]);
+  });
+  return table;
+}
 
-  // Filter-State — var statt let um Terser-TDZ-Hoisting zu vermeiden
-  var showAll = false;
+function _doRenderEvents() {
+  if (!_evtSorted || !_evtContainer) return;
+  var riskEvents  = _evtSorted.filter(function(e) { return (e.risk_score || 0) >= RISK_THRESHOLD; });
+  var noiseEvents = _evtSorted.filter(function(e) { return (e.risk_score || 0) <  RISK_THRESHOLD; });
+  var displayList = _evtShowAll ? _evtSorted : riskEvents;
 
-  const buildTable = (list) => {
-    const table = document.createElement('table');
-    table.className = 'data-table';
-    table.innerHTML = '<thead><tr><th>Risiko</th><th>Zeit</th><th>Prozess</th><th>Meldung</th><th></th></tr></thead>';
-    const tbody = document.createElement('tbody');
+  _evtContainer.innerHTML = '';
+  var meta = document.createElement('p');
+  meta.className = 'section-meta';
+  var toggleBtn = document.createElement('button');
+  toggleBtn.className = 'btn btn-secondary btn-xs';
+  toggleBtn.style.marginLeft = '12px';
 
-    list.forEach((e) => {
-      const tr = document.createElement('tr');
-      tr.style.cursor = 'pointer';
-      tr.dataset.origIdx = sorted.indexOf(e);
-      const time = e.time ? new Date(e.time).toLocaleString('de-DE') : '–';
-      const proc = e.process_name || e.source || '–';
-      const shortMsg = e.message && e.message.length > 120
-        ? escapeHtml(e.message.slice(0, 120)) + '<span style="color:var(--color-text-muted)">…</span>'
-        : escapeHtml(e.message || '');
+  if (_evtShowAll) {
+    meta.textContent  = _evtSorted.length + ' Ereignisse gesamt';
+    toggleBtn.textContent = '🔇 Rauschen ausblenden (' + noiseEvents.length + ')';
+  } else {
+    meta.textContent  = riskEvents.length + ' risikorelevante Ereignisse';
+    toggleBtn.textContent = noiseEvents.length > 0
+      ? '🔉 +' + noiseEvents.length + ' System-Rauschen anzeigen' : '';
+  }
+  toggleBtn.addEventListener('click', function() { _evtShowAll = !_evtShowAll; _doRenderEvents(); });
+  meta.appendChild(toggleBtn);
+  _evtContainer.appendChild(meta);
 
-      tr.innerHTML = `
-        <td style="white-space:nowrap">${riskBadgeHtml(e.risk_score)}</td>
-        <td style="white-space:nowrap;font-size:11px">${escapeHtml(time)}</td>
-        <td style="font-size:11px;white-space:nowrap;font-weight:500">${escapeHtml(proc)}</td>
-        <td style="font-size:12px">${shortMsg}</td>
-        <td style="white-space:nowrap"><button class="btn-event-detail" title="Details anzeigen">🔍</button></td>`;
-      tbody.appendChild(tr);
-    });
-
-    table.appendChild(tbody);
-    table.addEventListener('click', ev => {
-      const row = ev.target.closest('tr');
-      if (!row || row.parentElement.tagName === 'THEAD') return;
-      const origIdx = parseInt(row.dataset.origIdx ?? -1);
-      if (origIdx >= 0) showEventDetail(sorted[origIdx]);
-    });
-    return table;
-  };
-
-  const render = () => {
-    const riskEvents   = sorted.filter(e => (e.risk_score || 0) >= RISK_THRESHOLD);
-    const noiseEvents  = sorted.filter(e => (e.risk_score || 0) <  RISK_THRESHOLD);
-    const displayList  = showAll ? sorted : riskEvents;
-
-    container.innerHTML = '';
-    const meta = document.createElement('p');
-    meta.className = 'section-meta';
-
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'btn btn-secondary btn-xs';
-    toggleBtn.style.marginLeft = '12px';
-
-    if (showAll) {
-      meta.textContent = `${sorted.length} Ereignisse gesamt`;
-      toggleBtn.textContent = `🔇 Rauschen ausblenden (${noiseEvents.length})`;
-    } else {
-      meta.textContent = `${riskEvents.length} risikorelevante Ereignisse`;
-      toggleBtn.textContent = noiseEvents.length > 0
-        ? `🔉 +${noiseEvents.length} System-Rauschen anzeigen` : '';
-    }
-    toggleBtn.addEventListener('click', () => { showAll = !showAll; render(); });
-    meta.appendChild(toggleBtn);
-    container.appendChild(meta);
-
-    if (displayList.length === 0) {
-      container.insertAdjacentHTML('beforeend', '<div class="info-placeholder">Keine risikorelevanten Ereignisse — System sieht sauber aus.</div>');
-    } else {
-      container.appendChild(buildTable(displayList));
-    }
-  };
-
-  render();
+  if (displayList.length === 0) {
+    _evtContainer.insertAdjacentHTML('beforeend', '<div class="info-placeholder">Keine risikorelevanten Ereignisse — System sieht sauber aus.</div>');
+  } else {
+    _evtContainer.appendChild(_buildEventTable(displayList));
+  }
 }
 
 function showEventDetail(e) {
@@ -2444,6 +2441,9 @@ function updateNetworkBadge(result) {
 
 // ─── Dashboard-Badges aktualisieren ──────────────────────────────────────────
 
+// var statt const — vermeidet Terser-TDZ bei Referenz in updateDashboardBadges
+var SmartStatus = { OK: 'OK', WARNING: 'WARNING', CRITICAL: 'CRITICAL', UNKNOWN: 'UNKNOWN' };
+
 function updateDashboardBadges(result) {
   if (result.os) {
     setEl('info-hostname', result.os.name ?? '–');
@@ -2481,9 +2481,6 @@ function updateDashboardBadges(result) {
     setBadge('badge-smart', 'detail-smart', worst.status, `${result.smart.length} Disk(s) — schlechtester: ${worst.status}`);
   }
 }
-
-// Kleines Enum für Badge-Status
-const SmartStatus = { OK: 'OK', WARNING: 'WARNING', CRITICAL: 'CRITICAL', UNKNOWN: 'UNKNOWN' };
 
 function setBadge(badgeId, detailId, status, detail) {
   const badge = document.getElementById(badgeId);
