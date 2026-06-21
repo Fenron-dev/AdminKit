@@ -1092,7 +1092,7 @@ async function runEventsScan() {
 // ─── Bestätigungs-Modal ───────────────────────────────────────────────────────
 // Vor jeder schreibenden/verändernden Aktion aufrufen.
 // Gibt Promise<boolean> zurück — true = Nutzer hat bestätigt, false = abgebrochen.
-let _confirmResolve = null;
+var _confirmResolve = null;
 
 function showConfirm({ title, what, impact }) {
   return new Promise(resolve => {

@@ -669,7 +669,18 @@ html, body {
 /* ============================================================
    Tools
    ============================================================ */
-.tools-layout { display: flex; flex-direction: column; gap: 24px; }
+.tools-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  padding-bottom: 60px;
+}
+.tools-layout::-webkit-scrollbar { width: 6px; }
+.tools-layout::-webkit-scrollbar-track { background: transparent; }
+.tools-layout::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
 
 .tools-group {
   background: var(--color-surface);

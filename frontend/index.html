@@ -962,62 +962,63 @@
         </div>
       </div>
 
-    </div>
-    <!-- ── Aktions-Ergebnis-Modal (für Quick-Actions & Fixes) ── -->
-    <div class="modal-overlay hidden" id="modal-action-result-overlay">
-      <div class="modal" style="max-width:640px;width:95%">
-        <div class="modal-header">
-          <h3 id="modal-action-result-title">Ergebnis</h3>
-          <button class="modal-close" id="modal-action-result-close">✕</button>
-        </div>
-        <div class="modal-body">
-          <pre class="qa-output-pre" id="modal-action-result-text" style="max-height:400px"></pre>
-          <div class="modal-footer" style="margin-top:12px;display:flex;justify-content:flex-end">
-            <button class="btn btn-primary" id="modal-action-result-ok">OK</button>
+
+      <!-- ── Aktions-Ergebnis-Modal (für Quick-Actions & Fixes) ── -->
+      <div class="modal-overlay hidden" id="modal-action-result-overlay">
+        <div class="modal" style="max-width:640px;width:95%">
+          <div class="modal-header">
+            <h3 id="modal-action-result-title">Ergebnis</h3>
+            <button class="modal-close" id="modal-action-result-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <pre class="qa-output-pre" id="modal-action-result-text" style="max-height:400px"></pre>
+            <div class="modal-footer" style="margin-top:12px;display:flex;justify-content:flex-end">
+              <button class="btn btn-primary" id="modal-action-result-ok">OK</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- ── Bestätigungs-Modal (für alle schreibenden Aktionen) ── -->
-    <div class="modal-overlay hidden" id="modal-confirm-overlay">
-      <div class="modal" style="max-width:520px;width:95%">
-        <div class="modal-header">
-          <h3 id="modal-confirm-title">Aktion bestätigen</h3>
-        </div>
-        <div class="modal-body">
-          <div class="confirm-what" id="modal-confirm-what"></div>
-          <div class="confirm-impact hidden" id="modal-confirm-impact-wrap">
-            <div class="confirm-impact-label">⚠ Mögliche Auswirkungen</div>
-            <div id="modal-confirm-impact"></div>
+      <!-- ── Bestätigungs-Modal (für alle schreibenden Aktionen) ── -->
+      <div class="modal-overlay hidden" id="modal-confirm-overlay">
+        <div class="modal" style="max-width:520px;width:95%">
+          <div class="modal-header">
+            <h3 id="modal-confirm-title">Aktion bestätigen</h3>
           </div>
-          <div class="modal-footer" style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">
-            <button class="btn btn-primary" id="modal-confirm-cancel" autofocus>Abbrechen</button>
-            <button class="btn btn-danger" id="modal-confirm-proceed">Fortfahren</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Ereignis-Detail-Modal ── -->
-    <div class="modal-overlay hidden" id="modal-event-overlay">
-      <div class="modal" style="max-width:680px;width:95%">
-        <div class="modal-header">
-          <h3 id="modal-event-title">Ereignis-Details</h3>
-          <button class="modal-close" id="modal-event-close">✕</button>
-        </div>
-        <div class="modal-body">
-          <table class="kv-table" id="modal-event-meta"></table>
-          <div class="event-detail-msg" id="modal-event-msg"></div>
-          <div class="modal-footer" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn btn-secondary" id="modal-event-console">🖥 In Console öffnen</button>
-            <button class="btn btn-secondary" id="modal-event-copy">📋 Meldung kopieren</button>
-            <button class="btn btn-primary" id="modal-event-ok">OK</button>
+          <div class="modal-body">
+            <div class="confirm-what" id="modal-confirm-what"></div>
+            <div class="confirm-impact hidden" id="modal-confirm-impact-wrap">
+              <div class="confirm-impact-label">⚠ Mögliche Auswirkungen</div>
+              <div id="modal-confirm-impact"></div>
+            </div>
+            <div class="modal-footer" style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">
+              <button class="btn btn-primary" id="modal-confirm-cancel">Abbrechen</button>
+              <button class="btn btn-danger" id="modal-confirm-proceed">Fortfahren</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
+      <!-- ── Ereignis-Detail-Modal ── -->
+      <div class="modal-overlay hidden" id="modal-event-overlay">
+        <div class="modal" style="max-width:680px;width:95%">
+          <div class="modal-header">
+            <h3 id="modal-event-title">Ereignis-Details</h3>
+            <button class="modal-close" id="modal-event-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <table class="kv-table" id="modal-event-meta"></table>
+            <div class="event-detail-msg" id="modal-event-msg"></div>
+            <div class="modal-footer" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+              <button class="btn btn-secondary" id="modal-event-console">🖥 In Console öffnen</button>
+              <button class="btn btn-secondary" id="modal-event-copy">📋 Meldung kopieren</button>
+              <button class="btn btn-primary" id="modal-event-ok">OK</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /#app -->
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
