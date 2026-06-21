@@ -43,6 +43,8 @@ import {
   GetSuggestions,
   RunFix,
   RunQuickAction,
+  ScanEventsRange,
+  GetDiagnosticReport,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -4265,7 +4267,6 @@ function initDiagnosticReport() {
     result?.classList.add('hidden');
 
     try {
-      const { GetDiagnosticReport } = await import('./wailsjs/go/main/App.js');
       const report = await GetDiagnosticReport(from, to, process);
       if (!report) throw new Error('Keine Antwort vom Backend');
 
