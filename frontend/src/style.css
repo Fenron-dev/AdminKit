@@ -61,8 +61,7 @@
 }
 
 html, body {
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
   font-family: var(--font);
   font-size: 14px;
   color: var(--color-text);
@@ -73,8 +72,7 @@ html, body {
 #app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 /* ============================================================
@@ -191,8 +189,6 @@ html, body {
    ============================================================ */
 .tab-content {
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -201,19 +197,17 @@ html, body {
   display: none;
   animation: fadeIn .15s ease;
 }
-/* Dashboard scrolls naturally */
+/* Dashboard: scrollt mit dem Body */
 #tab-dashboard.active {
   display: block;
-  overflow-y: auto;
-  flex: 1;
   padding: 20px;
   padding-bottom: 60px;
 }
-/* Alle anderen Tabs: Sidebar + Content-Area nebeneinander */
+/* Alle anderen Tabs: Sidebar + Content-Area nebeneinander, Höhe exakt berechnet */
 .tab-panel:not(#tab-dashboard).active {
   display: flex;
-  flex: 1;
-  min-height: 0;
+  align-items: stretch;
+  height: calc(100vh - var(--titlebar-h) - var(--tabnav-h) - var(--statusbar-h));
   overflow: hidden;
 }
 
@@ -235,6 +229,7 @@ html, body {
 .section-sidebar {
   width: 196px;
   min-width: 196px;
+  align-self: stretch;
   background: var(--color-surface-2);
   border-right: 1px solid var(--color-border);
   display: flex;
@@ -266,7 +261,7 @@ html, body {
 }
 .sidebar-search:focus {
   outline: none;
-  border-color: var(--color-accent);
+  border-color: var(--color-primary);
 }
 
 .sidebar-nav {
@@ -281,7 +276,7 @@ html, body {
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;
-  background: var(--color-accent);
+  background: var(--color-primary);
   color: #fff;
   border: none;
   border-radius: var(--radius);
@@ -322,8 +317,8 @@ html, body {
   color: var(--color-text);
 }
 .sidebar-link.sidebar-active {
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -341,7 +336,7 @@ html, body {
 }
 .sidebar-mini-scan:hover {
   background: var(--color-surface);
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 .sidebar-mini-scan:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -1684,7 +1679,7 @@ body.platform-mac .titlebar {
 .terminal-input-row .terminal-prompt {
   font-family: var(--font-mono);
   font-size: 13px;
-  color: var(--color-accent);
+  color: var(--color-primary);
   align-self: center;
   white-space: nowrap;
 }
@@ -1737,7 +1732,7 @@ body.platform-mac .titlebar {
   margin-bottom: 8px;
 }
 .vt-drop-zone.drag-over {
-  border-color: var(--color-accent);
+  border-color: var(--color-primary);
   background: rgba(99,102,241,.08);
 }
 .vt-file-result {
@@ -1798,7 +1793,7 @@ body.platform-mac .titlebar {
   gap: 8px;
 }
 .or-model-item:hover {
-  border-color: var(--color-accent);
+  border-color: var(--color-primary);
   background: rgba(99,102,241,.07);
 }
 .or-model-name { flex: 1; font-weight: 500; word-break: break-all; }

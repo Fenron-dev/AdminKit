@@ -1220,16 +1220,24 @@ function _doRenderEvents() {
   var meta = document.createElement('p');
   meta.className = 'section-meta';
   var toggleBtn = document.createElement('button');
-  toggleBtn.className = 'btn btn-secondary btn-xs';
-  toggleBtn.style.marginLeft = '12px';
+  toggleBtn.style.cssText = 'margin-left:12px;padding:3px 10px;font-size:12px;font-weight:600;border-radius:99px;cursor:pointer;border:1px solid;';
 
   if (_evtShowAll) {
     meta.textContent  = _evtSorted.length + ' Ereignisse gesamt';
-    toggleBtn.textContent = '🔇 Rauschen ausblenden (' + noiseEvents.length + ')';
+    toggleBtn.textContent = '✕ Rauschen ausblenden (' + noiseEvents.length + ')';
+    toggleBtn.style.background = 'color-mix(in srgb, var(--color-warning) 15%, transparent)';
+    toggleBtn.style.borderColor = 'var(--color-warning)';
+    toggleBtn.style.color = 'var(--color-warning)';
   } else {
     meta.textContent  = riskEvents.length + ' risikorelevante Ereignisse';
-    toggleBtn.textContent = noiseEvents.length > 0
-      ? '🔉 +' + noiseEvents.length + ' System-Rauschen anzeigen' : '';
+    if (noiseEvents.length > 0) {
+      toggleBtn.textContent = '+ ' + noiseEvents.length + ' ausgeblendete System-Ereignisse anzeigen';
+      toggleBtn.style.background = 'color-mix(in srgb, var(--color-primary) 12%, transparent)';
+      toggleBtn.style.borderColor = 'var(--color-primary)';
+      toggleBtn.style.color = 'var(--color-primary)';
+    } else {
+      toggleBtn.textContent = '';
+    }
   }
   toggleBtn.addEventListener('click', function() { _evtShowAll = !_evtShowAll; _doRenderEvents(); });
   meta.appendChild(toggleBtn);
@@ -2012,7 +2020,22 @@ function renderProcesses(procs) {
 
   container.innerHTML = '';
   container.appendChild(tbl);
-  attachCheckboxHandlers(container);
+
+  var checkAll = tbl.querySelector('.check-all');
+  if (checkAll) {
+    checkAll.addEventListener('change', function(e) {
+      tbl.querySelectorAll('.item-check').forEach(function(cb) {
+        toggleItemSelection(cb, e.target.checked);
+      });
+      updateActionBar();
+    });
+  }
+  tbl.addEventListener('click', function(e) {
+    var cb = e.target.closest('.item-check');
+    if (!cb) return;
+    toggleItemSelection(cb, cb.checked);
+    updateActionBar();
+  });
 }
 
 // ─── VT-Check ────────────────────────────────────────────────────────────────
@@ -3484,7 +3507,7 @@ async function runUsersScan() {
     if (container) container.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(err))}</div>`;
     addAction('Benutzer-Scan fehlgeschlagen: ' + err, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '👤 Benutzer scannen'; }
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.origText || '↺'; }
   }
 }
 
@@ -3570,7 +3593,7 @@ async function runTasksScan() {
     if (container) container.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(err))}</div>`;
     addAction('Aufgaben-Scan fehlgeschlagen: ' + err, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🗓 Aufgaben scannen'; }
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.origText || '↺'; }
   }
 }
 
@@ -3628,7 +3651,7 @@ async function runProfilesScan() {
     if (container) container.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(err))}</div>`;
     addAction('Profil-Scan fehlgeschlagen: ' + err, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🛡 Profile scannen'; }
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.origText || '↺'; }
   }
 }
 
@@ -3682,7 +3705,7 @@ async function runUSBScan() {
     if (container) container.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(err))}</div>`;
     addAction('USB-Scan fehlgeschlagen: ' + err, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🔌 USB scannen'; }
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.origText || '↺'; }
   }
 }
 
