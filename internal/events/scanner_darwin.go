@@ -29,6 +29,30 @@ type logEntry struct {
 	Category         string `json:"category"`
 }
 
+// selfProcesses sind Prozesse von AdminKit selbst — werden immer ausgeschlossen,
+// da ein Diagnosetool keine eigenen Sandbox-Fehler melden soll.
+var selfProcesses = map[string]bool{
+	"AdminKit":                    true,
+	"com.apple.WebKit.WebContent": true,
+	"com.apple.WebKit.GPU":        true,
+	"com.apple.WebKit.Networking": true,
+}
+
+// bootNoiseProcesses erzeugen beim macOS-Start immer Fehler, die harmlos sind.
+// Ihr Risiko-Score wird auf maximal 5 (Info) gekappt.
+var bootNoiseProcesses = map[string]bool{
+	"storagekitd":       true, // APFS-Volume-Check-Fehler beim Boot
+	"deleted":           true, // CacheDeleteDaemon, Speicher-Cleanup
+	"Storage":           true, // diskutil Subsystem-Fehler
+	"siriknowledged":    true, // fehlende Lokalisierungsstrings
+	"diagnostics_agent": true, // MAS-Receipt-Parse-Fehler bei Nicht-App-Store-Apps
+	"biometrickitd":     true, // Touch-ID-Sensor-Ereignisse
+	"bird":              true, // iCloud-Upload-Netzwerkfehler
+	"XProtectBridgeService":                       true, // Cloud-Docs-URL-Fehler
+	"swcd":                                        true, // Enterprise-Domains (irrelevant auf Heim-Macs)
+	"com.apple.CloudDocs.iCloudDriveFileProvider": true, // iCloud-Provider-Fehler
+}
+
 // Scan liest kritische Einträge aus dem macOS Unified Log (letzte daysBack Tage).
 // Gibt die neuesten maxEntries Einträge zurück (neueste zuerst).
 func Scan() ScanResult {
@@ -94,12 +118,26 @@ func ScanRange(from, to, processFilter string) ScanResult {
 			procName = extractProcessFromMessage(entry.EventMessage)
 		}
 
+		// Eigene App-Prozesse und deren WebKit-Kindprozesse ausschließen
+		if selfProcesses[procName] || strings.HasPrefix(procName, "com.apple.WebKit.") {
+			continue
+		}
+		// kernel-Einträge die nur über WebKit-Sandbox-Fehler berichten ausschließen
+		if procName == "kernel" && strings.HasPrefix(entry.EventMessage, "Sandbox: com.apple.WebKit.") {
+			continue
+		}
+
 		subsys := entry.Subsystem
 		if entry.Category != "" && subsys != "" {
 			subsys = subsys + ":" + entry.Category
 		}
 
 		risk := scoring.EventRisk(procName, subsys, entry.EventMessage)
+
+		// Bekannte Boot-Rauschprozesse: Score auf max. 5 kappen
+		if bootNoiseProcesses[procName] && risk > 5 {
+			risk = 5
+		}
 
 		result.Events = append(result.Events, EventEntry{
 			Time:        ts,
