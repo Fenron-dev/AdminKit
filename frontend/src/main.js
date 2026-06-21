@@ -316,8 +316,41 @@ async function updateHealthScore() {
   }
 }
 
+// Bestätigungs-Texte für Quick-Actions (var statt const — verhindert Terser-TDZ)
+var QUICK_ACTION_CONFIRM = {
+  internet_fix: {
+    title:  'Internet-Fix ausführen?',
+    what:   'Führt folgende Schritte aus:\n• DNS-Cache leeren\n• mDNSResponder neu starten (macOS) / Winsock zurücksetzen (Windows)\n• IP-Konfiguration freigeben und erneuern',
+    impact: 'Alle laufenden Netzwerkverbindungen werden kurz unterbrochen. Downloads, VPN-Verbindungen und Remote-Sessions können abbrechen.',
+  },
+  printer_fix: {
+    title:  'Drucker-Fix ausführen?',
+    what:   'Führt folgende Schritte aus:\n• Druckdienst (CUPS / Spooler) stoppen\n• Druckwarteschlange leeren\n• Druckdienst neu starten',
+    impact: 'Alle laufenden Druckaufträge werden unwiderruflich abgebrochen und aus der Warteschlange gelöscht. Sie müssen erneut gesendet werden.',
+  },
+  quick_clean: {
+    title:  'Schnellbereinigung ausführen?',
+    what:   'Führt folgende Schritte aus:\n• Temporäre Dateien in /tmp bzw. %TEMP% löschen\n• Windows-Update-Cache leeren (Windows)\n• Papierkorb leeren',
+    impact: 'Dateien im Papierkorb werden unwiderruflich gelöscht. Temporäre Dateien von laufenden Programmen können verloren gehen (z.B. nicht gespeicherte Dokumente aus Temp-Ordnern).',
+  },
+  dns_flush: {
+    title:  'DNS-Cache leeren?',
+    what:   'Löscht den lokalen DNS-Auflösungs-Cache des Betriebssystems.',
+    impact: 'Alle DNS-Einträge müssen neu abgefragt werden. Kurze Verzögerung beim ersten Aufrufen von Webseiten möglich. Keine dauerhaften Auswirkungen.',
+  },
+};
+
+// KI Browser-Redirect URLs (var statt const — verhindert Terser-TDZ)
+var AI_BROWSER_URLS = {
+  chatgpt:    'https://chatgpt.com/',
+  claude:     'https://claude.ai/',
+  perplexity: 'https://www.perplexity.ai/',
+  grok:       'https://grok.com/',
+  mammouth:   'https://mammouth.ai/app/a/default',
+};
+
 // Bestätigungs-Texte für Fix-Buttons in der Empfehlungen-Karte
-const FIX_CONFIRM = {
+var FIX_CONFIRM = {
   enable_firewall: {
     title:  'Firewall aktivieren?',
     what:   'Aktiviert die System-Firewall. Eingehende Verbindungen werden nach den aktuellen Regeln gefiltert.',
@@ -430,30 +463,6 @@ function showActionResult(text, success) {
     }
   }
 }
-
-// Bestätigungs-Texte für Quick-Actions
-const QUICK_ACTION_CONFIRM = {
-  internet_fix: {
-    title:  'Internet-Fix ausführen?',
-    what:   'Führt folgende Schritte aus:\n• DNS-Cache leeren\n• mDNSResponder neu starten (macOS) / Winsock zurücksetzen (Windows)\n• IP-Konfiguration freigeben und erneuern',
-    impact: 'Alle laufenden Netzwerkverbindungen werden kurz unterbrochen. Downloads, VPN-Verbindungen und Remote-Sessions können abbrechen.',
-  },
-  printer_fix: {
-    title:  'Drucker-Fix ausführen?',
-    what:   'Führt folgende Schritte aus:\n• Druckdienst (CUPS / Spooler) stoppen\n• Druckwarteschlange leeren\n• Druckdienst neu starten',
-    impact: 'Alle laufenden Druckaufträge werden unwiderruflich abgebrochen und aus der Warteschlange gelöscht. Sie müssen erneut gesendet werden.',
-  },
-  quick_clean: {
-    title:  'Schnellbereinigung ausführen?',
-    what:   'Führt folgende Schritte aus:\n• Temporäre Dateien in /tmp bzw. %TEMP% löschen\n• Windows-Update-Cache leeren (Windows)\n• Papierkorb leeren',
-    impact: 'Dateien im Papierkorb werden unwiderruflich gelöscht. Temporäre Dateien von laufenden Programmen können verloren gehen (z.B. nicht gespeicherte Dokumente aus Temp-Ordnern).',
-  },
-  dns_flush: {
-    title:  'DNS-Cache leeren?',
-    what:   'Löscht den lokalen DNS-Auflösungs-Cache des Betriebssystems.',
-    impact: 'Alle DNS-Einträge müssen neu abgefragt werden. Kurze Verzögerung beim ersten Aufrufen von Webseiten möglich. Keine dauerhaften Auswirkungen.',
-  },
-};
 
 function initQuickActions() {
   const actions = [
@@ -1240,7 +1249,7 @@ function renderEvents(evtList) {
 function _buildEventTable(list) {
   var table = document.createElement('table');
   table.className = 'data-table';
-  table.innerHTML = '<thead><tr><th>Risiko</th><th>Zeit</th><th>Prozess</th><th>Meldung</th><th></th></tr></thead>';
+  table.innerHTML = '<thead><tr><th class="cb-col"><input type="checkbox" class="check-all" title="Alle auswählen"></th><th>Risiko</th><th>Zeit</th><th>Prozess</th><th>Meldung</th><th></th></tr></thead>';
   var tbody = document.createElement('tbody');
   for (var i = 0; i < list.length; i++) {
     var e    = list[i];
@@ -1250,10 +1259,12 @@ function _buildEventTable(list) {
     var time     = e.time ? new Date(e.time).toLocaleString('de-DE') : '–';
     var proc     = e.process_name || e.source || '–';
     var msg      = e.message || '';
+    var cbId     = 'event:' + i + ':' + proc;
     var shortMsg = msg.length > 120
       ? escapeHtml(msg.slice(0, 120)) + '<span style="color:var(--color-text-muted)">…</span>'
       : escapeHtml(msg);
     tr.innerHTML =
+      '<td class="cb-col" style="cursor:default" onclick="event.stopPropagation()"><input type="checkbox" class="item-check" data-id="' + escapeHtml(cbId) + '" data-name="' + escapeHtml(proc) + '" data-extra="' + escapeHtml(msg.slice(0, 300)) + '" data-type="event"></td>' +
       '<td style="white-space:nowrap">' + riskBadgeHtml(e.risk_score) + '</td>' +
       '<td style="white-space:nowrap;font-size:11px">' + escapeHtml(time) + '</td>' +
       '<td style="font-size:11px;white-space:nowrap;font-weight:500">' + escapeHtml(proc) + '</td>' +
@@ -1262,7 +1273,27 @@ function _buildEventTable(list) {
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
+
+  // Checkbox-Handler
+  var checkAll = table.querySelector('.check-all');
+  if (checkAll) {
+    checkAll.addEventListener('change', function(ev) {
+      table.querySelectorAll('.item-check').forEach(function(cb) {
+        toggleItemSelection(cb, ev.target.checked);
+        cb.checked = ev.target.checked;
+      });
+      updateActionBar();
+    });
+  }
+  table.addEventListener('change', function(ev) {
+    var cb = ev.target.closest('.item-check');
+    if (!cb) return;
+    toggleItemSelection(cb, cb.checked);
+    updateActionBar();
+  });
+
   table.addEventListener('click', function(ev) {
+    if (ev.target.closest('.item-check') || ev.target.closest('.check-all')) return;
     var row = ev.target.closest('tr');
     if (!row || row.parentElement.tagName === 'THEAD') return;
     var origIdx = parseInt(row.dataset.origIdx || -1);
@@ -2352,13 +2383,6 @@ function showVTDetail(result) {
 }
 
 // ─── KI-Analyse ───────────────────────────────────────────────────────────────
-
-const AI_BROWSER_URLS = {
-  chatgpt:    'https://chatgpt.com/',
-  claude:     'https://claude.ai/',
-  perplexity: 'https://www.perplexity.ai/',
-  grok:       'https://grok.com/',
-};
 
 function buildAIPrompt() {
   const items = [...state.selectedItems.values()];

@@ -704,6 +704,7 @@
               <div class="help-toc">
                 <strong>Inhaltsverzeichnis:</strong>
                 <a href="#help-quickstart">Schnellstart</a> ·
+                <a href="#help-farben">Farbmarkierungen</a> ·
                 <a href="#help-dashboard">Dashboard</a> ·
                 <a href="#help-system">System</a> ·
                 <a href="#help-autostart">Autostart</a> ·
@@ -718,6 +719,7 @@
                 <a href="#help-profile">Konfigurationsprofile</a> ·
                 <a href="#help-vt">VirusTotal</a> ·
                 <a href="#help-ki">KI-Analyse</a> ·
+                <a href="#help-ollama">Ollama / LM Studio</a> ·
                 <a href="#help-export">Export</a> ·
                 <a href="#help-vault">Vault &amp; Sessions</a>
               </div>
@@ -732,6 +734,23 @@
                   <li><strong>Export</strong> — Einstellungen → Export → HTML- oder CSV-Report erstellen.</li>
                 </ol>
                 <p><strong>Hinweis:</strong> Alle Scans laufen lokal auf dem Gerät. Es werden keine Daten an externe Server übertragen (außer bei VirusTotal/KI, wenn explizit ausgelöst).</p>
+              </div>
+
+              <!-- Farbmarkierungen -->
+              <div class="help-section" id="help-farben">
+                <h3>Farbmarkierungen – Was bedeuten die Farben?</h3>
+                <p>AdminKit verwendet Farben um auf einen Blick zu signalisieren, wie kritisch ein Eintrag ist. <strong>Wichtig: die Farben basieren auf Heuristiken, nicht auf einer vollständigen Sicherheitsanalyse!</strong></p>
+                <table class="help-table">
+                  <tr><th>Farbe</th><th>Bedeutung</th><th>Gilt für</th></tr>
+                  <tr><td>🟢 Grün</td><td>Kein Problem erkannt / Wert im normalen Bereich</td><td>Status-Badges, Health Score, Scan-Zusammenfassung</td></tr>
+                  <tr><td>🟡 Gelb (Zeile)</td><td>Auffällig aber nicht kritisch: hoher CPU/RAM-Verbrauch, Drittanbieter-Software</td><td>Prozesse (CPU &gt;20% oder RAM &gt;500MB), Autostart-Drittanbieter</td></tr>
+                  <tr><td>🔴 Rot (Zeile)</td><td>Heuristisch verdächtig: Pfad in Temp/Downloads, Root-Prozess aus Nicht-Systemverzeichnis</td><td>Prozesse und Autostart-Einträge mit verdächtigen Pfaden</td></tr>
+                  <tr><td>⚪ Grau</td><td>Unbekannt / Keine Daten verfügbar</td><td>SMART-Status, Hardware-Badge</td></tr>
+                  <tr><td>Risiko-Score (0–100)</td><td>Gewichteter Risikowert für Log-Ereignisse: 0–19 Rauschen, 20–59 mittleres Risiko, 60–100 hohes Risiko</td><td>Ereignis-Tab</td></tr>
+                </table>
+                <h4>Was bedeutet „Grün" im Vollscan-Popup?</h4>
+                <p>Im Scan-Zusammenfassungs-Dialog stehen grüne Punkte für Bereiche <em>ohne erkannte Probleme</em>. Für den Autostart gilt: grün = weniger als 15 aktive Drittanbieter-Einträge. Das ist eine <strong>rein zahlenmäßige Schranke</strong> — AdminKit prüft dabei NICHT ob die Einträge sicher oder unsicher sind. Microsoft, PCVisit und andere bekannte Tools erscheinen also trotzdem grün, auch wenn sie Drittanbieter sind.</p>
+                <p>Für eine echte Sicherheitsbewertung: Checkbox setzen → VirusTotal-Scan oder KI-Analyse nutzen.</p>
               </div>
 
               <!-- Dashboard -->
@@ -1052,10 +1071,11 @@
                 <h4>Anbieter-Typen</h4>
                 <table class="help-table">
                   <tr><th>Anbieter</th><th>Wie?</th><th>Datenschutz</th><th>Kosten</th></tr>
-                  <tr><td>ChatGPT, Claude.ai, Grok</td><td>Browser öffnet sich, Prompt in Zwischenablage kopiert</td><td>Daten gehen an Anbieter</td><td>Kostenlos (mit Account)</td></tr>
+                  <tr><td>ChatGPT, Claude.ai, Grok, Mammouth AI</td><td>Browser öffnet sich, Prompt in Zwischenablage kopiert → im Browser einfügen</td><td>Daten gehen an Anbieter</td><td>Kostenlos / Abo</td></tr>
                   <tr><td>Ollama / LM Studio</td><td>Direkt im App, läuft lokal</td><td>100% lokal, keine Datenweitergabe</td><td>Kostenlos</td></tr>
                   <tr><td>OpenAI / Anthropic / Groq</td><td>Direkt im App via API</td><td>Daten gehen an Anbieter</td><td>API-Kosten (pro Token)</td></tr>
                 </table>
+                <p><strong>Mammouth AI:</strong> Im Browser-Redirect-Modus — AdminKit öffnet <em>mammouth.ai/app/a/default</em> und kopiert den Analyse-Prompt in die Zwischenablage. Im Mammouth-Chat einfügen (Cmd+V / Ctrl+V). Dein Abo wird verwendet, kein API-Key nötig.</p>
                 <h4>Was frage ich die KI?</h4>
                 <ul>
                   <li>„Ist dieser Prozess/Dienst normal oder verdächtig?"</li>
@@ -1063,6 +1083,37 @@
                   <li>„Welche dieser Autostart-Einträge sollte ich deaktivieren?"</li>
                   <li>„Gibt es in dieser Liste Anzeichen für Malware oder unerwünschte Software?"</li>
                 </ul>
+              </div>
+
+              <!-- Ollama / LM Studio -->
+              <div class="help-section" id="help-ollama">
+                <h3>Ollama &amp; LM Studio – Empfohlene Modelle</h3>
+                <p>Für die lokale KI-Analyse ohne Internet und ohne API-Key. Modelle werden einmalig heruntergeladen und laufen danach vollständig offline.</p>
+                <h4>Apple MacBook Air / Pro (M1 oder M4, 16 GB RAM)</h4>
+                <table class="help-table">
+                  <tr><th>Modell</th><th>Befehl</th><th>Stärke</th><th>Geschwindigkeit</th></tr>
+                  <tr><td>Llama 3.1 8B</td><td><code>ollama pull llama3.1:8b</code></td><td>Beste Balance: Qualität + Deutsch</td><td>Schnell (M1 + M4)</td></tr>
+                  <tr><td>Gemma 3 12B</td><td><code>ollama pull gemma3:12b</code></td><td>Sehr gute Analyse, exzellentes Deutsch</td><td>Flüssig auf M4, gut auf M1</td></tr>
+                  <tr><td>Gemma 3 4B</td><td><code>ollama pull gemma3:4b</code></td><td>Schnell, für kurze Abfragen</td><td>Sehr schnell (beide)</td></tr>
+                  <tr><td>Phi-4 14B</td><td><code>ollama pull phi4:14b</code></td><td>Starkes Reasoning, ideal für Sicherheitsanalyse</td><td>Gut auf M4, langsam M1</td></tr>
+                </table>
+                <p><strong>Empfehlung:</strong> M1 → <code>llama3.1:8b</code> | M4 → <code>gemma3:12b</code></p>
+                <h4>Windows-Notebook Intel i5 (10. Gen), 16–32 GB RAM</h4>
+                <table class="help-table">
+                  <tr><th>Modell</th><th>Befehl</th><th>Stärke</th><th>Hinweis</th></tr>
+                  <tr><td>Llama 3.2 3B</td><td><code>ollama pull llama3.2:3b</code></td><td>Sehr schnell, leicht</td><td>Gut für 16 GB ohne dedizierte GPU</td></tr>
+                  <tr><td>Llama 3.1 8B</td><td><code>ollama pull llama3.1:8b</code></td><td>Gute Qualität</td><td>16 GB: CPU-only (langsam), 32 GB: besser</td></tr>
+                  <tr><td>Gemma 3 4B</td><td><code>ollama pull gemma3:4b</code></td><td>Kompakt, gutes Deutsch</td><td>Empfohlen für 16 GB CPU-only</td></tr>
+                  <tr><td>Mistral Nemo 12B</td><td><code>ollama pull mistral-nemo:12b</code></td><td>Gute mehrsprachige Analyse</td><td>Benötigt 32 GB oder NVIDIA-GPU</td></tr>
+                </table>
+                <p><strong>Hinweis i5:</strong> Ohne dedizierte GPU (NVIDIA/AMD) läuft Ollama im CPU-Modus — deutlich langsamer. Für regelmäßige Nutzung auf einem i5-Laptop empfehlen wir 3B- oder 4B-Modelle.</p>
+                <h4>Einrichtung</h4>
+                <ol>
+                  <li>Ollama installieren: <em>ollama.com</em> → Download</li>
+                  <li>Modell herunterladen: Terminal → <code>ollama pull llama3.1:8b</code></li>
+                  <li>In AdminKit: Einstellungen → KI-Anbieter → Ollama auswählen, Modell eintragen</li>
+                  <li>Elemente auswählen → KI analysieren → Ollama wählen → Analyse startet direkt im App</li>
+                </ol>
               </div>
 
               <!-- Export -->
@@ -1084,9 +1135,25 @@
               <!-- Vault & Sessions -->
               <div class="help-section" id="help-vault">
                 <h3>Vault &amp; Sessions</h3>
-                <p>AdminKit speichert alle Daten lokal im Vault-Ordner (<code>adminkit_vault/</code> neben der App-Datei).</p>
-                <h4>Sessions</h4>
-                <p>Jede Session entspricht einem Scan-Vorgang (z.B. pro Kundenbesuch). Innerhalb einer Session werden alle Einzel-Scans gespeichert. Sessions können verglichen werden um Veränderungen über Zeit zu erkennen.</p>
+                <p>AdminKit speichert alle Daten lokal im Vault-Ordner neben der App-Datei.</p>
+                <h4>Vault-Speicherort</h4>
+                <table class="help-table">
+                  <tr><th>Betriebssystem</th><th>Standard-Speicherort</th></tr>
+                  <tr><td>macOS (App aus /Applications)</td><td><code>~/adminkit_vault/</code> (im Home-Verzeichnis)</td></tr>
+                  <tr><td>macOS (App auf USB-Stick)</td><td><code>/Volumes/USB/adminkit_vault/</code> (neben der .app)</td></tr>
+                  <tr><td>Windows</td><td><code>neben AdminKit.exe\adminkit_vault\</code></td></tr>
+                </table>
+                <p>Den aktuellen Vault-Pfad siehst du in der <strong>Statusleiste</strong> unten im App.</p>
+                <h4>Portabler Betrieb auf USB-Stick (empfohlen für Kunden-Scans)</h4>
+                <ol>
+                  <li>AdminKit.app (oder .exe) auf USB-Stick kopieren</li>
+                  <li>Auf dem Kunden-Mac: App vom USB-Stick starten → Vault wird auf dem Stick erstellt</li>
+                  <li>Scan durchführen und Session speichern</li>
+                  <li>USB-Stick zum eigenen Mac mitnehmen</li>
+                  <li>AdminKit vom Stick starten (oder Vault-Ordner kopieren) → Session erscheint in der Session-Liste</li>
+                  <li>Ollama/LM Studio auf eigenem Mac laufen lassen → KI-Analyse der Kunden-Session durchführen</li>
+                </ol>
+                <p><strong>Hinweis macOS:</strong> Beim ersten Start auf einem fremden Mac erscheint ggf. eine Sicherheitswarnung (Gatekeeper). In Systemeinstellungen → Datenschutz &amp; Sicherheit → „Trotzdem öffnen" klicken.</p>
                 <h4>Dateistruktur</h4>
                 <ul>
                   <li><code>adminkit_vault/config.yaml</code> — Einstellungen (Firmenname, API-Keys)</li>
@@ -1095,7 +1162,7 @@
                   <li><code>adminkit_vault/&lt;session&gt;/software.json</code> — Software-Inventar</li>
                   <li><code>adminkit_vault/&lt;session&gt;/vt_audit.json</code> — VirusTotal-Ergebnisse</li>
                 </ul>
-                <p><strong>Datenschutz:</strong> Vault enthält ggf. sensible Systemdaten. Vault-Ordner nicht in Cloud-Sync (iCloud, OneDrive) ablegen. Niemals in Git oder öffentliche Repositories pushen.</p>
+                <p><strong>Datenschutz:</strong> Vault enthält sensible Systemdaten des Kunden. Nicht in iCloud/OneDrive synchronisieren, niemals in Git oder öffentliche Repositories pushen.</p>
               </div>
 
               <!-- Tastaturkürzel & Feedback -->
@@ -1366,6 +1433,7 @@
             <optgroup label="Browser (kein Key nötig)">
               <option value="chatgpt">ChatGPT</option>
               <option value="claude">Claude.ai</option>
+              <option value="mammouth">Mammouth AI</option>
               <option value="perplexity">Perplexity</option>
               <option value="grok">Grok</option>
             </optgroup>
