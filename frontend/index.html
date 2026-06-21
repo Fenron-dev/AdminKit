@@ -171,99 +171,145 @@
 
         <!-- ── SYSTEM ── -->
         <section class="tab-panel" id="tab-system">
-          <div class="panel-toolbar">
-            <h2>System-Informationen</h2>
-            <div class="toolbar-actions">
-              <input class="search-input" type="search" id="system-search" placeholder="Filtern (CPU, Dienste, Events…)" />
-              <button class="btn btn-primary" id="btn-scan-system">🔍 System scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-autostart">🚀 Autostart scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-services">⚙ Dienste scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-events">📋 Ereignisse scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-printers">🖨 Drucker scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-processes">🔄 Prozesse scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-users">👤 Benutzer scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-tasks">🗓 Aufgaben scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-profiles">🛡 Profile scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-usb">🔌 USB scannen</button>
+          <!-- ── Sidebar ── -->
+          <aside class="section-sidebar">
+            <div class="sidebar-search-row">
+              <input class="sidebar-search" type="search" id="system-search" placeholder="Suchen…" />
             </div>
-          </div>
-          <div class="info-sections">
-            <div class="info-section">
-              <h3 class="section-title">Hardware</h3>
-              <div class="info-grid" id="hw-info">
-                <div class="info-placeholder">Scan starten um Hardware-Daten zu laden…</div>
+            <nav class="sidebar-nav">
+              <button class="sidebar-scan-btn" id="btn-scan-system">🔍 System scannen</button>
+              <div class="sidebar-sep"></div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-hw">🖥 Hardware</a>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Betriebssystem</h3>
-              <div class="info-grid" id="os-info">
-                <div class="info-placeholder">Scan starten um OS-Daten zu laden…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-os">💻 Betriebssystem</a>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">SMART-Status</h3>
-              <div class="info-grid" id="smart-info">
-                <div class="info-placeholder">Scan starten um SMART-Daten zu laden…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-smart">💽 SMART</a>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Autostart-Einträge <span class="count-badge" id="autostart-count"></span></h3>
-              <div id="autostart-info">
-                <div class="info-placeholder">„Autostart scannen" klicken um alle Autostart-Quellen zu prüfen…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-security">🛡 Sicherheit</a>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Dienste <span class="count-badge" id="services-count"></span></h3>
-              <div id="services-info">
-                <div class="info-placeholder">„Dienste scannen" klicken um Dienste aufzulisten…</div>
+              <div class="sidebar-sep"></div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-autostart">🚀 Autostart</a>
+                <button class="sidebar-mini-scan" id="btn-scan-autostart" title="Autostart scannen">↺</button>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Systemereignisse (letzte 7 Tage) <span class="count-badge" id="events-count"></span></h3>
-              <div id="events-info">
-                <div class="info-placeholder">„Ereignisse scannen" klicken um kritische Ereignisse zu laden…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-services">⚙ Dienste</a>
+                <button class="sidebar-mini-scan" id="btn-scan-services" title="Dienste scannen">↺</button>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Drucker</h3>
-              <div id="printer-info">
-                <div class="info-placeholder">„Drucker scannen" klicken um Drucker aufzulisten…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-events">📋 Ereignisse</a>
+                <button class="sidebar-mini-scan" id="btn-scan-events" title="Ereignisse scannen">↺</button>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Sicherheit</h3>
-              <div id="security-info">
-                <div class="info-placeholder">System-Scan starten um Sicherheitsinformationen zu laden…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-printer">🖨 Drucker</a>
+                <button class="sidebar-mini-scan" id="btn-scan-printers" title="Drucker scannen">↺</button>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Laufende Prozesse <span class="count-badge" id="processes-count"></span></h3>
-              <div id="processes-info">
-                <div class="info-placeholder">„Prozesse scannen" klicken um laufende Prozesse aufzulisten…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-processes">🔄 Prozesse</a>
+                <button class="sidebar-mini-scan" id="btn-scan-processes" title="Prozesse scannen">↺</button>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Benutzerkonten <span class="count-badge" id="users-count"></span></h3>
-              <div id="users-info">
-                <div class="info-placeholder">„Benutzer scannen" klicken um lokale Konten zu laden…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-users">👤 Benutzer</a>
+                <button class="sidebar-mini-scan" id="btn-scan-users" title="Benutzer scannen">↺</button>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Geplante Aufgaben <span class="count-badge" id="tasks-count"></span></h3>
-              <div id="tasks-info">
-                <div class="info-placeholder">„Aufgaben scannen" klicken um geplante Aufgaben zu laden…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-tasks">🗓 Aufgaben</a>
+                <button class="sidebar-mini-scan" id="btn-scan-tasks" title="Aufgaben scannen">↺</button>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">Konfigurationsprofile <span class="count-badge" id="profiles-count"></span></h3>
-              <div id="profiles-info">
-                <div class="info-placeholder">„Profile scannen" klicken um Konfigurationsprofile zu laden…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-profiles">🛡 Profile</a>
+                <button class="sidebar-mini-scan" id="btn-scan-profiles" title="Profile scannen">↺</button>
               </div>
-            </div>
-            <div class="info-section">
-              <h3 class="section-title">USB-Geräte <span class="count-badge" id="usb-count"></span></h3>
-              <div id="usb-info">
-                <div class="info-placeholder">„USB scannen" klicken um angeschlossene Geräte zu laden…</div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-usb">🔌 USB</a>
+                <button class="sidebar-mini-scan" id="btn-scan-usb" title="USB scannen">↺</button>
+              </div>
+            </nav>
+          </aside>
+          <!-- ── Content ── -->
+          <div class="tab-content-area">
+            <div class="info-sections">
+              <div class="info-section" id="section-hw">
+                <h3 class="section-title">Hardware</h3>
+                <div class="info-grid" id="hw-info">
+                  <div class="info-placeholder">Scan starten um Hardware-Daten zu laden…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-os">
+                <h3 class="section-title">Betriebssystem</h3>
+                <div class="info-grid" id="os-info">
+                  <div class="info-placeholder">Scan starten um OS-Daten zu laden…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-smart">
+                <h3 class="section-title">SMART-Status</h3>
+                <div class="info-grid" id="smart-info">
+                  <div class="info-placeholder">Scan starten um SMART-Daten zu laden…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-autostart">
+                <h3 class="section-title">Autostart-Einträge <span class="count-badge" id="autostart-count"></span></h3>
+                <div id="autostart-info">
+                  <div class="info-placeholder">„Autostart scannen" klicken um alle Autostart-Quellen zu prüfen…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-services">
+                <h3 class="section-title">Dienste <span class="count-badge" id="services-count"></span></h3>
+                <div id="services-info">
+                  <div class="info-placeholder">„Dienste scannen" klicken um Dienste aufzulisten…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-events">
+                <h3 class="section-title">Systemereignisse (letzte 7 Tage) <span class="count-badge" id="events-count"></span></h3>
+                <div id="events-info">
+                  <div class="info-placeholder">„Ereignisse scannen" klicken um kritische Ereignisse zu laden…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-printer">
+                <h3 class="section-title">Drucker</h3>
+                <div id="printer-info">
+                  <div class="info-placeholder">„Drucker scannen" klicken um Drucker aufzulisten…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-security">
+                <h3 class="section-title">Sicherheit</h3>
+                <div id="security-info">
+                  <div class="info-placeholder">System-Scan starten um Sicherheitsinformationen zu laden…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-processes">
+                <h3 class="section-title">Laufende Prozesse <span class="count-badge" id="processes-count"></span></h3>
+                <div id="processes-info">
+                  <div class="info-placeholder">„Prozesse scannen" klicken um laufende Prozesse aufzulisten…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-users">
+                <h3 class="section-title">Benutzerkonten <span class="count-badge" id="users-count"></span></h3>
+                <div id="users-info">
+                  <div class="info-placeholder">„Benutzer scannen" klicken um lokale Konten zu laden…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-tasks">
+                <h3 class="section-title">Geplante Aufgaben <span class="count-badge" id="tasks-count"></span></h3>
+                <div id="tasks-info">
+                  <div class="info-placeholder">„Aufgaben scannen" klicken um geplante Aufgaben zu laden…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-profiles">
+                <h3 class="section-title">Konfigurationsprofile <span class="count-badge" id="profiles-count"></span></h3>
+                <div id="profiles-info">
+                  <div class="info-placeholder">„Profile scannen" klicken um Konfigurationsprofile zu laden…</div>
+                </div>
+              </div>
+              <div class="info-section" id="section-usb">
+                <h3 class="section-title">USB-Geräte <span class="count-badge" id="usb-count"></span></h3>
+                <div id="usb-info">
+                  <div class="info-placeholder">„USB scannen" klicken um angeschlossene Geräte zu laden…</div>
+                </div>
               </div>
             </div>
           </div>
@@ -271,27 +317,40 @@
 
         <!-- ── NETZWERK ── -->
         <section class="tab-panel" id="tab-network">
-          <div class="panel-toolbar">
-            <h2>Netzwerk-Informationen</h2>
-            <div class="toolbar-actions">
-              <button class="btn btn-secondary" id="btn-scan-connections">⚡ Verbindungen</button>
-              <button class="btn btn-primary" id="btn-scan-network">🔍 Netzwerk scannen</button>
-            </div>
-          </div>
+          <aside class="section-sidebar">
+            <nav class="sidebar-nav" style="padding-top:12px">
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-adapter">🌐 Netzwerkadapter</a>
+                <button class="sidebar-mini-scan" id="btn-scan-network" title="Netzwerk scannen">↺</button>
+              </div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-shares">📂 Netzlaufwerke</a>
+              </div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-wifi">📶 WiFi-Profile</a>
+              </div>
+              <div class="sidebar-sep"></div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="connections-section">⚡ Verbindungen</a>
+                <button class="sidebar-mini-scan" id="btn-scan-connections" title="Verbindungen laden">↺</button>
+              </div>
+            </nav>
+          </aside>
+          <div class="tab-content-area">
           <div class="info-sections">
-            <div class="info-section">
+            <div class="info-section" id="section-adapter">
               <h3 class="section-title">Netzwerkadapter</h3>
               <div class="info-grid" id="adapter-info">
                 <div class="info-placeholder">Scan starten um Netzwerkdaten zu laden…</div>
               </div>
             </div>
-            <div class="info-section">
+            <div class="info-section" id="section-shares">
               <h3 class="section-title">Netzlaufwerke</h3>
               <div class="info-grid" id="shares-info">
                 <div class="info-placeholder">Scan starten um Netzlaufwerke zu laden…</div>
               </div>
             </div>
-            <div class="info-section">
+            <div class="info-section" id="section-wifi">
               <h3 class="section-title">WiFi-Profile <span class="count-badge" id="wifi-count"></span></h3>
               <div class="info-grid" id="wifi-info">
                 <div class="info-placeholder">Scan starten um WiFi-Profile zu laden… <br><span style="font-size:11px;color:var(--color-text-muted)">Passwörter: „Netzwerk scannen" klicken (Einzel-Scan) — nicht beim Vollständigen Scan</span></div>
@@ -329,19 +388,33 @@
               </div>
             </div>
           </div>
+          </div><!-- /tab-content-area -->
         </section>
 
         <!-- ── SOFTWARE ── -->
         <section class="tab-panel" id="tab-software">
-          <div class="panel-toolbar">
-            <h2>Software-Inventarisierung <span class="count-badge" id="software-count"></span></h2>
-            <div class="toolbar-actions">
-              <input class="search-input" type="search" id="software-search" placeholder="Name oder Hersteller suchen…" />
-              <button class="btn btn-primary" id="btn-scan-software">🔍 Software scannen</button>
-              <button class="btn btn-secondary" id="btn-scan-extensions">🧩 Extensions scannen</button>
+          <aside class="section-sidebar">
+            <div class="sidebar-search-row">
+              <input class="sidebar-search" type="search" id="software-search" placeholder="Suchen…" />
+            </div>
+            <nav class="sidebar-nav">
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-software">📦 Programme</a>
+                <button class="sidebar-mini-scan" id="btn-scan-software" title="Software scannen">↺</button>
+              </div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-extensions">🧩 Extensions</a>
+                <button class="sidebar-mini-scan" id="btn-scan-extensions" title="Extensions scannen">↺</button>
+              </div>
+            </nav>
+          </aside>
+          <div class="tab-content-area">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <h2 style="font-size:15px;font-weight:600">Programme <span class="count-badge" id="software-count"></span></h2>
+          </div>
             </div>
           </div>
-          <div class="table-wrapper">
+          <div id="section-software" class="table-wrapper">
             <table class="data-table sortable-table" id="software-table">
               <thead>
                 <tr>
@@ -359,15 +432,14 @@
               </tbody>
             </table>
           </div>
-        </section>
-
           <!-- Browser-Extensions Sektion -->
-          <div class="info-section" style="margin-top:16px">
+          <div class="info-section" id="section-extensions" style="margin-top:16px">
             <h3 class="section-title">Browser-Erweiterungen <span class="count-badge" id="extensions-count"></span></h3>
             <div id="extensions-info">
               <div class="info-placeholder">„Extensions scannen" klicken um Browser-Erweiterungen zu laden…</div>
             </div>
           </div>
+          </div><!-- /tab-content-area -->
         </section>
 
         <!-- ── TOOLS ── -->

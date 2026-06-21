@@ -107,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initEventDetailModal();
   initQuickActions();
   initDiagnosticReport();
+  initSidebarNav();
   loadAppInfo();
 });
 
@@ -2446,50 +2447,54 @@ var SmartStatus = { OK: 'OK', WARNING: 'WARNING', CRITICAL: 'CRITICAL', UNKNOWN:
 
 function updateDashboardBadges(result) {
   if (result.os) {
-    setEl('info-hostname', result.os.name ?? '–');
-    setEl('info-os', `${result.os.name ?? ''} ${result.os.build ?? ''}`);
+    setEl('info-hostname', result.os.name || '–');
+    setEl('info-os', (result.os.name || '') + ' ' + (result.os.build || ''));
     if (result.os.last_boot_time) {
       setEl('info-uptime', calcUptime(result.os.last_boot_time));
     }
   }
 
   // Letzte Anmeldung: aktivierten, nicht-System-Benutzer mit neuester LastLogon
-  if (result.users?.length) {
-    const lastUser = result.users
-      .filter(u => u.is_enabled && u.last_logon && !u.last_logon.startsWith('0001'))
-      .sort((a, b) => new Date(b.last_logon) - new Date(a.last_logon))[0];
+  // var statt const — Terser-TDZ-Schutz
+  if (result.users && result.users.length) {
+    var lastUser = result.users
+      .filter(function(u) { return u.is_enabled && u.last_logon && !u.last_logon.startsWith('0001'); })
+      .sort(function(a, b) { return new Date(b.last_logon) - new Date(a.last_logon); })[0];
     if (lastUser) {
-      setEl('info-lastlogin', `${lastUser.name} (${formatDate(lastUser.last_logon)})`);
+      setEl('info-lastlogin', lastUser.name + ' (' + formatDate(lastUser.last_logon) + ')');
     }
   }
 
+  var hwName = result.hardware && result.hardware.cpu && result.hardware.cpu.name ? result.hardware.cpu.name : '';
   setBadge('badge-hardware', 'detail-hardware',
-    result.hardware?.cpu?.name ? SmartStatus.OK : SmartStatus.UNKNOWN,
-    result.hardware?.cpu?.name ?? 'Keine Daten'
+    hwName ? SmartStatus.OK : SmartStatus.UNKNOWN,
+    hwName || 'Keine Daten'
   );
 
+  var osName = result.os && result.os.name ? result.os.name : '';
   setBadge('badge-os', 'detail-os',
-    result.os?.name ? SmartStatus.OK : SmartStatus.UNKNOWN,
-    result.os?.name ?? 'Keine Daten'
+    osName ? SmartStatus.OK : SmartStatus.UNKNOWN,
+    osName || 'Keine Daten'
   );
 
-  if (result.smart?.length > 0) {
-    const worst = result.smart.reduce((acc, d) => {
-      const order = { CRITICAL: 3, WARNING: 2, UNKNOWN: 1, OK: 0 };
-      return (order[d.status] ?? 0) > (order[acc.status] ?? 0) ? d : acc;
+  if (result.smart && result.smart.length > 0) {
+    var worst = result.smart.reduce(function(acc, d) {
+      var order = { CRITICAL: 3, WARNING: 2, UNKNOWN: 1, OK: 0 };
+      return ((order[d.status] || 0) > (order[acc.status] || 0)) ? d : acc;
     }, result.smart[0]);
-    setBadge('badge-smart', 'detail-smart', worst.status, `${result.smart.length} Disk(s) — schlechtester: ${worst.status}`);
+    setBadge('badge-smart', 'detail-smart', worst.status, result.smart.length + ' Disk(s) — schlechtester: ' + worst.status);
   }
 }
 
 function setBadge(badgeId, detailId, status, detail) {
-  const badge = document.getElementById(badgeId);
-  if (!badge) return;
-  const classMap = { OK: 'badge-ok', WARNING: 'badge-warning', CRITICAL: 'badge-error', UNKNOWN: 'badge-unknown' };
-  const icons = { OK: '🟢 OK', WARNING: '🟡 Warnung', CRITICAL: '🔴 Kritisch', UNKNOWN: '⚪ Unbekannt' };
-  badge.className = `status-badge ${classMap[status] ?? 'badge-unknown'}`;
-  badge.textContent = icons[status] ?? '⚪';
-  setEl(detailId, detail ?? '');
+  var badge = document.getElementById(badgeId);
+  if (badge) {
+    var classMap = { OK: 'badge-ok', WARNING: 'badge-warning', CRITICAL: 'badge-error', UNKNOWN: 'badge-unknown' };
+    var icons = { OK: '🟢 OK', WARNING: '🟡 Warnung', CRITICAL: '🔴 Kritisch', UNKNOWN: '⚪ Unbekannt' };
+    badge.className = 'status-badge ' + (classMap[status] || 'badge-unknown');
+    badge.textContent = icons[status] || '⚪';
+    setEl(detailId, detail != null ? detail : '');
+  }
 }
 
 // ─── Session-Modal ────────────────────────────────────────────────────────────
@@ -3878,18 +3883,16 @@ function showScanSummary() {
     if (allOk) ok.push({ text: 'Speicherplatz: alle Volumes unkritisch' });
   }
 
-  // Systemereignisse — mit Jump-Metadaten
+  // Systemereignisse — nur risk_score-basiert, damit Summary mit Events-Ansicht übereinstimmt
+  // Events-Ansicht zeigt ebenfalls nur risk_score >= 20, daher keine macOS-Level-Zählung
   if (evtRes?.events?.length > 0) {
-    const riskEvts  = evtRes.events.filter(e => (e.risk_score || 0) >= 20);
-    const critEvts  = evtRes.events.filter(e => e.level === 'Kritisch');
-    const errorEvts = evtRes.events.filter(e => e.level === 'Fehler');
-    if (critEvts.length > 0)
-      critical.push({ text: `⚠ ${critEvts.length} kritische Systemereignisse (letzte 7 Tage)`,   tab: 'system', target: 'events-info' });
-    if (riskEvts.length > 0 && critEvts.length === 0)
-      warnings.push({ text: `⚠ ${riskEvts.length} risikorelevante Ereignisse im Log`,             tab: 'system', target: 'events-info' });
-    else if (errorEvts.length > 0 && critEvts.length === 0)
-      warnings.push({ text: `⚠ ${errorEvts.length} Fehler-Ereignisse im Ereignislog`,             tab: 'system', target: 'events-info' });
-    if (critEvts.length === 0 && riskEvts.length === 0 && errorEvts.length === 0)
+    const highRiskEvts = evtRes.events.filter(e => (e.risk_score || 0) >= 60);
+    const medRiskEvts  = evtRes.events.filter(e => (e.risk_score || 0) >= 20 && (e.risk_score || 0) < 60);
+    if (highRiskEvts.length > 0)
+      critical.push({ text: `⚠ ${highRiskEvts.length} hochriskante Systemereignisse (Score ≥ 60)`, tab: 'system', target: 'events-info' });
+    if (medRiskEvts.length > 0)
+      warnings.push({ text: `⚠ ${highRiskEvts.length + medRiskEvts.length} risikorelevante Ereignisse im Log`, tab: 'system', target: 'events-info' });
+    if (highRiskEvts.length === 0 && medRiskEvts.length === 0)
       ok.push({ text: 'Ereignis-Log: keine risikorelevanten Ereignisse' });
   } else if (evtRes) {
     ok.push({ text: 'Ereignis-Log: keine kritischen Ereignisse' });
@@ -4374,6 +4377,53 @@ function isoToGoTime(iso) {
 }
 
 // ─── Dashboard-Karten Navigation ──────────────────────────────────────────────
+
+function initSidebarNav() {
+  document.querySelectorAll('.sidebar-link[data-target]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      var sectionId = link.dataset.target;
+      var section = document.getElementById(sectionId);
+      if (!section) return;
+      // Sektion aufklappen falls zugeklappt
+      if (section.classList.contains('collapsed')) {
+        section.classList.remove('collapsed');
+      }
+      // Innerhalb des nächsten .tab-content-area scrollt
+      var area = section.closest('.tab-content-area');
+      if (area) {
+        var top = section.offsetTop - area.offsetTop - 8;
+        area.scrollTo({ top: top < 0 ? 0 : top, behavior: 'smooth' });
+      } else {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      // Aktiven Link markieren
+      var sidebar = link.closest('.section-sidebar');
+      if (sidebar) {
+        sidebar.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('sidebar-active'); });
+        link.classList.add('sidebar-active');
+      }
+    });
+  });
+
+  // Scroll-Spy: aktiven Abschnitt in der Sidebar hervorheben
+  document.querySelectorAll('.tab-content-area').forEach(function(area) {
+    area.addEventListener('scroll', function() {
+      var sections = area.querySelectorAll('.info-section[id], div[id].table-wrapper');
+      var sidebar = area.closest('.tab-panel')?.querySelector('.section-sidebar');
+      if (!sidebar) return;
+      var areaTop = area.scrollTop;
+      var active = null;
+      sections.forEach(function(sec) {
+        if (sec.offsetTop - area.offsetTop <= areaTop + 40) active = sec.id;
+      });
+      if (active) {
+        sidebar.querySelectorAll('.sidebar-link').forEach(function(l) {
+          l.classList.toggle('sidebar-active', l.dataset.target === active);
+        });
+      }
+    }, { passive: true });
+  });
+}
 
 function initDashboardCardNav() {
   document.querySelectorAll('.card-nav[data-nav-tab]').forEach(card => {
