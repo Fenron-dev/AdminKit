@@ -45,18 +45,19 @@ func Scan() (*ScanResult, error) {
 // ─── Hardware (system_profiler JSON) ─────────────────────────────────────────
 
 // spHardware ist die JSON-Struktur von `system_profiler SPHardwareDataType -json`.
+// HINWEIS: number_processors und packages werden NICHT als Felder deklariert, da macOS 26
+// auf Apple Silicon diese als String ("proc 10:4:6") statt Integer zurückgibt und
+// json.Unmarshal dann fehlschlägt. Kern-Anzahl kommt stattdessen per sysctl.
 type spHardware struct {
 	SPHardwareDataType []struct {
-		ModelIdentifier   string `json:"machine_model"`
-		ModelName         string `json:"machine_name"`
-		ChipType          string `json:"chip_type"`          // Apple Silicon: "Apple M3 Pro"
-		CPUType           string `json:"cpu_type"`           // Intel/fallback: Prozessortyp
-		CPUSpeed          string `json:"current_processor_speed"`
-		NumCPUs           int    `json:"number_processors"`
-		NumCores          int    `json:"packages"`
-		PhysMemory        string `json:"physical_memory"`
-		SerialNumber      string `json:"serial_number"`
-		HardwareUUID      string `json:"platform_UUID"`
+		ModelIdentifier string `json:"machine_model"`
+		ModelName       string `json:"machine_name"`
+		ChipType        string `json:"chip_type"`               // Apple Silicon: "Apple M4 Pro"
+		CPUType         string `json:"cpu_type"`                // Intel/fallback
+		CPUSpeed        string `json:"current_processor_speed"`
+		PhysMemory      string `json:"physical_memory"`
+		SerialNumber    string `json:"serial_number"`
+		HardwareUUID    string `json:"platform_UUID"`
 	} `json:"SPHardwareDataType"`
 }
 
@@ -87,6 +88,14 @@ func scanHardware() (HardwareInfo, []ScanError) {
 	var errs []ScanError
 
 	// CPU und allgemeine Hardware
+	// sysctl-Werte sind immer zuverlässig — unabhängig vom JSON-Ergebnis
+	cpuName, _ := sysctl("machdep.cpu.brand_string")
+	physCores, _ := sysctlInt("hw.physicalcpu")
+	logCores, _ := sysctlInt("hw.logicalcpu")
+	cpuFreqHz, _ := sysctlInt64("hw.cpufrequency")
+	totalBytes, _ := sysctlInt64("hw.memsize")
+	hw.TotalRAMGB = math.Round(float64(totalBytes)/(1024*1024*1024)*10) / 10
+
 	out, err := exec.Command("system_profiler", "SPHardwareDataType", "-json").Output()
 	if err != nil {
 		errs = append(errs, ScanError{"hardware", fmt.Sprintf("system_profiler fehlgeschlagen: %v", err)})
@@ -95,65 +104,64 @@ func scanHardware() (HardwareInfo, []ScanError) {
 		if jsonErr := json.Unmarshal(out, &data); jsonErr == nil && len(data.SPHardwareDataType) > 0 {
 			d := data.SPHardwareDataType[0]
 
-			// CPU via sysctl (Intel) oder chip_type (Apple Silicon)
-			cpuName, _ := sysctl("machdep.cpu.brand_string")
-			physCores, _ := sysctlInt("hw.physicalcpu")
-			logCores, _ := sysctlInt("hw.logicalcpu")
-			cpuFreqHz, _ := sysctlInt64("hw.cpufrequency")
-
+			// CPU-Name: Intel via sysctl bereits gesetzt; Apple Silicon aus JSON chip_type
 			if cpuName == "" {
-				cpuName = d.ChipType // Apple Silicon JSON: "chip_type"
+				cpuName = d.ChipType
 			}
 			if cpuName == "" {
-				cpuName = d.CPUType // generischer Fallback
-			}
-			// Fallback: Text-Ausgabe parsen (robuster bei macOS-Updates)
-			if cpuName == "" {
-				if txtOut, txtErr := exec.Command("system_profiler", "SPHardwareDataType").Output(); txtErr == nil {
-					for _, line := range strings.Split(string(txtOut), "\n") {
-						line = strings.TrimSpace(line)
-						for _, prefix := range []string{"Chip:", "Processor Name:", "Chip Name:"} {
-							if strings.HasPrefix(line, prefix) {
-								cpuName = strings.TrimSpace(strings.TrimPrefix(line, prefix))
-								break
-							}
-						}
-						if cpuName != "" {
-							break
-						}
-					}
-				}
+				cpuName = d.CPUType
 			}
 
-			arch := "x64"
-			if strings.Contains(strings.ToLower(cpuName), "apple") || runtime.GOARCH == "arm64" {
-				arch = "ARM64"
-			}
-
-			speedMHz := uint32(0)
-			if cpuFreqHz > 0 {
-				speedMHz = uint32(cpuFreqHz / 1_000_000)
-			}
-
-			hw.CPU = CPUInfo{
-				Name:         strings.TrimSpace(cpuName),
-				Cores:        physCores,
-				Threads:      logCores,
-				SpeedMHz:     speedMHz,
-				Architecture: arch,
-			}
-
-			// Modell als Mainboard-Info
 			hw.Motherboard = MotherboardInfo{
 				Manufacturer: "Apple Inc.",
 				Product:      d.ModelName + " (" + d.ModelIdentifier + ")",
 				SerialNumber: d.SerialNumber,
 			}
-
-			// Gesamter RAM via sysctl
-			totalBytes, _ := sysctlInt64("hw.memsize")
-			hw.TotalRAMGB = math.Round(float64(totalBytes)/(1024*1024*1024)*10) / 10
 		}
+	}
+
+	// Fallback: Text-Ausgabe parsen wenn CPU-Name oder Mainboard noch fehlen
+	if cpuName == "" || hw.Motherboard.Product == "" {
+		if txtOut, txtErr := exec.Command("system_profiler", "SPHardwareDataType").Output(); txtErr == nil {
+			for _, line := range strings.Split(string(txtOut), "\n") {
+				line = strings.TrimSpace(line)
+				if cpuName == "" {
+					for _, prefix := range []string{"Chip:", "Processor Name:", "Chip Name:"} {
+						if strings.HasPrefix(line, prefix) {
+							cpuName = strings.TrimSpace(strings.TrimPrefix(line, prefix))
+							break
+						}
+					}
+				}
+				if hw.Motherboard.Product == "" {
+					for _, prefix := range []string{"Model Name:", "Model Identifier:"} {
+						if strings.HasPrefix(line, prefix) {
+							hw.Motherboard.Manufacturer = "Apple Inc."
+							hw.Motherboard.Product = strings.TrimSpace(strings.TrimPrefix(line, prefix))
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
+	arch := "x64"
+	if strings.Contains(strings.ToLower(cpuName), "apple") || runtime.GOARCH == "arm64" {
+		arch = "ARM64"
+	}
+
+	speedMHz := uint32(0)
+	if cpuFreqHz > 0 {
+		speedMHz = uint32(cpuFreqHz / 1_000_000)
+	}
+
+	hw.CPU = CPUInfo{
+		Name:         strings.TrimSpace(cpuName),
+		Cores:        physCores,
+		Threads:      logCores,
+		SpeedMHz:     speedMHz,
+		Architecture: arch,
 	}
 
 	// RAM-Module

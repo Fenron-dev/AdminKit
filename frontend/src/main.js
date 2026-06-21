@@ -219,9 +219,6 @@ async function loadAppInfo() {
     if (!state.currentSession) {
       openStartupSessionModal();
     }
-
-    // Prozesse sofort beim Start scannen (schnell, kein Full-Scan)
-    runProcessScan();
   } catch (err) {
     console.warn('Wails-Backend nicht verfügbar (Dev-Modus):', err);
     setEl('app-version', 'v1.0.0-dev');
@@ -292,6 +289,7 @@ const FULLSCAN_STEPS = [
   ['System',              () => runSystemScan()],
   ['Autostart',          () => runAutostartScan()],
   ['Dienste',            () => runServicesScan()],
+  ['Prozesse',           () => runProcessScan()],
   ['Ereignisse',         () => runEventsScan()],
   ['Drucker',            () => runPrinterScan()],
   ['Netzwerk',           () => runNetworkScanBasic()],
