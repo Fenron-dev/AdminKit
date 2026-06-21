@@ -9,3 +9,7 @@ func RunFix(fixID string) Result {
 func RunQuickAction(actionID string) Result {
 	return Result{Action: actionID, Output: "Nicht unterstützt auf diesem Betriebssystem.", Success: false}
 }
+
+func GetCleanupSizes() map[string]string {
+	return map[string]string{"tmp": "–", "caches": "–", "trash": "–"}
+}

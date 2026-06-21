@@ -7,6 +7,25 @@ import (
 	"strings"
 )
 
+// GetCleanupSizes gibt die aktuellen Größen der bereinigbaren Temp-Ordner zurück.
+func GetCleanupSizes() map[string]string {
+	sizes := map[string]string{}
+	cmds := []struct{ key, shell string }{
+		{"tmp", `powershell -NoProfile -Command "(Get-ChildItem $env:TEMP -Recurse -ErrorAction SilentlyContinue | Measure-Object -Sum Length).Sum / 1MB | ForEach-Object { '{0:N1} MB' -f $_ }"`},
+		{"trash", `powershell -NoProfile -Command "try { (New-Object -ComObject Shell.Application).NameSpace(0xA).Items() | Measure-Object -Sum Size | ForEach-Object { '{0:N1} MB' -f ($_.Sum/1MB) } } catch { '–' }"`},
+	}
+	for _, c := range cmds {
+		out, err := exec.Command("cmd", "/C", c.shell).Output()
+		if err == nil && len(strings.TrimSpace(string(out))) > 0 {
+			sizes[c.key] = strings.TrimSpace(string(out))
+		} else {
+			sizes[c.key] = "–"
+		}
+	}
+	sizes["caches"] = "–"
+	return sizes
+}
+
 // RunFix führt einen Fix anhand der Fix-ID aus.
 func RunFix(fixID string) Result {
 	switch fixID {

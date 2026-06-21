@@ -250,6 +250,11 @@ export function ToggleAutostartEntry(arg1, arg2) {
     return window['go']['main']['App']['ToggleAutostartEntry'](arg1, arg2);
 }
 
+// ── Cleanup-Größen ──
+export function GetCleanupSizes() {
+    return window['go']['main']['App']['GetCleanupSizes']();
+}
+
 // ── Health Score ──
 export function GetHealthScore() {
     return window['go']['main']['App']['GetHealthScore']();

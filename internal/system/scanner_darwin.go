@@ -101,10 +101,27 @@ func scanHardware() (HardwareInfo, []ScanError) {
 			cpuFreqHz, _ := sysctlInt64("hw.cpufrequency")
 
 			if cpuName == "" {
-				cpuName = d.ChipType // Apple Silicon: "Apple M3 Pro"
+				cpuName = d.ChipType // Apple Silicon JSON: "chip_type"
 			}
 			if cpuName == "" {
 				cpuName = d.CPUType // generischer Fallback
+			}
+			// Fallback: Text-Ausgabe parsen (robuster bei macOS-Updates)
+			if cpuName == "" {
+				if txtOut, txtErr := exec.Command("system_profiler", "SPHardwareDataType").Output(); txtErr == nil {
+					for _, line := range strings.Split(string(txtOut), "\n") {
+						line = strings.TrimSpace(line)
+						for _, prefix := range []string{"Chip:", "Processor Name:", "Chip Name:"} {
+							if strings.HasPrefix(line, prefix) {
+								cpuName = strings.TrimSpace(strings.TrimPrefix(line, prefix))
+								break
+							}
+						}
+						if cpuName != "" {
+							break
+						}
+					}
+				}
 			}
 
 			arch := "x64"

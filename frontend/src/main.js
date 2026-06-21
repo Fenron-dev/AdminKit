@@ -47,6 +47,7 @@ import {
   GetDiagnosticReport,
   EjectUSBDevice,
   ToggleAutostartEntry,
+  GetCleanupSizes,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -472,7 +473,17 @@ function initQuickActions() {
   actions.forEach(([btnId, actionId, label]) => {
     document.getElementById(btnId)?.addEventListener('click', async () => {
       // Bestätigung einholen
-      const conf = QUICK_ACTION_CONFIRM[actionId] || { title: label + ' ausführen?', what: '', impact: '' };
+      var conf = Object.assign({}, QUICK_ACTION_CONFIRM[actionId] || { title: label + ' ausführen?', what: '', impact: '' });
+      // Für Schnellbereinigung: aktuelle Größen vorab anzeigen
+      if (actionId === 'quick_clean') {
+        try {
+          const sizes = await GetCleanupSizes();
+          conf.what = conf.what + '\n\nAktuelle Größen:\n' +
+            '• /tmp: ' + (sizes['tmp'] || '–') + '\n' +
+            '• ~/Library/Caches: ' + (sizes['caches'] || '–') + '\n' +
+            '• Papierkorb: ' + (sizes['trash'] || '–');
+        } catch (_) {}
+      }
       const ok = await showConfirm(conf);
       if (!ok) return;
 
@@ -903,9 +914,9 @@ function renderAutostart(entries) {
       const sys = e.is_system ? '✓' : '<span class="text-warning">⚠ Drittanbieter</span>';
       const active = e.is_enabled ? '✓' : '<span class="text-muted">–</span>';
       const cbId = `autostart:${e.name}:${e.path || ''}`;
-      const canToggle = !e.is_system && e.path && (e.path.endsWith('.plist'));
+      const canToggle = !e.is_system && e.plist_path;
       const toggleBtn = canToggle
-        ? `<button class="btn-action btn-autostart-toggle" data-path="${escapeHtml(e.path)}" data-name="${escapeHtml(e.name)}" data-enabled="${e.is_enabled ? '1' : '0'}" title="${e.is_enabled ? 'Deaktivieren' : 'Aktivieren'}">${e.is_enabled ? '⏸' : '▶'}</button>`
+        ? `<button class="btn-action btn-autostart-toggle" data-path="${escapeHtml(e.plist_path)}" data-name="${escapeHtml(e.name)}" data-enabled="${e.is_enabled ? '1' : '0'}" title="${e.is_enabled ? 'Deaktivieren' : 'Aktivieren'}">${e.is_enabled ? '⏸' : '▶'}</button>`
         : '';
       tr.innerHTML = `
         <td class="cb-col"><input type="checkbox" class="item-check" data-id="${escapeHtml(cbId)}" data-name="${escapeHtml(e.name)}" data-path="${escapeHtml(e.path || '')}" data-type="autostart"></td>
@@ -2912,7 +2923,7 @@ function initToolsTab() {
 
 // ─── Werkzeug-Definitionen (plattformübergreifend, Labels OS-spezifisch) ──────
 
-const CONSOLE_TOOL_DEFS = [
+var CONSOLE_TOOL_DEFS = [
   { value: 'ping',       mac: 'Ping',                  win: 'Ping',                  placeholder: 'Hostname oder IP (z.B. google.com)' },
   { value: 'traceroute', mac: 'Traceroute',             win: 'Tracert',               placeholder: 'Hostname oder IP (z.B. 8.8.8.8)' },
   { value: 'dns',        mac: 'DNS-Lookup',             win: 'DNS-Lookup',            placeholder: 'Hostname (z.B. example.com)' },
@@ -2929,7 +2940,7 @@ const CONSOLE_TOOL_DEFS = [
   { value: 'drivers',    mac: 'Kernel-Extensions',      win: 'Treiber (driverquery)', placeholder: '(kein Ziel nötig)' },
 ];
 
-const CONSOLE_PRESETS = {
+var CONSOLE_PRESETS = {
   ping:       ['google.com', '8.8.8.8', '1.1.1.1', 'cloudflare.com', 'microsoft.com'],
   traceroute: ['google.com', '8.8.8.8', '1.1.1.1'],
   dns:        ['google.com', 'github.com', 'microsoft.com', 'apple.com'],
@@ -2937,7 +2948,7 @@ const CONSOLE_PRESETS = {
   curl:       ['https://api.ipify.org', 'https://ifconfig.me/ip', 'https://httpbin.org/ip', 'https://httpbin.org/get'],
 };
 
-const TOOL_INFO = {
+var TOOL_INFO = {
   ping: {
     desc: 'Sendet 4 ICMP-Pakete an einen Host und misst die Antwortzeit (Latenz). Zeigt individuelle Paket-Antworten und eine Statistik am Ende.',
     example: `PING google.com (142.250.185.78): 56 data bytes
@@ -4642,83 +4653,81 @@ function initDashboardCardNav() {
 
 // ─── Wiki-Tab ─────────────────────────────────────────────────────────────────
 
-var WIKI_DATA = [
-  // macOS Befehle
-  { os: 'macos', cat: 'Netzwerk',    title: 'Ping',                cmd: 'ping -c 4 google.com',                       desc: 'Erreichbarkeit eines Hosts prüfen (4 Pakete)' },
-  { os: 'macos', cat: 'Netzwerk',    title: 'Traceroute',          cmd: 'traceroute google.com',                      desc: 'Netzwerkpfad zum Ziel anzeigen' },
-  { os: 'macos', cat: 'Netzwerk',    title: 'DNS-Lookup',          cmd: 'nslookup google.com',                        desc: 'DNS-Auflösung eines Hostnamens' },
-  { os: 'macos', cat: 'Netzwerk',    title: 'Netzwerkadapter',     cmd: 'ifconfig',                                   desc: 'Alle Netzwerkinterfaces und IP-Adressen' },
-  { os: 'macos', cat: 'Netzwerk',    title: 'Offene Ports',        cmd: 'sudo lsof -iTCP -sTCP:LISTEN -n -P',        desc: 'Alle lauschenden TCP-Ports' },
-  { os: 'macos', cat: 'Netzwerk',    title: 'DNS-Cache leeren',    cmd: 'sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder', desc: 'macOS DNS-Cache zurücksetzen' },
-  { os: 'macos', cat: 'Netzwerk',    title: 'ARP-Tabelle',         cmd: 'arp -a',                                     desc: 'MAC-Adressen im lokalen Netzwerk' },
-  { os: 'macos', cat: 'Netzwerk',    title: 'Aktive Verbindungen', cmd: 'netstat -an | grep ESTABLISHED',             desc: 'Aktive TCP-Verbindungen' },
-
-  { os: 'macos', cat: 'System',      title: 'Systeminformation',   cmd: 'system_profiler SPHardwareDataType',         desc: 'Hardware-Übersicht (CPU, RAM, Seriennummer)' },
-  { os: 'macos', cat: 'System',      title: 'macOS-Version',       cmd: 'sw_vers',                                    desc: 'Produktname, Version und Build-Nummer' },
-  { os: 'macos', cat: 'System',      title: 'Uptime',              cmd: 'uptime',                                     desc: 'Systemlaufzeit und Durchschnittslast' },
-  { os: 'macos', cat: 'System',      title: 'Laufende Prozesse',   cmd: 'ps aux | head -20',                          desc: 'Top-20 laufende Prozesse' },
-  { os: 'macos', cat: 'System',      title: 'Festplatten',         cmd: 'diskutil list',                              desc: 'Alle Datenträger und Partitionen' },
-  { os: 'macos', cat: 'System',      title: 'Speicherplatz',       cmd: 'df -h',                                      desc: 'Belegter und freier Speicherplatz' },
-  { os: 'macos', cat: 'System',      title: 'RAM-Nutzung',         cmd: 'vm_stat',                                    desc: 'Virtueller Speicher Statistik' },
-  { os: 'macos', cat: 'System',      title: 'Kernel-Version',      cmd: 'uname -a',                                   desc: 'Kernel-Version und Architektur' },
-  { os: 'macos', cat: 'System',      title: 'FileVault-Status',    cmd: 'fdesetup status',                            desc: 'Festplattenverschlüsselung Status' },
-  { os: 'macos', cat: 'System',      title: 'SIP-Status',          cmd: 'csrutil status',                             desc: 'System Integrity Protection Status' },
-
-  { os: 'macos', cat: 'Benutzer',    title: 'Aktueller Benutzer',  cmd: 'whoami',                                     desc: 'Angemeldeter Benutzername' },
-  { os: 'macos', cat: 'Benutzer',    title: 'Alle Benutzer',       cmd: 'dscl . -list /Users',                        desc: 'Alle lokalen Benutzerkonten' },
-  { os: 'macos', cat: 'Benutzer',    title: 'Admin-Gruppe',        cmd: 'dscl . -read /Groups/admin GroupMembership', desc: 'Mitglieder der Admin-Gruppe' },
-  { os: 'macos', cat: 'Benutzer',    title: 'Login-Items',         cmd: 'osascript -e \'tell application "System Events" to get the name of every login item\'', desc: 'Autostart-Programme (Login-Objekte)' },
-
-  { os: 'macos', cat: 'LaunchCtl',   title: 'Dienste auflisten',   cmd: 'launchctl list | grep -v "com.apple"',       desc: 'Drittanbieter-LaunchAgents' },
-  { os: 'macos', cat: 'LaunchCtl',   title: 'Dienst starten',      cmd: 'launchctl load -w ~/Library/LaunchAgents/com.example.service.plist', desc: 'LaunchAgent aktivieren' },
-  { os: 'macos', cat: 'LaunchCtl',   title: 'Dienst stoppen',      cmd: 'launchctl unload -w ~/Library/LaunchAgents/com.example.service.plist', desc: 'LaunchAgent deaktivieren' },
-
-  { os: 'macos', cat: 'Shortcuts',   title: 'Aktivitätsanzeige',   cmd: '⌘ Space → Aktivitätsanzeige',               desc: 'CPU, RAM, Netzwerk, Energie überwachen' },
-  { os: 'macos', cat: 'Shortcuts',   title: 'Force Quit',          cmd: '⌥ ⌘ Escape',                                desc: 'Nicht reagierende App sofort beenden' },
-  { os: 'macos', cat: 'Shortcuts',   title: 'Screenshot',          cmd: '⌘ ⇧ 4',                                     desc: 'Bereichs-Screenshot (in Zwischenablage: + Ctrl)' },
-  { os: 'macos', cat: 'Shortcuts',   title: 'Spotlight',           cmd: '⌘ Space',                                    desc: 'Suche, Apps starten, Berechnungen' },
-  { os: 'macos', cat: 'Shortcuts',   title: 'Mission Control',     cmd: '⌃ ↑',                                       desc: 'Alle offenen Fenster Übersicht' },
-
-  // Windows Befehle
-  { os: 'windows', cat: 'Netzwerk',  title: 'Ping',                cmd: 'ping -n 4 google.com',                       desc: 'Erreichbarkeit prüfen (4 Pakete)' },
-  { os: 'windows', cat: 'Netzwerk',  title: 'Traceroute',          cmd: 'tracert google.com',                         desc: 'Netzwerkpfad anzeigen' },
-  { os: 'windows', cat: 'Netzwerk',  title: 'DNS-Lookup',          cmd: 'nslookup google.com',                        desc: 'DNS-Auflösung' },
-  { os: 'windows', cat: 'Netzwerk',  title: 'Netzwerkadapter',     cmd: 'ipconfig /all',                              desc: 'Alle Netzwerkinterfaces' },
-  { os: 'windows', cat: 'Netzwerk',  title: 'DNS-Cache leeren',    cmd: 'ipconfig /flushdns',                         desc: 'DNS-Cache zurücksetzen' },
-  { os: 'windows', cat: 'Netzwerk',  title: 'Offene Verbindungen', cmd: 'netstat -an',                                desc: 'Aktive Ports und Verbindungen' },
-
-  { os: 'windows', cat: 'System',    title: 'Systeminfo',          cmd: 'systeminfo',                                 desc: 'Hardware, OS und Patch-Level' },
-  { os: 'windows', cat: 'System',    title: 'Windows-Version',     cmd: 'winver',                                     desc: 'Windows-Version anzeigen' },
-  { os: 'windows', cat: 'System',    title: 'Laufende Prozesse',   cmd: 'tasklist',                                   desc: 'Alle laufenden Prozesse' },
-  { os: 'windows', cat: 'System',    title: 'Prozess beenden',     cmd: 'taskkill /PID <PID> /F',                     desc: 'Prozess per PID beenden' },
-  { os: 'windows', cat: 'System',    title: 'Festplatten',         cmd: 'diskpart → list disk',                       desc: 'Alle Datenträger auflisten' },
-  { os: 'windows', cat: 'System',    title: 'Speicherplatz',       cmd: 'dir C:\\ /s',                                desc: 'Speicherbelegung C-Laufwerk' },
-  { os: 'windows', cat: 'System',    title: 'BitLocker-Status',    cmd: 'manage-bde -status',                         desc: 'Verschlüsselungsstatus aller Laufwerke' },
-
-  { os: 'windows', cat: 'Shortcuts', title: 'Task-Manager',        cmd: 'Ctrl + Shift + Esc',                         desc: 'Prozesse, CPU, RAM überwachen' },
-  { os: 'windows', cat: 'Shortcuts', title: 'Ausführen',           cmd: 'Win + R',                                    desc: 'Programme, Pfade, Befehle starten' },
-  { os: 'windows', cat: 'Shortcuts', title: 'Geräte-Manager',      cmd: 'Win + X → M',                               desc: 'Hardware-Treiber verwalten' },
-  { os: 'windows', cat: 'Shortcuts', title: 'Ereignisanzeige',     cmd: 'Win + R → eventvwr',                        desc: 'Windows Ereignisprotokoll' },
-];
-
 function initWikiTab() {
-  renderWiki('macos', '');
+  // WIKI_DATA ist lokal definiert um Terser-TDZ-Probleme zu vermeiden
+  var wikiData = [
+    // macOS Befehle
+    { os: 'macos', cat: 'Netzwerk',    title: 'Ping',                cmd: 'ping -c 4 google.com',                       desc: 'Erreichbarkeit eines Hosts prüfen (4 Pakete)' },
+    { os: 'macos', cat: 'Netzwerk',    title: 'Traceroute',          cmd: 'traceroute google.com',                      desc: 'Netzwerkpfad zum Ziel anzeigen' },
+    { os: 'macos', cat: 'Netzwerk',    title: 'DNS-Lookup',          cmd: 'nslookup google.com',                        desc: 'DNS-Auflösung eines Hostnamens' },
+    { os: 'macos', cat: 'Netzwerk',    title: 'Netzwerkadapter',     cmd: 'ifconfig',                                   desc: 'Alle Netzwerkinterfaces und IP-Adressen' },
+    { os: 'macos', cat: 'Netzwerk',    title: 'Offene Ports',        cmd: 'sudo lsof -iTCP -sTCP:LISTEN -n -P',        desc: 'Alle lauschenden TCP-Ports' },
+    { os: 'macos', cat: 'Netzwerk',    title: 'DNS-Cache leeren',    cmd: 'sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder', desc: 'macOS DNS-Cache zurücksetzen' },
+    { os: 'macos', cat: 'Netzwerk',    title: 'ARP-Tabelle',         cmd: 'arp -a',                                     desc: 'MAC-Adressen im lokalen Netzwerk' },
+    { os: 'macos', cat: 'Netzwerk',    title: 'Aktive Verbindungen', cmd: 'netstat -an | grep ESTABLISHED',             desc: 'Aktive TCP-Verbindungen' },
+    { os: 'macos', cat: 'System',      title: 'Systeminformation',   cmd: 'system_profiler SPHardwareDataType',         desc: 'Hardware-Übersicht (CPU, RAM, Seriennummer)' },
+    { os: 'macos', cat: 'System',      title: 'macOS-Version',       cmd: 'sw_vers',                                    desc: 'Produktname, Version und Build-Nummer' },
+    { os: 'macos', cat: 'System',      title: 'Uptime',              cmd: 'uptime',                                     desc: 'Systemlaufzeit und Durchschnittslast' },
+    { os: 'macos', cat: 'System',      title: 'Laufende Prozesse',   cmd: 'ps aux | head -20',                          desc: 'Top-20 laufende Prozesse' },
+    { os: 'macos', cat: 'System',      title: 'Festplatten',         cmd: 'diskutil list',                              desc: 'Alle Datenträger und Partitionen' },
+    { os: 'macos', cat: 'System',      title: 'Speicherplatz',       cmd: 'df -h',                                      desc: 'Belegter und freier Speicherplatz' },
+    { os: 'macos', cat: 'System',      title: 'RAM-Nutzung',         cmd: 'vm_stat',                                    desc: 'Virtueller Speicher Statistik' },
+    { os: 'macos', cat: 'System',      title: 'Kernel-Version',      cmd: 'uname -a',                                   desc: 'Kernel-Version und Architektur' },
+    { os: 'macos', cat: 'System',      title: 'FileVault-Status',    cmd: 'fdesetup status',                            desc: 'Festplattenverschlüsselung Status' },
+    { os: 'macos', cat: 'System',      title: 'SIP-Status',          cmd: 'csrutil status',                             desc: 'System Integrity Protection Status' },
+    { os: 'macos', cat: 'Benutzer',    title: 'Aktueller Benutzer',  cmd: 'whoami',                                     desc: 'Angemeldeter Benutzername' },
+    { os: 'macos', cat: 'Benutzer',    title: 'Alle Benutzer',       cmd: 'dscl . -list /Users',                        desc: 'Alle lokalen Benutzerkonten' },
+    { os: 'macos', cat: 'Benutzer',    title: 'Admin-Gruppe',        cmd: 'dscl . -read /Groups/admin GroupMembership', desc: 'Mitglieder der Admin-Gruppe' },
+    { os: 'macos', cat: 'Benutzer',    title: 'Login-Items',         cmd: "osascript -e 'tell application \"System Events\" to get the name of every login item'", desc: 'Autostart-Programme (Login-Objekte)' },
+    { os: 'macos', cat: 'LaunchCtl',   title: 'Dienste auflisten',   cmd: 'launchctl list | grep -v "com.apple"',       desc: 'Drittanbieter-LaunchAgents' },
+    { os: 'macos', cat: 'LaunchCtl',   title: 'Dienst aktivieren',   cmd: 'launchctl load -w ~/Library/LaunchAgents/com.example.plist',   desc: 'LaunchAgent aktivieren' },
+    { os: 'macos', cat: 'LaunchCtl',   title: 'Dienst deaktivieren', cmd: 'launchctl unload -w ~/Library/LaunchAgents/com.example.plist', desc: 'LaunchAgent deaktivieren' },
+    { os: 'macos', cat: 'Shortcuts',   title: 'Aktivitätsanzeige',   cmd: 'Cmd+Space → Aktivitätsanzeige',              desc: 'CPU, RAM, Netzwerk, Energie überwachen' },
+    { os: 'macos', cat: 'Shortcuts',   title: 'Force Quit',          cmd: 'Alt+Cmd+Esc',                                desc: 'Nicht reagierende App sofort beenden' },
+    { os: 'macos', cat: 'Shortcuts',   title: 'Screenshot Bereich',  cmd: 'Cmd+Shift+4',                                desc: 'Bereichs-Screenshot (in Zwischenablage: + Ctrl)' },
+    { os: 'macos', cat: 'Shortcuts',   title: 'Spotlight',           cmd: 'Cmd+Space',                                  desc: 'Suche, Apps starten, Berechnungen' },
+    { os: 'macos', cat: 'Shortcuts',   title: 'Mission Control',     cmd: 'Ctrl+Pfeil oben',                            desc: 'Alle offenen Fenster Übersicht' },
+    { os: 'macos', cat: 'Shortcuts',   title: 'Finder Versteckte',   cmd: 'Cmd+Shift+.',                                desc: 'Versteckte Dateien im Finder ein-/ausblenden' },
+    // Windows Befehle
+    { os: 'windows', cat: 'Netzwerk',  title: 'Ping',                cmd: 'ping -n 4 google.com',                       desc: 'Erreichbarkeit prüfen (4 Pakete)' },
+    { os: 'windows', cat: 'Netzwerk',  title: 'Traceroute',          cmd: 'tracert google.com',                         desc: 'Netzwerkpfad anzeigen' },
+    { os: 'windows', cat: 'Netzwerk',  title: 'DNS-Lookup',          cmd: 'nslookup google.com',                        desc: 'DNS-Auflösung' },
+    { os: 'windows', cat: 'Netzwerk',  title: 'Netzwerkadapter',     cmd: 'ipconfig /all',                              desc: 'Alle Netzwerkinterfaces' },
+    { os: 'windows', cat: 'Netzwerk',  title: 'DNS-Cache leeren',    cmd: 'ipconfig /flushdns',                         desc: 'DNS-Cache zurücksetzen' },
+    { os: 'windows', cat: 'Netzwerk',  title: 'Offene Verbindungen', cmd: 'netstat -an',                                desc: 'Aktive Ports und Verbindungen' },
+    { os: 'windows', cat: 'System',    title: 'Systeminfo',          cmd: 'systeminfo',                                 desc: 'Hardware, OS und Patch-Level' },
+    { os: 'windows', cat: 'System',    title: 'Windows-Version',     cmd: 'winver',                                     desc: 'Windows-Version anzeigen' },
+    { os: 'windows', cat: 'System',    title: 'Laufende Prozesse',   cmd: 'tasklist',                                   desc: 'Alle laufenden Prozesse' },
+    { os: 'windows', cat: 'System',    title: 'Prozess beenden',     cmd: 'taskkill /PID <PID> /F',                     desc: 'Prozess per PID beenden' },
+    { os: 'windows', cat: 'System',    title: 'Festplatten',         cmd: 'diskpart → list disk',                       desc: 'Alle Datenträger auflisten' },
+    { os: 'windows', cat: 'System',    title: 'Speicherplatz',       cmd: 'dir C:\\ /s',                                desc: 'Speicherbelegung C-Laufwerk' },
+    { os: 'windows', cat: 'System',    title: 'BitLocker-Status',    cmd: 'manage-bde -status',                         desc: 'Verschlüsselungsstatus aller Laufwerke' },
+    { os: 'windows', cat: 'Shortcuts', title: 'Task-Manager',        cmd: 'Ctrl+Shift+Esc',                             desc: 'Prozesse, CPU, RAM überwachen' },
+    { os: 'windows', cat: 'Shortcuts', title: 'Ausführen',           cmd: 'Win+R',                                      desc: 'Programme, Pfade, Befehle starten' },
+    { os: 'windows', cat: 'Shortcuts', title: 'Geräte-Manager',      cmd: 'Win+X → M',                                 desc: 'Hardware-Treiber verwalten' },
+    { os: 'windows', cat: 'Shortcuts', title: 'Ereignisanzeige',     cmd: 'Win+R → eventvwr',                          desc: 'Windows Ereignisprotokoll' },
+    { os: 'windows', cat: 'Shortcuts', title: 'Versteckte Dateien',  cmd: 'Explorer → Ansicht → Versteckte Elemente',  desc: 'Versteckte Dateien/Ordner anzeigen' },
+  ];
+
+  var osFilterEl = document.getElementById('wiki-os-filter');
+  var initialOs = osFilterEl ? osFilterEl.value : 'all';
+  renderWiki(wikiData, initialOs, '');
 
   document.getElementById('wiki-search')?.addEventListener('input', function(e) {
-    var os = document.getElementById('wiki-os-filter')?.value ?? 'all';
-    renderWiki(os, e.target.value.trim().toLowerCase());
+    var os = document.getElementById('wiki-os-filter')?.value || 'all';
+    renderWiki(wikiData, os, e.target.value.trim().toLowerCase());
   });
   document.getElementById('wiki-os-filter')?.addEventListener('change', function(e) {
-    var q = document.getElementById('wiki-search')?.value.trim().toLowerCase() ?? '';
-    renderWiki(e.target.value, q);
+    var q = document.getElementById('wiki-search')?.value.trim().toLowerCase() || '';
+    renderWiki(wikiData, e.target.value, q);
   });
 }
 
-function renderWiki(osFilter, query) {
+function renderWiki(wikiData, osFilter, query) {
   var container = document.getElementById('wiki-content');
   if (!container) return;
 
-  var data = WIKI_DATA.filter(function(item) {
+  var data = wikiData.filter(function(item) {
     if (osFilter !== 'all' && item.os !== osFilter) return false;
     if (query) {
       var haystack = (item.title + ' ' + item.cmd + ' ' + item.desc + ' ' + item.cat).toLowerCase();

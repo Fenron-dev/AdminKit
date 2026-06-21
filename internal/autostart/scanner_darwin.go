@@ -74,6 +74,7 @@ func scanPlistDir(dir string, loc Location, isSystem bool) ([]Entry, []ScanError
 		entries = append(entries, Entry{
 			Name:      label,
 			Path:      program,
+			PlistPath: path,
 			Location:  loc,
 			IsSystem:  isSystemLabel(label),
 			IsEnabled: true,

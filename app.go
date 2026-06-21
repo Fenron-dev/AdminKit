@@ -771,6 +771,11 @@ func (a *App) RunQuickAction(actionID string) *quickactions.Result {
 	return &r
 }
 
+// GetCleanupSizes gibt die aktuellen Größen der bereinigbaren Temp-Ordner zurück.
+func (a *App) GetCleanupSizes() map[string]string {
+	return quickactions.GetCleanupSizes()
+}
+
 // ExportSession exportiert alle bisher durchgeführten Scans der aktuellen Session.
 // format: "html" oder "json"
 // Gibt den absoluten Pfad der erzeugten Datei zurück.

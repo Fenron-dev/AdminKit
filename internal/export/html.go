@@ -88,11 +88,19 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 			"    <span class=\"hdr-score-lbl\">%s</span>\n"+
 			"  </div>\n",
 		scoreColor, scoreColor, score.Score, h(score.Label))
-	sb.WriteString("  <div class=\"hdr-actions\"><button class=\"print-btn\" onclick=\"window.print()\">🖨 Drucken / PDF</button></div>\n" +
-		"</header>\n")
+	sb.WriteString("  <div class=\"hdr-actions\">" +
+		"<button class=\"print-btn\" onclick=\"window.print()\">🖨 Drucken / PDF</button>" +
+		"</div>\n</header>\n")
+
+	// Floating-Zurück-nach-oben-Button
+	sb.WriteString("<a href=\"#\" class=\"back-to-top\" title=\"Zurück nach oben\" id=\"back-to-top\">↑</a>\n" +
+		"<script>window.addEventListener('scroll',function(){" +
+		"document.getElementById('back-to-top').style.display=window.scrollY>300?'flex':'none';" +
+		"});</script>\n")
 
 	// ── Anker-Navigation ─────────────────────────────────────────────────────
 	sb.WriteString("<nav class=\"report-nav\">\n")
+	sb.WriteString("  <a href=\"#sec-summary\">📊 Zusammenfassung</a>\n")
 	if data.System != nil {
 		sb.WriteString("  <a href=\"#sec-system\">⚙ System</a>\n")
 		if len(data.System.Smart) > 0 {
@@ -144,6 +152,11 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	// ── Übersichtskarten ─────────────────────────────────────────────────────
 	sb.WriteString("<section class=\"overview\">\n")
 	writeOverviewCards(sb, data)
+	sb.WriteString("</section>\n")
+
+	// ── Scan-Zusammenfassung ──────────────────────────────────────────────────
+	sb.WriteString("<section id=\"sec-summary\" class=\"summary-section\">\n<h2 class=\"sec-title\">📊 Scan-Zusammenfassung</h2>\n")
+	writeScanSummary(sb, data, score, riskEventCount)
 	sb.WriteString("</section>\n")
 
 	// ── System ───────────────────────────────────────────────────────────────
@@ -1089,6 +1102,78 @@ func writeTasksSection(sb *strings.Builder, r *tasks.ScanResult) {
 		len(r.Tasks), sysCnt, userCnt)
 }
 
+func writeScanSummary(sb *strings.Builder, data *SessionExport, score *scoring.ScoreResult, riskEventCount int) {
+	if score == nil {
+		return
+	}
+	sb.WriteString("<div class=\"summary-grid\">\n")
+
+	// Zähler aufbauen
+	softwareCount := 0
+	if data.Software != nil {
+		softwareCount = len(data.Software.Applications)
+	}
+	autostartCount := 0
+	thirdPartyAutostart := 0
+	if data.Autostart != nil {
+		autostartCount = len(data.Autostart.Entries)
+		for _, e := range data.Autostart.Entries {
+			if !e.IsSystem {
+				thirdPartyAutostart++
+			}
+		}
+	}
+	serviceCount := 0
+	if data.Services != nil {
+		serviceCount = len(data.Services.Services)
+	}
+	eventCount := 0
+	if data.Events != nil {
+		eventCount = len(data.Events.Events)
+	}
+	extensionCount := 0
+	if data.BrowserExt != nil {
+		extensionCount = len(data.BrowserExt.Extensions)
+	}
+	userCount := 0
+	if data.Users != nil {
+		userCount = len(data.Users.Users)
+	}
+
+	scoreColor := map[string]string{
+		"green":  "#16a34a",
+		"yellow": "#ca8a04",
+		"red":    "#dc2626",
+	}[score.Color]
+
+	stats := []struct{ val, lbl string }{
+		{fmt.Sprintf("<span style=\"color:%s\">%d</span>", scoreColor, score.Score), "Health Score"},
+		{fmt.Sprintf("%d", riskEventCount), "Risiko-Ereignisse"},
+		{fmt.Sprintf("%d", softwareCount), "Programme"},
+		{fmt.Sprintf("%d (%d Drittanbieter)", autostartCount, thirdPartyAutostart), "Autostart"},
+		{fmt.Sprintf("%d", serviceCount), "Dienste"},
+		{fmt.Sprintf("%d", eventCount), "Ereignisse gesamt"},
+		{fmt.Sprintf("%d", extensionCount), "Browser-Extensions"},
+		{fmt.Sprintf("%d", userCount), "Benutzerkonten"},
+	}
+	for _, s := range stats {
+		fmt.Fprintf(sb, "<div class=\"summary-stat\"><div class=\"summary-stat-val\">%s</div><div class=\"summary-stat-lbl\">%s</div></div>\n",
+			s.val, h(s.lbl))
+	}
+	sb.WriteString("</div>\n")
+
+	// Health-Score-Abzüge
+	if len(score.Deductions) > 0 {
+		sb.WriteString("<div class=\"summary-findings\">\n")
+		sb.WriteString("<p style=\"font-size:12px;color:var(--muted);margin-bottom:8px\">Score-Abzüge:</p>\n")
+		for _, d := range score.Deductions {
+			fmt.Fprintf(sb, "<div class=\"summary-finding\"><span class=\"finding-err\">-%d</span> — %s</div>\n",
+				d.Points, h(d.Label))
+		}
+		sb.WriteString("</div>\n")
+	}
+}
+
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 
 const reportCSS = `
@@ -1157,10 +1242,25 @@ margin-bottom:12px}
 .search-bar input{padding:6px 12px;border:1px solid var(--border);border-radius:6px;
 font-size:13px;width:300px;background:var(--bg);color:var(--text)}
 .count{color:var(--muted);font-weight:400}
+.summary-section{padding:20px 32px;border-bottom:1px solid var(--border)}
+.summary-grid{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px}
+.summary-stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;
+padding:12px 20px;min-width:140px;text-align:center}
+.summary-stat-val{font-size:28px;font-weight:700;line-height:1.1}
+.summary-stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+.summary-findings{margin-top:16px}
+.summary-finding{padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
+.summary-finding:last-child{border-bottom:none}
+.finding-ok{color:var(--ok)}.finding-warn{color:var(--warn)}.finding-err{color:var(--err)}
+.back-to-top{display:none;position:fixed;bottom:28px;right:28px;width:44px;height:44px;
+border-radius:50%;background:var(--primary);color:#fff;font-size:22px;font-weight:700;
+align-items:center;justify-content:center;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.3);
+z-index:999;transition:opacity .2s}
+.back-to-top:hover{opacity:.85}
 footer{text-align:center;padding:16px;font-size:11px;color:var(--muted);
 background:var(--surface);border-top:1px solid var(--border)}
 @media print{
-  .search-bar,.print-btn{display:none}
+  .search-bar,.print-btn,.back-to-top{display:none!important}
   .info-table tbody tr:nth-child(even){background:#f8fafc!important}
   section{break-inside:avoid}
   header{background:#f8fafc!important}

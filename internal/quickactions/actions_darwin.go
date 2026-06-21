@@ -39,6 +39,25 @@ func RunFix(fixID string) Result {
 	}
 }
 
+// GetCleanupSizes berechnet die aktuellen Größen der bereinigbaren Temp-Ordner.
+func GetCleanupSizes() map[string]string {
+	sizes := map[string]string{}
+	cmds := []struct{ key, shell string }{
+		{"tmp", "du -sh /private/tmp 2>/dev/null | awk '{print $1}'"},
+		{"caches", "du -sh ~/Library/Caches 2>/dev/null | awk '{print $1}'"},
+		{"trash", "du -sh ~/.Trash 2>/dev/null | awk '{print $1}'"},
+	}
+	for _, c := range cmds {
+		out, err := exec.Command("sh", "-c", c.shell).Output()
+		if err == nil && len(strings.TrimSpace(string(out))) > 0 {
+			sizes[c.key] = strings.TrimSpace(string(out))
+		} else {
+			sizes[c.key] = "–"
+		}
+	}
+	return sizes
+}
+
 // RunQuickAction führt eine Quick-Action-Kombo aus.
 func RunQuickAction(actionID string) Result {
 	switch actionID {

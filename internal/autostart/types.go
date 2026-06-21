@@ -26,10 +26,11 @@ const (
 // Entry beschreibt einen einzelnen Autostart-Eintrag.
 type Entry struct {
 	Name      string   `json:"name"`
-	Path      string   `json:"path"`       // Ausführungspfad / Befehl
-	Location  Location `json:"location"`   // Woher stammt der Eintrag
-	IsSystem  bool     `json:"is_system"`  // Microsoft/Apple-Systemeintrag?
-	IsEnabled bool     `json:"is_enabled"` // Aktiv oder deaktiviert?
+	Path      string   `json:"path"`                 // Ausführungspfad / Befehl
+	PlistPath string   `json:"plist_path,omitempty"` // Pfad zur Plist-Datei (macOS LaunchAgent/Daemon)
+	Location  Location `json:"location"`             // Woher stammt der Eintrag
+	IsSystem  bool     `json:"is_system"`            // Microsoft/Apple-Systemeintrag?
+	IsEnabled bool     `json:"is_enabled"`           // Aktiv oder deaktiviert?
 	Publisher string   `json:"publisher,omitempty"`
 }
 
