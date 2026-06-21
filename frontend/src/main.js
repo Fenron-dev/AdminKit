@@ -1212,8 +1212,8 @@ function _buildEventTable(list) {
 
 function _doRenderEvents() {
   if (!_evtSorted || !_evtContainer) return;
-  var riskEvents  = _evtSorted.filter(function(e) { return (e.risk_score || 0) >= RISK_THRESHOLD; });
-  var noiseEvents = _evtSorted.filter(function(e) { return (e.risk_score || 0) <  RISK_THRESHOLD; });
+  var riskEvents  = _evtSorted.filter(function(e) { return (e.risk_score || 0) >= 20; });
+  var noiseEvents = _evtSorted.filter(function(e) { return (e.risk_score || 0) <  20; });
   var displayList = _evtShowAll ? _evtSorted : riskEvents;
 
   _evtContainer.innerHTML = '';
@@ -3482,7 +3482,14 @@ function attachSummaryJumpListeners() {
       if (tab) switchTab(tab);
       if (target) {
         setTimeout(() => {
-          document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          var targetEl = document.getElementById(target);
+          if (!targetEl) return;
+          // Übergeordnete info-section aufklappen falls zugeklappt
+          var parentSection = targetEl.closest('.info-section');
+          if (parentSection && parentSection.classList.contains('collapsed')) {
+            parentSection.classList.remove('collapsed');
+          }
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 150);
       }
     };

@@ -138,6 +138,11 @@ func ScanRange(from, to, processFilter string) ScanResult {
 		if bootNoiseProcesses[procName] && risk > 5 {
 			risk = 5
 		}
+		// Kernel Sandbox-Deny: macOS enforced Policy, kein Bedrohungsindikator → max. 15
+		if procName == "kernel" && strings.HasPrefix(entry.EventMessage, "Sandbox:") &&
+			strings.Contains(entry.EventMessage, " deny ") && risk > 15 {
+			risk = 15
+		}
 
 		result.Events = append(result.Events, EventEntry{
 			Time:        ts,
