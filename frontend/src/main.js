@@ -823,6 +823,7 @@ function logScanErrors(errors, label) {
 }
 
 function setScanButtonsDisabled(disabled) {
+  setScanningIndicator(disabled);
   ['btn-full-scan', 'btn-scan-system', 'btn-scan-network', 'btn-scan-software',
    'btn-scan-printers', 'btn-scan-autostart', 'btn-scan-services', 'btn-scan-events',
    'btn-scan-extensions', 'btn-scan-processes'].forEach(id => {
@@ -1170,16 +1171,16 @@ function renderEvents(evtList) {
   // Sortierung: höchster Risiko-Score zuerst
   const sorted = [...evtList].sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0));
 
-  // Filter-State
-  let showAll = false;
+  // Filter-State — var statt let um Terser-TDZ-Hoisting zu vermeiden
+  var showAll = false;
 
-  function buildTable(list) {
+  const buildTable = (list) => {
     const table = document.createElement('table');
     table.className = 'data-table';
     table.innerHTML = '<thead><tr><th>Risiko</th><th>Zeit</th><th>Prozess</th><th>Meldung</th><th></th></tr></thead>';
     const tbody = document.createElement('tbody');
 
-    list.forEach((e, idx) => {
+    list.forEach((e) => {
       const tr = document.createElement('tr');
       tr.style.cursor = 'pointer';
       tr.dataset.origIdx = sorted.indexOf(e);
@@ -1200,16 +1201,15 @@ function renderEvents(evtList) {
 
     table.appendChild(tbody);
     table.addEventListener('click', ev => {
-      const btn = ev.target.closest('.btn-event-detail');
-      const row = ev.target.closest('tr[data-orig-idx], tr');
-      if (!row || row.tagName !== 'TR' || row.parentElement.tagName === 'THEAD') return;
+      const row = ev.target.closest('tr');
+      if (!row || row.parentElement.tagName === 'THEAD') return;
       const origIdx = parseInt(row.dataset.origIdx ?? -1);
       if (origIdx >= 0) showEventDetail(sorted[origIdx]);
     });
     return table;
-  }
+  };
 
-  function render() {
+  const render = () => {
     const riskEvents   = sorted.filter(e => (e.risk_score || 0) >= RISK_THRESHOLD);
     const noiseEvents  = sorted.filter(e => (e.risk_score || 0) <  RISK_THRESHOLD);
     const displayList  = showAll ? sorted : riskEvents;
@@ -1227,11 +1227,8 @@ function renderEvents(evtList) {
       toggleBtn.textContent = `🔇 Rauschen ausblenden (${noiseEvents.length})`;
     } else {
       meta.textContent = `${riskEvents.length} risikorelevante Ereignisse`;
-      if (noiseEvents.length > 0) {
-        toggleBtn.textContent = `🔉 +${noiseEvents.length} System-Rauschen anzeigen`;
-      } else {
-        toggleBtn.textContent = '';
-      }
+      toggleBtn.textContent = noiseEvents.length > 0
+        ? `🔉 +${noiseEvents.length} System-Rauschen anzeigen` : '';
     }
     toggleBtn.addEventListener('click', () => { showAll = !showAll; render(); });
     meta.appendChild(toggleBtn);
@@ -1242,7 +1239,7 @@ function renderEvents(evtList) {
     } else {
       container.appendChild(buildTable(displayList));
     }
-  }
+  };
 
   render();
 }
@@ -2581,6 +2578,13 @@ function initActionLog() {
 
 function setStatus(text) { setEl('status-text', text); }
 
+function setScanningIndicator(active) {
+  const bar     = document.getElementById('statusbar');
+  const spinner = document.getElementById('scan-spinner');
+  bar?.classList.toggle('scanning', active);
+  spinner?.classList.toggle('hidden', !active);
+}
+
 function setEl(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value ?? '';
@@ -3421,10 +3425,43 @@ function initScanSummaryModal() {
   document.getElementById('modal-scan-summary')?.addEventListener('click', e => {
     if (e.target.id === 'modal-scan-summary') closeScanSummary();
   });
+  // "Letzte Zusammenfassung" Button in Titelleiste
+  document.getElementById('btn-show-last-summary')?.addEventListener('click', () => {
+    if (state.lastScanSummaryHtml) reopenScanSummary();
+  });
 }
 
 function closeScanSummary() {
   document.getElementById('modal-scan-summary')?.classList.add('hidden');
+}
+
+function reopenScanSummary() {
+  const modal = document.getElementById('modal-scan-summary');
+  const modGrid = document.getElementById('summary-modules');
+  const modFindings = document.getElementById('summary-findings');
+  if (!modal || !state.lastScanSummaryHtml) return;
+  if (modGrid)    modGrid.innerHTML    = state.lastScanSummaryModulesHtml || '';
+  if (modFindings) modFindings.innerHTML = state.lastScanSummaryHtml;
+  attachSummaryJumpListeners();
+  modal.classList.remove('hidden');
+}
+
+function attachSummaryJumpListeners() {
+  document.querySelectorAll('.summary-finding[data-jump-tab]').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.title = 'Klicken um zu diesem Abschnitt zu springen';
+    el.onclick = () => {
+      const tab    = el.dataset.jumpTab;
+      const target = el.dataset.jumpTarget;
+      closeScanSummary();
+      if (tab) switchTab(tab);
+      if (target) {
+        setTimeout(() => {
+          document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      }
+    };
+  });
 }
 
 // ─── Benutzerkonten ───────────────────────────────────────────────────────────
@@ -3462,10 +3499,13 @@ function renderUsers(result) {
   );
 
   const rows = result.users.map(u => {
-    const adminBadge = u.is_admin ? '<span class="user-badge user-admin">Admin</span>' : '';
-    const sysBadge   = u.is_system ? '<span class="user-badge user-system">System</span>' : '';
+    const adminBadge = u.is_admin    ? '<span class="user-badge user-admin">Admin</span>' : '';
+    const sysBadge   = u.is_system   ? '<span class="user-badge user-system">System</span>' : '';
     const disBadge   = u.is_disabled ? '<span class="user-badge user-disabled">Deaktiviert</span>' : '';
-    const pwBadge    = !u.has_password ? '<span class="user-badge user-nopw">Kein Passwort</span>' : '';
+    // "Kein Passwort" nur bei aktiven (nicht-deaktivierten) Konten anzeigen —
+    // deaktivierte Systemkonten (root, _www etc.) sind absichtlich passwortlos gesperrt
+    const pwBadge    = (!u.has_password && !u.is_disabled && !u.is_system)
+      ? '<span class="user-badge user-nopw">Kein Passwort</span>' : '';
     const fullName   = u.full_name ? `<span class="user-fullname">${escapeHtml(u.full_name)}</span>` : '';
     return `<tr class="${u.is_disabled ? 'row-disabled' : ''}">
       <td>${escapeHtml(u.name)} ${fullName}</td>
@@ -3478,11 +3518,24 @@ function renderUsers(result) {
 
   let groupHtml = '';
   if (result.groups?.length) {
-    groupHtml = `<h4 style="margin:16px 0 8px;font-size:13px;color:var(--color-text-muted)">Gruppen</h4>
-    <div class="info-grid">${result.groups.map(g =>
-      `<div class="info-item"><span class="info-key">${escapeHtml(g.name)}</span>
-       <span class="info-val">${(g.members ?? []).join(', ') || '–'}</span></div>`
-    ).join('')}</div>`;
+    const groupRows = result.groups.map(g => {
+      const members = (g.members ?? []);
+      return `<tr>
+        <td style="font-weight:600;white-space:nowrap">${escapeHtml(g.name)}</td>
+        <td style="font-size:12px">${members.length > 0
+          ? members.map(m => `<span class="user-badge user-system" style="margin:1px 2px;display:inline-block">${escapeHtml(m)}</span>`).join(' ')
+          : '<span style="color:var(--color-text-muted)">–</span>'
+        }</td>
+      </tr>`;
+    }).join('');
+    groupHtml = `
+    <h4 style="margin:16px 0 6px;font-size:13px;color:var(--color-text-muted);font-weight:600">Gruppen</h4>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr><th>Gruppe</th><th>Mitglieder</th></tr></thead>
+        <tbody>${groupRows}</tbody>
+      </table>
+    </div>`;
   }
 
   container.innerHTML = `
@@ -3762,38 +3815,39 @@ function showScanSummary() {
   const auto    = state.lastAutostartResult;
   const evtRes  = state.lastEventsResult;
 
-  // Sicherheit
+  // Sicherheit — alle mit Jump-Ziel security-info
+  const sec_t = { tab: 'system', target: 'security-info' };
   if (sec) {
     const isMac = sec.platform === 'darwin';
     const encLabel = isMac ? 'FileVault' : 'BitLocker';
     const defLabel = isMac ? 'Gatekeeper / XProtect' : 'Windows Defender';
 
     if (sec.firewall_known) {
-      if (sec.firewall_enabled === false) critical.push('🔥 Firewall ist deaktiviert');
-      else if (sec.firewall_enabled === true) ok.push('Firewall aktiv');
+      if (sec.firewall_enabled === false) critical.push({ text: '🔥 Firewall ist deaktiviert', ...sec_t });
+      else if (sec.firewall_enabled === true) ok.push({ text: 'Firewall aktiv' });
     }
 
-    if (sec.defender_enabled === false) critical.push(`🛡 ${defLabel} ist deaktiviert`);
+    if (sec.defender_enabled === false) critical.push({ text: `🛡 ${defLabel} ist deaktiviert`, ...sec_t });
     else if (sec.defender_enabled === true)
-      ok.push(`${defLabel} aktiv${sec.defender_version ? ' (' + sec.defender_version + ')' : ''}`);
+      ok.push({ text: `${defLabel} aktiv${sec.defender_version ? ' (' + sec.defender_version + ')' : ''}` });
 
     if (sec.rdp_enabled === true) {
       const rdpLabel = isMac ? 'Remote Login (SSH)' : 'RDP';
-      if (!isMac && !sec.nla_enabled) warnings.push(`🖥 ${rdpLabel} aktiv ohne NLA (Network Level Authentication)`);
-      else ok.push(`${rdpLabel} aktiv (Port ${sec.rdp_port || (isMac ? 22 : 3389)})`);
+      if (!isMac && !sec.nla_enabled) warnings.push({ text: `🖥 ${rdpLabel} aktiv ohne NLA`, ...sec_t });
+      else ok.push({ text: `${rdpLabel} aktiv (Port ${sec.rdp_port || (isMac ? 22 : 3389)})` });
     } else if (sec.rdp_enabled === false) {
-      ok.push(isMac ? 'Remote Login (SSH) deaktiviert' : 'RDP deaktiviert');
+      ok.push({ text: isMac ? 'Remote Login (SSH) deaktiviert' : 'RDP deaktiviert' });
     }
 
     const userShares = sec.local_shares?.filter(s => !s.is_system) ?? [];
     if (userShares.length > 0)
-      warnings.push(`📂 ${userShares.length} aktive Netzwerkfreigabe(n): ${userShares.map(s => s.name).join(', ')}`);
+      warnings.push({ text: `📂 ${userShares.length} aktive Netzwerkfreigabe(n): ${userShares.map(s => s.name).join(', ')}`, tab: 'network' });
 
     const unencrypted = sec.bitlocker_volumes?.filter(v => !v.encrypted) ?? [];
     if (unencrypted.length > 0)
-      warnings.push(`🔓 ${unencrypted.length} Laufwerk(e) ohne ${encLabel}-Verschlüsselung`);
+      warnings.push({ text: `🔓 ${unencrypted.length} Laufwerk(e) ohne ${encLabel}-Verschlüsselung`, ...sec_t });
     else if (sec.bitlocker_volumes?.length > 0)
-      ok.push(`Alle Laufwerke mit ${encLabel} verschlüsselt`);
+      ok.push({ text: `Alle Laufwerke mit ${encLabel} verschlüsselt` });
   }
 
   // SMART
@@ -3801,18 +3855,18 @@ function showScanSummary() {
     const critDisks = sys.smart.filter(d => d.status === 'CRITICAL');
     const warnDisks = sys.smart.filter(d => d.status === 'WARNING');
     if (critDisks.length > 0)
-      critical.push(`💾 ${critDisks.length} Festplatte(n) KRITISCHER SMART-Status: ${critDisks.map(d => d.model).join(', ')}`);
+      critical.push({ text: `💾 ${critDisks.length} Festplatte(n) KRITISCHER SMART-Status: ${critDisks.map(d => d.model).join(', ')}`, tab: 'system', target: 'hw-info' });
     if (warnDisks.length > 0)
-      warnings.push(`💾 ${warnDisks.length} Festplatte(n) mit SMART-Warnung: ${warnDisks.map(d => d.model).join(', ')}`);
+      warnings.push({ text: `💾 ${warnDisks.length} Festplatte(n) mit SMART-Warnung: ${warnDisks.map(d => d.model).join(', ')}`, tab: 'system', target: 'hw-info' });
     if (critDisks.length === 0 && warnDisks.length === 0)
-      ok.push(`SMART: alle ${sys.smart.length} Disk(s) OK`);
+      ok.push({ text: `SMART: alle ${sys.smart.length} Disk(s) OK` });
   }
 
   // Lizenz / OS
   if (sys?.os?.license_status) {
     const ls = sys.os.license_status;
     if (ls !== 'Licensed' && ls !== 'Lizenziert' && ls !== 'Licensed (OEM)')
-      warnings.push(`📋 Betriebssystem-Lizenz: ${ls}`);
+      warnings.push({ text: `📋 Betriebssystem-Lizenz: ${ls}`, tab: 'system', target: 'os-info' });
   }
 
   // Speicherplatz
@@ -3821,41 +3875,44 @@ function showScanSummary() {
     sys.hardware.volumes.forEach(vol => {
       const pct = vol.total_gb > 0 ? Math.round((vol.used_gb / vol.total_gb) * 100) : 0;
       const lbl = vol.label || vol.letter || 'Volume';
-      if (pct >= 95)      { critical.push(`💾 ${lbl}: ${pct}% voll (${vol.free_gb} GB frei)`); allOk = false; }
-      else if (pct >= 80) { warnings.push(`💾 ${lbl}: ${pct}% voll (${vol.free_gb} GB frei)`); allOk = false; }
+      if (pct >= 95)      { critical.push({ text: `💾 ${lbl}: ${pct}% voll (${vol.free_gb} GB frei)`, tab: 'system', target: 'hw-info' }); allOk = false; }
+      else if (pct >= 80) { warnings.push({ text: `💾 ${lbl}: ${pct}% voll (${vol.free_gb} GB frei)`, tab: 'system', target: 'hw-info' }); allOk = false; }
     });
-    if (allOk) ok.push('Speicherplatz: alle Volumes unkritisch');
+    if (allOk) ok.push({ text: 'Speicherplatz: alle Volumes unkritisch' });
   }
 
-  // Systemereignisse
+  // Systemereignisse — mit Jump-Metadaten
   if (evtRes?.events?.length > 0) {
+    const riskEvts  = evtRes.events.filter(e => (e.risk_score || 0) >= 20);
     const critEvts  = evtRes.events.filter(e => e.level === 'Kritisch');
     const errorEvts = evtRes.events.filter(e => e.level === 'Fehler');
     if (critEvts.length > 0)
-      critical.push(`⚠ ${critEvts.length} kritische Systemereignisse (letzte 7 Tage)`);
-    if (errorEvts.length > 0)
-      warnings.push(`⚠ ${errorEvts.length} Fehler-Ereignisse im Ereignislog`);
-    if (critEvts.length === 0 && errorEvts.length === 0)
-      ok.push('Ereignis-Log: keine kritischen Ereignisse');
+      critical.push({ text: `⚠ ${critEvts.length} kritische Systemereignisse (letzte 7 Tage)`,   tab: 'system', target: 'events-info' });
+    if (riskEvts.length > 0 && critEvts.length === 0)
+      warnings.push({ text: `⚠ ${riskEvts.length} risikorelevante Ereignisse im Log`,             tab: 'system', target: 'events-info' });
+    else if (errorEvts.length > 0 && critEvts.length === 0)
+      warnings.push({ text: `⚠ ${errorEvts.length} Fehler-Ereignisse im Ereignislog`,             tab: 'system', target: 'events-info' });
+    if (critEvts.length === 0 && riskEvts.length === 0 && errorEvts.length === 0)
+      ok.push({ text: 'Ereignis-Log: keine risikorelevanten Ereignisse' });
   } else if (evtRes) {
-    ok.push('Ereignis-Log: keine kritischen Ereignisse');
+    ok.push({ text: 'Ereignis-Log: keine kritischen Ereignisse' });
   }
 
   // Autostart
   if (auto?.entries?.length > 0) {
     const thirdParty = auto.entries.filter(e => !e.is_system && e.is_enabled);
     if (thirdParty.length > 15)
-      warnings.push(`🚀 ${thirdParty.length} aktive Drittanbieter-Autostart-Einträge`);
+      warnings.push({ text: `🚀 ${thirdParty.length} aktive Drittanbieter-Autostart-Einträge`, tab: 'system', target: 'autostart-info' });
     else
-      ok.push(`Autostart: ${thirdParty.length} Drittanbieter-Einträge (${auto.entries.length} gesamt)`);
+      ok.push({ text: `Autostart: ${thirdParty.length} Drittanbieter-Einträge (${auto.entries.length} gesamt)` });
   }
 
   // Netzwerk
   if (state.lastNetworkResult?.adapters?.length > 0) {
     const connected = state.lastNetworkResult.adapters.filter(a => a.is_connected).length;
     const total     = state.lastNetworkResult.adapters.length;
-    if (connected === 0) warnings.push('🌐 Kein Netzwerkadapter verbunden');
-    else ok.push(`Netzwerk: ${connected}/${total} Adapter verbunden`);
+    if (connected === 0) warnings.push({ text: '🌐 Kein Netzwerkadapter verbunden', tab: 'network' });
+    else ok.push({ text: `Netzwerk: ${connected}/${total} Adapter verbunden` });
   }
 
   // Partielle Scan-Fehler aus allen Ergebnissen
@@ -3863,30 +3920,40 @@ function showScanSummary() {
                        state.lastNetworkResult, state.lastSoftwareResult, state.lastBrowserExtResult];
   const modNames    = ['System', 'Autostart', 'Dienste', 'Ereignislog', 'Drucker', 'Netzwerk', 'Software', 'Extensions'];
   allResults.forEach((r, i) => {
-    r?.errors?.forEach(e => scanErrs.push(`[${modNames[i]}/${e.module}] ${e.message}`));
+    r?.errors?.forEach(e => scanErrs.push({ text: `[${modNames[i]}/${e.module}] ${e.message}` }));
   });
 
-  // ── HTML ausgeben ─────────────────────────────────────────────────────────
-  let html = '';
+  const critFinal = critical;
+  const warnFinal = warnings;
+  const okFinal   = ok;
+  const errFinal  = scanErrs;
 
-  if (critical.length > 0) {
+  // ── HTML ausgeben ─────────────────────────────────────────────────────────
+  const findingHtml = (f, cls) => {
+    const jump = f.tab ? `data-jump-tab="${f.tab}"${f.target ? ` data-jump-target="${f.target}"` : ''}` : '';
+    const hint = f.tab ? ' <span class="summary-jump-hint">→ anzeigen</span>' : '';
+    return `<div class="summary-finding ${cls}"${jump ? ' ' + jump : ''}>${escapeHtml(f.text)}${hint}</div>`;
+  };
+
+  let html = '';
+  if (critFinal.length > 0) {
     html += '<div class="summary-section"><div class="summary-section-title">🔴 Kritisch</div>';
-    html += critical.map(f => `<div class="summary-finding summary-critical">${escapeHtml(f)}</div>`).join('');
+    html += critFinal.map(f => findingHtml(f, 'summary-critical')).join('');
     html += '</div>';
   }
-  if (warnings.length > 0) {
+  if (warnFinal.length > 0) {
     html += '<div class="summary-section"><div class="summary-section-title">🟡 Hinweise</div>';
-    html += warnings.map(f => `<div class="summary-finding summary-warning">${escapeHtml(f)}</div>`).join('');
+    html += warnFinal.map(f => findingHtml(f, 'summary-warning')).join('');
     html += '</div>';
   }
-  if (ok.length > 0) {
+  if (okFinal.length > 0) {
     html += '<div class="summary-section"><div class="summary-section-title">🟢 OK</div>';
-    html += ok.map(f => `<div class="summary-finding summary-ok">${escapeHtml(f)}</div>`).join('');
+    html += okFinal.map(f => findingHtml(f, 'summary-ok')).join('');
     html += '</div>';
   }
-  if (scanErrs.length > 0) {
+  if (errFinal.length > 0) {
     html += '<div class="summary-section"><div class="summary-section-title">⚙ Scan-Hinweise</div>';
-    html += scanErrs.map(f => `<div class="summary-finding summary-scan-error">${escapeHtml(f)}</div>`).join('');
+    html += errFinal.map(f => findingHtml(f, 'summary-scan-error')).join('');
     html += '</div>';
   }
   if (!html) {
@@ -3894,6 +3961,13 @@ function showScanSummary() {
   }
 
   modFindings.innerHTML = html;
+
+  // Zusammenfassung in State cachen damit sie re-geöffnet werden kann
+  state.lastScanSummaryHtml        = html;
+  state.lastScanSummaryModulesHtml = modGrid.innerHTML;
+  document.getElementById('btn-show-last-summary')?.classList.remove('hidden');
+
+  attachSummaryJumpListeners();
   modal.classList.remove('hidden');
 }
 

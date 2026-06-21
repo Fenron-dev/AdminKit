@@ -24,6 +24,7 @@
         <div class="titlebar-right">
           <button class="icon-btn" id="btn-new-session" title="Neue Session erstellen">📋 Neue Session</button>
           <button class="icon-btn" id="btn-session-history" title="Session-Verlauf anzeigen">🕐 Verlauf</button>
+          <button class="icon-btn hidden" id="btn-show-last-summary" title="Letzte Scan-Zusammenfassung anzeigen">📊 Zusammenfassung</button>
           <button class="icon-btn" id="btn-theme" title="Theme wechseln">🌙</button>
           <div class="export-wrap">
             <button class="icon-btn export-btn" id="btn-export" title="Bericht exportieren">📤 Exportieren ▾</button>
@@ -571,7 +572,8 @@
       <button class="btn-back-to-top" id="btn-back-to-top" title="Nach oben">↑</button>
 
       <!-- Statusleiste -->
-      <footer class="statusbar">
+      <footer class="statusbar" id="statusbar">
+        <span class="scan-spinner hidden" id="scan-spinner" title="Scan läuft">⏳</span>
         <span id="status-text">Bereit</span>
         <span class="statusbar-divider">|</span>
         <span>Session: <span id="status-session">–</span></span>
