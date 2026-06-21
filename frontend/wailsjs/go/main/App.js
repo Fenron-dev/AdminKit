@@ -249,3 +249,14 @@ export function GetHealthScore() {
 export function OpenEventInConsole(arg1) {
     return window['go']['main']['App']['OpenEventInConsole'](arg1);
 }
+
+// ── Optimierungsvorschläge & Quick-Actions ──
+export function GetSuggestions() {
+    return window['go']['main']['App']['GetSuggestions']();
+}
+export function RunFix(arg1) {
+    return window['go']['main']['App']['RunFix'](arg1);
+}
+export function RunQuickAction(arg1) {
+    return window['go']['main']['App']['RunQuickAction'](arg1);
+}

@@ -1783,6 +1783,92 @@ body.platform-mac .titlebar {
 }
 .tab-nav::-webkit-scrollbar { display: none; }
 
+/* ── Empfehlungen (Suggestions) ─────────────────────────────────────────── */
+.suggestion-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--color-border);
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 8px;
+  background: var(--color-surface-2);
+}
+.suggestion-critical { border-left-color: #DC2626; }
+.suggestion-warning  { border-left-color: #D97706; }
+.suggestion-info     { border-left-color: #2563EB; }
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.suggestion-icon  { font-size: 14px; flex-shrink: 0; }
+.suggestion-title { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; }
+.suggestion-spacer { flex: 1; }
+.suggestion-detail {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding-left: 22px;
+  line-height: 1.5;
+}
+.suggestion-fix-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Quick-Action-Output ─────────────────────────────────────────────────── */
+.qa-output {
+  margin-top: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.qa-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+  font-weight: 600;
+}
+.qa-output-pre {
+  margin: 0;
+  padding: 12px;
+  font-size: 11px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--color-bg);
+}
+.tool-btn-action {
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+}
+.tool-btn-action:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
 /* ── Risiko-Badges ──────────────────────────────────────────────────────── */
 .risk-badge {
   display: inline-block;

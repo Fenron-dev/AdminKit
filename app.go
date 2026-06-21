@@ -27,6 +27,8 @@ import (
 	"adminkit/internal/usbhistory"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
+	"adminkit/internal/advisor"
+	"adminkit/internal/quickactions"
 	"adminkit/internal/scoring"
 	"adminkit/internal/tasks"
 	"adminkit/internal/tools"
@@ -691,6 +693,23 @@ func (a *App) GetHealthScore() *scoring.ScoreResult {
 // OpenEventInConsole öffnet den System-Log-Viewer (Console.app auf macOS, Ereignisanzeige auf Windows).
 func (a *App) OpenEventInConsole(processName string) error {
 	return openEventInConsolePlatform(processName)
+}
+
+// GetSuggestions analysiert gecachte Scan-Ergebnisse und gibt Optimierungsvorschläge zurück.
+func (a *App) GetSuggestions() []advisor.Suggestion {
+	return advisor.Analyze(a.lastSystemScan, a.lastAutostartScan, a.lastEventsScan)
+}
+
+// RunFix führt einen Optimierungs-Fix anhand der Fix-ID aus.
+func (a *App) RunFix(fixID string) *quickactions.Result {
+	r := quickactions.RunFix(fixID)
+	return &r
+}
+
+// RunQuickAction führt eine Quick-Action-Kombo (Internet-Fix, Drucker-Fix etc.) aus.
+func (a *App) RunQuickAction(actionID string) *quickactions.Result {
+	r := quickactions.RunQuickAction(actionID)
+	return &r
 }
 
 // ExportSession exportiert alle bisher durchgeführten Scans der aktuellen Session.

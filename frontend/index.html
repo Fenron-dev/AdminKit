@@ -150,6 +150,15 @@
               </div>
             </div>
 
+            <!-- Empfehlungen-Karte (erscheint nach Vollscan) -->
+            <div class="card card-full-row hidden" id="card-suggestions">
+              <div class="card-header">
+                <h3>Empfehlungen</h3>
+                <span class="badge-count" id="suggestions-count"></span>
+              </div>
+              <div id="suggestions-list"></div>
+            </div>
+
             <div class="card card-full-row">
               <div class="card-header"><h3>Letzte Aktionen</h3></div>
               <div class="action-list" id="action-list">
@@ -363,6 +372,38 @@
         <!-- ── TOOLS ── -->
         <section class="tab-panel" id="tab-tools">
           <div class="tools-layout">
+
+            <!-- ── Schnellaktionen ── -->
+            <div class="tools-group">
+              <h3 class="tools-group-title">Schnellaktionen</h3>
+              <div class="tools-grid">
+                <button class="tool-btn tool-btn-action" id="qa-internet-fix">
+                  <span class="tool-icon">🌐</span>
+                  <span>Internet-Fix</span>
+                </button>
+                <button class="tool-btn tool-btn-action" id="qa-printer-fix">
+                  <span class="tool-icon">🖨</span>
+                  <span>Drucker-Fix</span>
+                </button>
+                <button class="tool-btn tool-btn-action" id="qa-quick-clean">
+                  <span class="tool-icon">🧹</span>
+                  <span>Schnellbereinigung</span>
+                </button>
+                <button class="tool-btn tool-btn-action" id="qa-dns-flush">
+                  <span class="tool-icon">🔄</span>
+                  <span>DNS leeren</span>
+                </button>
+              </div>
+              <!-- Ausgabe-Bereich für Quick-Actions -->
+              <div class="qa-output hidden" id="qa-output">
+                <div class="qa-output-header">
+                  <span id="qa-output-title">Ergebnis</span>
+                  <button class="modal-close" id="qa-output-close">✕</button>
+                </div>
+                <pre class="qa-output-pre" id="qa-output-text"></pre>
+              </div>
+            </div>
+
             <div class="tools-group">
               <h3 class="tools-group-title">Diagnose-Werkzeuge</h3>
               <div class="tools-grid">

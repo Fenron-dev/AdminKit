@@ -40,6 +40,9 @@ import {
   ArchiveVault,
   GetHealthScore,
   OpenEventInConsole,
+  GetSuggestions,
+  RunFix,
+  RunQuickAction,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -98,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initPlatformTools();
   applyPlatformClass();
   initEventDetailModal();
+  initQuickActions();
   loadAppInfo();
 });
 
@@ -301,6 +305,135 @@ async function updateHealthScore() {
   }
 }
 
+async function updateSuggestions() {
+  try {
+    const suggestions = await GetSuggestions();
+    const card   = document.getElementById('card-suggestions');
+    const list   = document.getElementById('suggestions-list');
+    const count  = document.getElementById('suggestions-count');
+    if (!card || !list) return;
+
+    if (!suggestions || suggestions.length === 0) {
+      card.classList.add('hidden');
+      return;
+    }
+
+    count.textContent = suggestions.length;
+    list.innerHTML = '';
+
+    suggestions.forEach(s => {
+      const severityIcon = s.severity === 'critical' ? '🔴' : s.severity === 'warning' ? '🟠' : '🔵';
+      const div = document.createElement('div');
+      div.className = 'suggestion-item suggestion-' + s.severity;
+
+      let fixBtn = '';
+      if (s.fix_type !== 'none' && s.fix_id && s.fix_label) {
+        const warn = s.fix_warning
+          ? `onclick="return confirm('${escapeHtml(s.fix_warning)}')"` : '';
+        fixBtn = `<button class="btn btn-xs suggestion-fix-btn" data-fix="${escapeHtml(s.fix_id)}" data-warn="${escapeHtml(s.fix_warning || '')}">${escapeHtml(s.fix_label)}</button>`;
+      }
+
+      div.innerHTML = `
+        <div class="suggestion-header">
+          <span class="suggestion-icon">${severityIcon}</span>
+          <span class="suggestion-title">${escapeHtml(s.title)}</span>
+          ${s.risk_score > 0 ? riskBadgeHtml(s.risk_score) : ''}
+          <span class="suggestion-spacer"></span>
+          ${fixBtn}
+        </div>
+        <div class="suggestion-detail">${escapeHtml(s.detail)}</div>`;
+      list.appendChild(div);
+    });
+
+    // Fix-Button-Listener
+    list.addEventListener('click', async ev => {
+      const btn = ev.target.closest('.suggestion-fix-btn');
+      if (!btn) return;
+      const fixID = btn.dataset.fix;
+      const warn  = btn.dataset.warn;
+      if (warn && !confirm(warn)) return;
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Wird ausgeführt…';
+
+      try {
+        const result = await RunFix(fixID);
+        if (result.output?.startsWith('navigate:')) {
+          const dest = result.output.replace('navigate:', '');
+          if (dest === 'autostart') switchTab('system');
+          else if (dest === 'events') switchTab('system');
+          btn.textContent = '✓ Geöffnet';
+        } else {
+          showActionResult(result.output || '', result.success);
+          btn.textContent = result.success ? '✓ Erledigt' : '✗ Fehler';
+        }
+      } catch (e) {
+        btn.textContent = '✗ Fehler';
+        showToast('Fix fehlgeschlagen: ' + e);
+      }
+    }, { once: false });
+
+    card.classList.remove('hidden');
+  } catch (e) {
+    // Vorschläge nicht verfügbar — still ignorieren
+  }
+}
+
+// Zeigt das Ergebnis einer Quick-Action / eines Fixes in einem Overlay an.
+function showActionResult(text, success) {
+  const overlay = document.getElementById('modal-action-result-overlay');
+  const pre     = document.getElementById('modal-action-result-text');
+  if (overlay && pre) {
+    pre.textContent = text;
+    overlay.classList.remove('hidden');
+  } else {
+    // Fallback: direkt in qa-output anzeigen
+    const qaOut = document.getElementById('qa-output');
+    const qaPre = document.getElementById('qa-output-text');
+    if (qaOut && qaPre) {
+      qaPre.textContent = text;
+      qaOut.classList.remove('hidden');
+      document.getElementById('qa-output-title').textContent =
+        success ? '✓ Abgeschlossen' : '✗ Fehler aufgetreten';
+    }
+  }
+}
+
+function initQuickActions() {
+  const actions = [
+    ['qa-internet-fix',  'internet_fix',  'Internet-Fix'],
+    ['qa-printer-fix',   'printer_fix',   'Drucker-Fix'],
+    ['qa-quick-clean',   'quick_clean',   'Schnellbereinigung'],
+    ['qa-dns-flush',     'dns_flush',     'DNS leeren'],
+  ];
+
+  const qaOut   = document.getElementById('qa-output');
+  const qaPre   = document.getElementById('qa-output-text');
+  const qaTitle = document.getElementById('qa-output-title');
+  const qaClose = document.getElementById('qa-output-close');
+
+  qaClose?.addEventListener('click', () => qaOut?.classList.add('hidden'));
+
+  actions.forEach(([btnId, actionId, label]) => {
+    document.getElementById(btnId)?.addEventListener('click', async () => {
+      if (qaOut) {
+        qaOut.classList.remove('hidden');
+        if (qaPre) qaPre.textContent = label + ' wird ausgeführt…';
+        if (qaTitle) qaTitle.textContent = label;
+      }
+      try {
+        const result = await RunQuickAction(actionId);
+        if (qaPre) qaPre.textContent = result.output || '(kein Output)';
+        if (qaTitle) qaTitle.textContent = result.success ? '✓ ' + label : '✗ ' + label + ' – Fehler';
+        addAction(label + (result.success ? ' abgeschlossen' : ' mit Fehler'), result.success ? 'ok' : 'error');
+      } catch (e) {
+        if (qaPre) qaPre.textContent = 'Fehler: ' + e;
+        if (qaTitle) qaTitle.textContent = '✗ ' + label;
+      }
+    });
+  });
+}
+
 async function runFullScan() {
   switchTab('system');
   // Alte Ergebnisse löschen damit die Zusammenfassung nur den aktuellen Scan zeigt
@@ -325,6 +458,7 @@ async function runFullScan() {
   setFullscanProgress(total, total, null);
   showScanSummary();
   await updateHealthScore();
+  await updateSuggestions();
 
   if (state.config?.defaults?.auto_vt_scan) {
     const vtKey = state.config?.api_keys?.virustotal ?? '';
