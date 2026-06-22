@@ -1321,26 +1321,52 @@ func (a *App) EjectUSBDevice(bsdName string) error {
 }
 
 // ToggleAutostartEntry aktiviert oder deaktiviert einen LaunchAgent/LaunchDaemon via launchctl.
-// plistPath = vollständiger Pfad zur .plist-Datei.
-// enable = true → launchctl load; false → launchctl unload -w.
+// Versucht zuerst das moderne bootstrap/bootout-API (macOS 12+), fällt auf load/unload -w zurück.
 func (a *App) ToggleAutostartEntry(plistPath string, enable bool) error {
 	if plistPath == "" {
 		return fmt.Errorf("kein Plist-Pfad angegeben")
 	}
-	action := "unload"
-	args := []string{"unload", "-w", plistPath}
+
+	// Moderne launchctl-API: bootstrap / bootout (macOS 12+)
+	domain := fmt.Sprintf("gui/%d", os.Getuid())
+	if strings.HasPrefix(plistPath, "/Library/LaunchDaemons/") {
+		domain = "system"
+	}
+	var modernArgs []string
 	if enable {
-		action = "load"
-		args = []string{"load", "-w", plistPath}
+		modernArgs = []string{"bootstrap", domain, plistPath}
+	} else {
+		modernArgs = []string{"bootout", domain, plistPath}
 	}
-	logging.Infof("Autostart", "%s: %s", action, plistPath)
-	out, err := exec.Command("launchctl", args...).CombinedOutput()
-	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		logging.Warnf("Autostart", "%s fehlgeschlagen (%s): %v — %s", action, plistPath, err, msg)
-		return fmt.Errorf("launchctl %s: %s", action, msg)
+	action := map[bool]string{true: "bootstrap", false: "bootout"}[enable]
+	logging.Infof("Autostart", "%s (%s): %s", action, domain, plistPath)
+	out, err := exec.Command("launchctl", modernArgs...).CombinedOutput()
+	if err == nil {
+		logging.Infof("Autostart", "%s erfolgreich: %s", action, plistPath)
+		return nil
 	}
-	logging.Infof("Autostart", "%s erfolgreich: %s", action, plistPath)
+	msg := strings.TrimSpace(string(out))
+	// "already bootstrapped" / "no such process" → gilt als Erfolg
+	if strings.Contains(msg, "already") || strings.Contains(msg, "no such process") {
+		logging.Infof("Autostart", "%s (ignoriert: %s): %s", action, msg, plistPath)
+		return nil
+	}
+	logging.Warnf("Autostart", "%s fehlgeschlagen, versuche legacy load/unload: %s", action, msg)
+
+	// Fallback: legacy launchctl load/unload -w
+	legacyAction := "unload"
+	legacyArgs := []string{"unload", "-w", plistPath}
+	if enable {
+		legacyAction = "load"
+		legacyArgs = []string{"load", "-w", plistPath}
+	}
+	legacyOut, legacyErr := exec.Command("launchctl", legacyArgs...).CombinedOutput()
+	if legacyErr != nil {
+		legacyMsg := strings.TrimSpace(string(legacyOut))
+		logging.Warnf("Autostart", "legacy %s fehlgeschlagen (%s): %v — %s", legacyAction, plistPath, legacyErr, legacyMsg)
+		return fmt.Errorf("launchctl %s: %s", legacyAction, legacyMsg)
+	}
+	logging.Infof("Autostart", "legacy %s erfolgreich: %s", legacyAction, plistPath)
 	return nil
 }
 

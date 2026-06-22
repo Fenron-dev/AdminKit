@@ -303,7 +303,7 @@ function initPrinterScan() {
 /** Vollständiger Scan: alle Scanner nacheinander.
  *  Netzwerk-Scan läuft im Basic-Modus (kein Passwort-Dialog). */
 // Vollscan-Schritte: [Label, async Funktion]
-const FULLSCAN_STEPS = [
+var FULLSCAN_STEPS = [
   ['System',              () => runSystemScan()],
   ['Autostart',          () => runAutostartScan()],
   ['Dienste',            () => runServicesScan()],
