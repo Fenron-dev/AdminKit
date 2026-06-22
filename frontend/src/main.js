@@ -2398,8 +2398,11 @@ async function openSessionHistory() {
         </td>
         <td style="white-space:nowrap;font-size:12px">${escapeHtml(date)}</td>
         <td>${snapshotHint}</td>
-        <td style="white-space:nowrap">
+        <td style="white-space:nowrap;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
           ${!isActive ? `<button class="btn btn-sm btn-primary btn-load-session" data-path="${escapeHtml(s.path)}" data-name="${escapeHtml(s.name)}">↩ Laden</button>` : ''}
+          ${s.has_snapshots && state.currentSessionPath && s.path !== state.currentSessionPath
+            ? `<button class="btn btn-sm btn-secondary btn-compare-session" data-path="${escapeHtml(s.path)}" data-name="${escapeHtml(s.name)}" title="Mit aktueller Session vergleichen">⚖ Vergleichen</button>`
+            : ''}
         </td>`;
       tbody.appendChild(tr);
     });
@@ -2408,11 +2411,18 @@ async function openSessionHistory() {
     list.appendChild(tbl);
 
     list.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.btn-load-session');
-      if (!btn) return;
-      btn.disabled = true;
-      btn.textContent = '⏳';
-      await loadSession({ path: btn.dataset.path, name: btn.dataset.name });
+      const loadBtn = e.target.closest('.btn-load-session');
+      if (loadBtn) {
+        loadBtn.disabled = true;
+        loadBtn.textContent = '⏳';
+        await loadSession({ path: loadBtn.dataset.path, name: loadBtn.dataset.name });
+        return;
+      }
+      const cmpBtn = e.target.closest('.btn-compare-session');
+      if (cmpBtn) {
+        closeSessionHistory();
+        await openBaselineCompare(cmpBtn.dataset.path, cmpBtn.dataset.name);
+      }
     });
   } catch (err) {
     list.innerHTML = `<p class="info-placeholder">Fehler beim Laden: ${escapeHtml(String(err))}</p>`;
@@ -2530,6 +2540,122 @@ async function loadSession(sessionInfo) {
 
 function closeSessionHistory() {
   document.getElementById('modal-session-history')?.classList.add('hidden');
+}
+
+// ─── Baseline-Vergleich ───────────────────────────────────────────────────────
+
+async function openBaselineCompare(comparePath, compareName) {
+  const modal  = document.getElementById('modal-baseline-compare');
+  const header = document.getElementById('baseline-compare-header');
+  const body   = document.getElementById('baseline-compare-body');
+  if (!modal || !header || !body) return;
+
+  modal.classList.remove('hidden');
+  body.innerHTML = '<p class="info-placeholder">Lade Session-Daten…</p>';
+  document.getElementById('btn-baseline-close')?.addEventListener('click', () => modal.classList.add('hidden'), { once: true });
+  document.getElementById('btn-baseline-cancel')?.addEventListener('click', () => modal.classList.add('hidden'), { once: true });
+
+  try {
+    const [baseSnaps, compSnaps] = await Promise.all([
+      LoadSession(state.currentSessionPath),
+      LoadSession(comparePath),
+    ]);
+
+    const currentName = state.currentSession || 'Aktuelle Session';
+    header.innerHTML = `
+      <div class="baseline-sessions">
+        <span class="baseline-label">🔵 Aktuell: <strong>${escapeHtml(currentName)}</strong></span>
+        <span class="baseline-vs">vs.</span>
+        <span class="baseline-label">🟡 Vergleich: <strong>${escapeHtml(compareName)}</strong></span>
+      </div>`;
+
+    const sections = [];
+
+    // ── Dienste vergleichen ──
+    if (baseSnaps.services && compSnaps.services) {
+      const base = JSON.parse(baseSnaps.services).services || [];
+      const comp = JSON.parse(compSnaps.services).services || [];
+      const baseNames = new Set(base.map(s => s.name));
+      const compNames = new Set(comp.map(s => s.name));
+      const added   = comp.filter(s => !baseNames.has(s.name));
+      const removed = base.filter(s => !compNames.has(s.name));
+      const changed = base.filter(s => {
+        const c = comp.find(x => x.name === s.name);
+        return c && c.status !== s.status;
+      }).map(s => ({ name: s.name, before: s.status, after: comp.find(x => x.name === s.name)?.status }));
+
+      if (added.length || removed.length || changed.length) {
+        sections.push(buildDiffSection('⚙ Dienste', added.map(s => s.name), removed.map(s => s.name),
+          changed.map(c => `${c.name}: ${c.before} → ${c.after}`)));
+      }
+    }
+
+    // ── Autostart vergleichen ──
+    if (baseSnaps.autostart && compSnaps.autostart) {
+      const base = JSON.parse(baseSnaps.autostart).entries || [];
+      const comp = JSON.parse(compSnaps.autostart).entries || [];
+      const baseKey = e => e.name + '|' + (e.path || '');
+      const compKey = e => e.name + '|' + (e.path || '');
+      const baseKeys = new Set(base.map(baseKey));
+      const compKeys = new Set(comp.map(compKey));
+      const added   = comp.filter(e => !baseKeys.has(compKey(e))).map(e => e.name);
+      const removed = base.filter(e => !compKeys.has(baseKey(e))).map(e => e.name);
+      if (added.length || removed.length) {
+        sections.push(buildDiffSection('🚀 Autostart', added, removed, []));
+      }
+    }
+
+    // ── Software vergleichen ──
+    if (baseSnaps.software && compSnaps.software) {
+      const base = JSON.parse(baseSnaps.software).apps || [];
+      const comp = JSON.parse(compSnaps.software).apps || [];
+      const baseNames = new Set(base.map(a => a.name));
+      const compNames = new Set(comp.map(a => a.name));
+      const added   = comp.filter(a => !baseNames.has(a.name)).map(a => a.name);
+      const removed = base.filter(a => !compNames.has(a.name)).map(a => a.name);
+      if (added.length || removed.length) {
+        sections.push(buildDiffSection('📦 Software', added, removed, []));
+      }
+    }
+
+    // ── Speicher vergleichen ──
+    if (baseSnaps.system && compSnaps.system) {
+      const baseVols = JSON.parse(baseSnaps.system).hardware?.volumes || [];
+      const compVols = JSON.parse(compSnaps.system).hardware?.volumes || [];
+      const diskLines = [];
+      baseVols.forEach(bv => {
+        const cv = compVols.find(v => v.mount_point === bv.mount_point);
+        if (cv) {
+          const diff = cv.free_gb - bv.free_gb;
+          if (Math.abs(diff) > 0.1) {
+            const sign = diff > 0 ? '+' : '';
+            diskLines.push(`${bv.mount_point}: ${sign}${diff.toFixed(1)} GB frei`);
+          }
+        }
+      });
+      if (diskLines.length) {
+        sections.push(`<div class="diff-section"><div class="diff-title">💽 Speicher (Δ frei)</div>
+          <ul class="diff-list">${diskLines.map(l => `<li class="diff-changed">${escapeHtml(l)}</li>`).join('')}</ul></div>`);
+      }
+    }
+
+    if (sections.length === 0) {
+      body.innerHTML = '<p class="info-placeholder">✓ Keine wesentlichen Unterschiede gefunden.</p>';
+    } else {
+      body.innerHTML = sections.join('');
+    }
+  } catch (e) {
+    body.innerHTML = `<p class="info-placeholder">Fehler: ${escapeHtml(String(e))}</p>`;
+  }
+}
+
+function buildDiffSection(title, added, removed, changed) {
+  let html = `<div class="diff-section"><div class="diff-title">${escapeHtml(title)}</div><ul class="diff-list">`;
+  added.forEach(n => { html += `<li class="diff-added">+ ${escapeHtml(n)}</li>`; });
+  removed.forEach(n => { html += `<li class="diff-removed">- ${escapeHtml(n)}</li>`; });
+  changed.forEach(c => { html += `<li class="diff-changed">~ ${escapeHtml(c)}</li>`; });
+  html += '</ul></div>';
+  return html;
 }
 
 // ─── WiFi QR-Code ─────────────────────────────────────────────────────────────

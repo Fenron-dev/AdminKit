@@ -2578,6 +2578,17 @@ body.platform-mac .titlebar {
 .brew-outdated-list .data-table { font-size: 12px; }
 .brew-upgrade-single { padding: 2px 8px; font-size: 11px; }
 
+/* ── Baseline-Vergleich ── */
+.baseline-compare-header { margin-bottom: 12px; }
+.baseline-sessions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.baseline-vs { color: var(--color-text-muted); font-weight: 600; }
+.diff-section { margin-bottom: 16px; }
+.diff-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--color-border); }
+.diff-list { list-style: none; padding: 0; margin: 0; font-size: 12px; font-family: monospace; display: flex; flex-direction: column; gap: 3px; }
+.diff-added   { color: #16a34a; background: rgba(22,163,74,.08); padding: 2px 8px; border-radius: 4px; }
+.diff-removed { color: #dc2626; background: rgba(220,38,38,.08); padding: 2px 8px; border-radius: 4px; }
+.diff-changed { color: #d97706; background: rgba(217,119,6,.08); padding: 2px 8px; border-radius: 4px; }
+
 /* ── SSH ── */
 .ssh-status-row { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
 .ssh-sessions { margin-top: 8px; padding: 8px 10px; background: var(--color-surface-2); border-radius: var(--radius-md); border: 1px solid var(--color-border); font-size: 12px; }
