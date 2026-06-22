@@ -55,11 +55,13 @@ type Branding struct {
 }
 
 type Defaults struct {
-	LogLocation          string `yaml:"log_location"           json:"log_location"`
-	ExportFormat         string `yaml:"export_format"          json:"export_format"`
-	IncludeWifiPasswords bool   `yaml:"include_wifi_passwords" json:"include_wifi_passwords"`
-	IncludeSmartData     bool   `yaml:"include_smart_data"     json:"include_smart_data"`
-	AutoVTScan           bool   `yaml:"auto_vt_scan"           json:"auto_vt_scan"`
+	LogLocation          string   `yaml:"log_location"            json:"log_location"`
+	ExportFormat         string   `yaml:"export_format"           json:"export_format"`
+	IncludeWifiPasswords bool     `yaml:"include_wifi_passwords"  json:"include_wifi_passwords"`
+	IncludeSmartData     bool     `yaml:"include_smart_data"      json:"include_smart_data"`
+	AutoVTScan           bool     `yaml:"auto_vt_scan"            json:"auto_vt_scan"`
+	// EnabledQuickActions: Leer = alle aktiviert. Nur explizit deaktivierte werden weggelassen.
+	DisabledQuickActions []string `yaml:"disabled_quick_actions,omitempty" json:"disabled_quick_actions,omitempty"`
 }
 
 type Backup struct {

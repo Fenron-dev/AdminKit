@@ -236,6 +236,7 @@ async function loadAppInfo() {
     state.config   = cfg;
     state.hostname = hostname || '';
     updateBrandingBar();
+    applyQuickActionVisibility();
 
     if (cfg?.ui?.theme && !localStorage.getItem('adminkit-theme') && cfg.ui.theme !== 'system') {
       state.theme = cfg.ui.theme;
@@ -594,6 +595,8 @@ function initQuickActions() {
     ['qa-quick-clean',   'quick_clean',   'Schnellbereinigung'],
     ['qa-dns-flush',     'dns_flush',     'DNS leeren'],
   ];
+
+  // Sichtbarkeit wird nach Konfigurationsladung in loadAppInfo() gesetzt
 
   const qaOut   = document.getElementById('qa-output');
   const qaPre   = document.getElementById('qa-output-text');
@@ -5138,6 +5141,12 @@ function openSettings() {
     setKeyField('setting-anthropic-key', cfg.api_keys?.anthropic);
     setKeyField('setting-groq-key',      cfg.api_keys?.groq);
     setKeyField('setting-openrouter-key', cfg.api_keys?.openrouter);
+    // Schnellaktionen-Sichtbarkeit
+    const disabledQA = cfg.defaults?.disabled_quick_actions || [];
+    ['internet_fix', 'printer_fix', 'quick_clean', 'dns_flush'].forEach(id => {
+      const el = document.getElementById('qa-toggle-' + id);
+      if (el) el.checked = !disabledQA.includes(id);
+    });
     // Modell-Felder
     document.getElementById('setting-model-openai').value      = cfg.ai_models?.openai     ?? '';
     document.getElementById('setting-model-anthropic').value   = cfg.ai_models?.anthropic  ?? '';
@@ -5233,6 +5242,10 @@ async function saveSettings() {
   cfg.ai_models.lmstudio    = document.getElementById('setting-model-lmstudio')?.value.trim()    || '';
   cfg.ai_models.openrouter  = document.getElementById('setting-model-openrouter')?.value.trim()  || '';
 
+  // Schnellaktionen: deaktivierte IDs sammeln
+  cfg.defaults.disabled_quick_actions = ['internet_fix', 'printer_fix', 'quick_clean', 'dns_flush']
+    .filter(id => !document.getElementById('qa-toggle-' + id)?.checked);
+
   const btn = document.getElementById('settings-save');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Speichere…'; }
 
@@ -5247,7 +5260,18 @@ async function saveSettings() {
     if (btn) { btn.disabled = false; btn.textContent = 'Speichern'; }
     closeSettings();
     updateBrandingBar();
+    // Schnellaktionen-Sichtbarkeit sofort aktualisieren
+    applyQuickActionVisibility();
   }
+}
+
+function applyQuickActionVisibility() {
+  const disabled = state.config?.defaults?.disabled_quick_actions || [];
+  [['qa-internet-fix','internet_fix'],['qa-printer-fix','printer_fix'],
+   ['qa-quick-clean','quick_clean'],['qa-dns-flush','dns_flush']].forEach(([btnId, actionId]) => {
+    const el = document.getElementById(btnId);
+    if (el) el.style.display = disabled.includes(actionId) ? 'none' : '';
+  });
 }
 
 // ─── Diagnose-Bericht ─────────────────────────────────────────────────────────
