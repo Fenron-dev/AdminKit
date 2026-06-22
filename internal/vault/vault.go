@@ -13,9 +13,10 @@ import (
 
 // SessionInfo beschreibt eine gespeicherte Kunden-Session im Vault.
 type SessionInfo struct {
-	Name      string    `json:"name"`
-	Path      string    `json:"path"`
-	CreatedAt time.Time `json:"created_at"`
+	Name         string    `json:"name"`
+	Path         string    `json:"path"`
+	CreatedAt    time.Time `json:"created_at"`
+	HasSnapshots bool      `json:"has_snapshots"` // true wenn JSON-Schnappschüsse vorhanden (ladbar)
 }
 
 // Vault repräsentiert eine AdminKit-Vault-Instanz.
@@ -95,10 +96,14 @@ func (v *Vault) ListSessions() ([]SessionInfo, error) {
 		if err != nil {
 			continue
 		}
+		sessionPath := filepath.Join(dataDir, e.Name())
+		snapDir := filepath.Join(sessionPath, "snapshots")
+		_, snapErr := os.Stat(snapDir)
 		sessions = append(sessions, SessionInfo{
-			Name:      e.Name(),
-			Path:      filepath.Join(dataDir, e.Name()),
-			CreatedAt: info.ModTime(),
+			Name:         e.Name(),
+			Path:         sessionPath,
+			CreatedAt:    info.ModTime(),
+			HasSnapshots: snapErr == nil,
 		})
 	}
 	sort.Slice(sessions, func(i, j int) bool {

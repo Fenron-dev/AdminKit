@@ -49,6 +49,8 @@ import {
   ToggleAutostartEntry,
   GetCleanupSizes,
   GetHostname,
+  SaveScanSnapshot,
+  LoadSession,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -144,6 +146,17 @@ function initThemeToggle() {
 function applyPlatformClass() {
   if (navigator.platform.includes('Mac') || navigator.userAgent.includes('Mac OS')) {
     document.body.classList.add('platform-mac');
+  }
+}
+
+// ─── Scan-Snapshot (Session-Laden) ───────────────────────────────────────────
+
+async function saveSnapshot(key, data) {
+  if (!state.currentSessionPath) return;
+  try {
+    await SaveScanSnapshot(state.currentSessionPath, key, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Snapshot konnte nicht gespeichert werden:', key, e);
   }
 }
 
@@ -620,7 +633,7 @@ async function runSystemScan() {
       await SaveSystemScan(result, state.currentSessionPath);
       addAction('System-Scan in Vault gespeichert', 'success');
     }
-
+    await saveSnapshot('system', result);
     logScanErrors(result.errors, 'System-Scan');
     setStatus('System-Scan abgeschlossen');
   } catch (err) {
@@ -657,7 +670,7 @@ async function runNetworkScan() {
       await SaveNetworkScan(result, state.currentSessionPath);
       addAction('Netzwerk-Scan in Vault gespeichert', 'success');
     }
-
+    await saveSnapshot('network', result);
     logScanErrors(result.errors, 'Netzwerk-Scan');
     setStatus('Netzwerk-Scan abgeschlossen');
   } catch (err) {
@@ -693,7 +706,7 @@ async function runNetworkScanBasic() {
     if (state.currentSessionPath) {
       await SaveNetworkScan(result, state.currentSessionPath);
     }
-
+    await saveSnapshot('network', result);
     logScanErrors(result.errors, 'Netzwerk-Scan');
     setStatus('Netzwerk-Scan abgeschlossen');
   } catch (err) {
@@ -786,7 +799,7 @@ async function runSoftwareScan() {
       await SaveSoftwareScan(result, state.currentSessionPath);
       addAction('Software-Scan in Vault gespeichert', 'success');
     }
-
+    await saveSnapshot('software', result);
     logScanErrors(result.errors, 'Software-Scan');
     setStatus('Software-Scan abgeschlossen');
   } catch (err) {
@@ -816,7 +829,7 @@ async function runPrinterScan() {
       await SavePrinterScan(result, state.currentSessionPath);
       addAction('Drucker-Scan in Vault gespeichert', 'success');
     }
-
+    await saveSnapshot('printers', result);
     logScanErrors(result.errors, 'Drucker-Scan');
     setStatus('Drucker-Scan abgeschlossen');
   } catch (err) {
@@ -914,6 +927,7 @@ async function runAutostartScan() {
     state.lastAutostartResult = result;
     renderAutostart(result.entries);
     setEl('autostart-count', result.entries?.length ?? 0);
+    await saveSnapshot('autostart', result);
     logScanErrors(result.errors, 'Autostart-Scan');
     setStatus('Autostart-Scan abgeschlossen');
   } catch (err) {
@@ -1090,6 +1104,7 @@ async function runServicesScan() {
     state.lastServicesResult = result;
     renderServices(result.services);
     setEl('services-count', result.services?.length ?? 0);
+    await saveSnapshot('services', result);
     logScanErrors(result.errors, 'Dienste-Scan');
     setStatus('Dienste-Scan abgeschlossen');
   } catch (err) {
@@ -1223,6 +1238,7 @@ async function runEventsScan() {
     state.lastEventsResult = result;
     renderEvents(result.events);
     setEl('events-count', result.events?.length ?? 0);
+    await saveSnapshot('events', result);
     logScanErrors(result.errors, 'Event-Log-Scan');
     setStatus('Event-Log-Scan abgeschlossen');
   } catch (err) {
@@ -1922,6 +1938,7 @@ async function runBrowserExtScan() {
     state.lastBrowserExtResult = result;
     renderBrowserExtensions(result.extensions);
     setEl('extensions-count', result.extensions?.length ?? 0);
+    await saveSnapshot('browser_ext', result);
     logScanErrors(result.errors, 'Browser-Extensions-Scan');
     setStatus('Browser-Extensions-Scan abgeschlossen');
   } catch (err) {
@@ -2019,22 +2036,149 @@ async function openSessionHistory() {
     }
     const tbl = document.createElement('table');
     tbl.className = 'data-table';
-    tbl.innerHTML = '<thead><tr><th>Session</th><th>Erstellt</th><th>Pfad</th></tr></thead>';
+    tbl.innerHTML = '<thead><tr><th>Session</th><th>Erstellt</th><th>Gespeicherte Daten</th><th></th></tr></thead>';
     const tbody = document.createElement('tbody');
     sessions.forEach(s => {
       const tr = document.createElement('tr');
       const date = s.created_at ? new Date(s.created_at).toLocaleString('de-DE') : '–';
+      const isActive = s.path === state.currentSessionPath;
+      const snapshotHint = s.has_snapshots
+        ? '<span style="color:var(--color-success);font-size:11px">✓ Ladbar</span>'
+        : '<span style="color:var(--color-text-muted);font-size:11px">Nur Markdown</span>';
       tr.innerHTML = `
-        <td><strong>${escapeHtml(s.name)}</strong></td>
+        <td>
+          <strong>${escapeHtml(s.name)}</strong>
+          ${isActive ? '<span class="user-badge" style="margin-left:4px">Aktiv</span>' : ''}
+          <br><span style="font-size:11px;color:var(--color-text-muted)">${escapeHtml(shortenPath(s.path))}</span>
+        </td>
         <td style="white-space:nowrap;font-size:12px">${escapeHtml(date)}</td>
-        <td style="font-size:11px;color:var(--color-text-muted)">${escapeHtml(shortenPath(s.path))}</td>`;
+        <td>${snapshotHint}</td>
+        <td style="white-space:nowrap">
+          ${!isActive ? `<button class="btn btn-sm btn-primary btn-load-session" data-path="${escapeHtml(s.path)}" data-name="${escapeHtml(s.name)}">↩ Laden</button>` : ''}
+        </td>`;
       tbody.appendChild(tr);
     });
     tbl.appendChild(tbody);
-    list.innerHTML = `<p class="section-meta">${sessions.length} Sessions</p>`;
+    list.innerHTML = `<p class="section-meta">${sessions.length} Sessions · Klick auf "Laden" stellt alle gespeicherten Scan-Daten wieder her</p>`;
     list.appendChild(tbl);
+
+    list.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.btn-load-session');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = '⏳';
+      await loadSession({ path: btn.dataset.path, name: btn.dataset.name });
+    });
   } catch (err) {
     list.innerHTML = `<p class="info-placeholder">Fehler beim Laden: ${escapeHtml(String(err))}</p>`;
+  }
+}
+
+async function loadSession(sessionInfo) {
+  try {
+    const snapshots = await LoadSession(sessionInfo.path);
+    const keys = Object.keys(snapshots);
+
+    if (keys.length === 0) {
+      alert('Diese Session enthält noch keine ladbaren Snapshot-Daten.\nNur Sessions die mit dieser Version von AdminKit erstellt wurden, können geladen werden.');
+      return;
+    }
+
+    state.currentSession = sessionInfo.name;
+    state.currentSessionPath = sessionInfo.path;
+    setEl('session-name', sessionInfo.name);
+
+    const loaded = [];
+
+    if (snapshots.system) {
+      const r = JSON.parse(snapshots.system);
+      renderHardware(r.hardware);
+      renderOS(r.os);
+      renderSmart(r.smart);
+      renderSecurity(r.security);
+      updateDashboardBadges(r);
+      loaded.push('System');
+    }
+    if (snapshots.network) {
+      const r = JSON.parse(snapshots.network);
+      renderAdapters(r.adapters);
+      renderShares(r.shares);
+      renderWiFi(r.wifi);
+      updateNetworkBadge(r);
+      loaded.push('Netzwerk');
+    }
+    if (snapshots.software) {
+      const r = JSON.parse(snapshots.software);
+      renderSoftware(r);
+      updateSoftwareBadge(r);
+      loaded.push('Software');
+    }
+    if (snapshots.autostart) {
+      const r = JSON.parse(snapshots.autostart);
+      renderAutostart(r.entries);
+      setEl('autostart-count', r.entries?.length ?? 0);
+      loaded.push('Autostart');
+    }
+    if (snapshots.services) {
+      const r = JSON.parse(snapshots.services);
+      renderServices(r.services);
+      setEl('services-count', r.services?.length ?? 0);
+      loaded.push('Dienste');
+    }
+    if (snapshots.events) {
+      const r = JSON.parse(snapshots.events);
+      renderEvents(r.events);
+      setEl('events-count', r.events?.length ?? 0);
+      loaded.push('Ereignisse');
+    }
+    if (snapshots.printers) {
+      const r = JSON.parse(snapshots.printers);
+      renderPrinters(r.printers);
+      loaded.push('Drucker');
+    }
+    if (snapshots.processes) {
+      const r = JSON.parse(snapshots.processes);
+      renderProcesses(r);
+      setEl('processes-count', r?.length ?? 0);
+      loaded.push('Prozesse');
+    }
+    if (snapshots.browser_ext) {
+      const r = JSON.parse(snapshots.browser_ext);
+      renderBrowserExtensions(r.extensions);
+      setEl('extensions-count', r.extensions?.length ?? 0);
+      loaded.push('Browser-Ext');
+    }
+    if (snapshots.users) {
+      const r = JSON.parse(snapshots.users);
+      renderUsers(r);
+      setEl('users-count', r?.users?.length ?? 0);
+      loaded.push('Benutzer');
+    }
+    if (snapshots.tasks) {
+      const r = JSON.parse(snapshots.tasks);
+      renderTasks(r);
+      setEl('tasks-count', r?.tasks?.length ?? 0);
+      loaded.push('Aufgaben');
+    }
+    if (snapshots.profiles) {
+      const r = JSON.parse(snapshots.profiles);
+      renderProfiles(r);
+      setEl('profiles-count', r?.profiles?.length ?? 0);
+      loaded.push('Profile');
+    }
+    if (snapshots.usb) {
+      const r = JSON.parse(snapshots.usb);
+      renderUSBDevices(r);
+      setEl('usb-count', r?.devices?.length ?? 0);
+      loaded.push('USB');
+    }
+
+    closeSessionHistory();
+    addAction(`Session geladen: ${sessionInfo.name} (${loaded.join(', ')})`, 'success');
+    setStatus(`Session "${sessionInfo.name}" wiederhergestellt`);
+  } catch (err) {
+    console.error('Session laden fehlgeschlagen:', err);
+    addAction('Session laden fehlgeschlagen: ' + err, 'error');
   }
 }
 
@@ -2188,6 +2332,7 @@ async function runProcessScan() {
     const procs = await GetProcesses();
     renderProcesses(procs);
     setEl('processes-count', procs?.length ?? 0);
+    await saveSnapshot('processes', procs);
     addAction(`Prozess-Scan: ${procs?.length ?? 0} laufende Prozesse`, 'info');
     setStatus('Prozess-Scan abgeschlossen');
   } catch (err) {
@@ -3772,6 +3917,7 @@ async function runUsersScan() {
     renderUsers(result);
     const count = result?.users?.length ?? 0;
     setEl('users-count', count.toString());
+    await saveSnapshot('users', result);
     setStatus(`Benutzer-Scan: ${count} Konten gefunden`);
     addAction(`Benutzer-Scan: ${count} lokale Konten`, 'info');
   } catch (err) {
@@ -3858,6 +4004,7 @@ async function runTasksScan() {
     renderTasks(result);
     const count = result?.tasks?.length ?? 0;
     setEl('tasks-count', count.toString());
+    await saveSnapshot('tasks', result);
     setStatus(`Aufgaben-Scan: ${count} Aufgaben gefunden`);
     addAction(`Aufgaben-Scan: ${count} geplante Aufgaben`, 'info');
   } catch (err) {
@@ -3916,6 +4063,7 @@ async function runProfilesScan() {
     renderProfiles(result);
     const count = result?.profiles?.length ?? 0;
     setEl('profiles-count', count.toString());
+    await saveSnapshot('profiles', result);
     setStatus(`Profil-Scan: ${count} Profile gefunden`);
     addAction(`Profil-Scan: ${count} Konfigurationsprofile`, 'info');
   } catch (err) {
@@ -3970,6 +4118,7 @@ async function runUSBScan() {
     renderUSBDevices(result);
     const count = result?.devices?.length ?? 0;
     setEl('usb-count', count.toString());
+    await saveSnapshot('usb', result);
     setStatus(`USB-Scan: ${count} Geräte gefunden`);
     addAction(`USB-Scan: ${count} USB-Geräte`, 'info');
   } catch (err) {

@@ -230,6 +230,14 @@ export function ScanUSBDevices() {
     return window['go']['main']['App']['ScanUSBDevices']();
 }
 
+// ── Session-Schnappschüsse ──
+export function SaveScanSnapshot(arg1, arg2, arg3) {
+    return window['go']['main']['App']['SaveScanSnapshot'](arg1, arg2, arg3);
+}
+export function LoadSession(arg1) {
+    return window['go']['main']['App']['LoadSession'](arg1);
+}
+
 // ── Vault-Archivierung ──
 export function PickArchiveDirectory() {
     return window['go']['main']['App']['PickArchiveDirectory']();

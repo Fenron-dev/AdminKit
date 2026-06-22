@@ -607,6 +607,45 @@ func (a *App) GetSessions() ([]vault.SessionInfo, error) {
 	return a.vault.ListSessions()
 }
 
+// SaveScanSnapshot speichert ein Scan-Ergebnis als JSON-Schnappschuss im Session-Ordner.
+// key ist z.B. "system", "autostart", "services". Die Datei landet unter <session>/snapshots/<key>.json.
+func (a *App) SaveScanSnapshot(sessionPath, key, jsonData string) error {
+	if sessionPath == "" || key == "" {
+		return nil
+	}
+	snapDir := filepath.Join(sessionPath, "snapshots")
+	if err := os.MkdirAll(snapDir, 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(snapDir, key+".json"), []byte(jsonData), 0644)
+}
+
+// LoadSession liest alle JSON-Schnappschüsse einer Session und gibt sie als Map key→JSON zurück.
+// Sessions ohne Snapshots (älter als dieses Feature) geben eine leere Map zurück.
+func (a *App) LoadSession(sessionPath string) (map[string]string, error) {
+	result := map[string]string{}
+	snapDir := filepath.Join(sessionPath, "snapshots")
+	entries, err := os.ReadDir(snapDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return result, nil
+		}
+		return nil, err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		data, readErr := os.ReadFile(filepath.Join(snapDir, entry.Name()))
+		if readErr != nil {
+			continue
+		}
+		key := strings.TrimSuffix(entry.Name(), ".json")
+		result[key] = string(data)
+	}
+	return result, nil
+}
+
 // StartService startet einen Dienst per Name.
 // Auf macOS: launchctl start; auf Windows: sc start.
 // System-Dienste erfordern Admin-Rechte (einmaliger Dialog).
