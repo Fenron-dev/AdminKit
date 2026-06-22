@@ -1009,19 +1009,19 @@ thead th.sort-desc::after { content: ' ↓'; font-size: 10px; color: var(--color
 .branding-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 6px 20px;
   background: var(--color-primary);
   color: #fff;
   font-size: 13px;
-  min-height: 34px;
+  min-height: 52px;
 }
 
 .branding-logo {
-  max-height: 22px;
-  max-width: 80px;
+  max-height: 40px;
+  max-width: 140px;
   object-fit: contain;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .branding-info {

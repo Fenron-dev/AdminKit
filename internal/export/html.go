@@ -1196,7 +1196,7 @@ font-size:13px;cursor:pointer;font-weight:500}
 .print-btn:hover{opacity:.85}
 .scan-warn{font-size:12px;color:var(--warn);margin-top:8px}
 .hdr-logo{font-size:22px;font-weight:700;color:var(--primary)}
-.hdr-logo-img{max-height:48px;max-width:160px;object-fit:contain}
+.hdr-logo-img{max-height:80px;max-width:220px;object-fit:contain}
 .hdr-company{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
 .hdr-title{font-size:18px;font-weight:600}
 .hdr-meta{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:4px}
