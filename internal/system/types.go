@@ -8,13 +8,14 @@ import "time"
 // Nicht-fatale Fehler (z.B. fehlende Adminrechte) landen in Errors,
 // damit der Rest der Daten trotzdem angezeigt werden kann.
 type ScanResult struct {
-	Timestamp time.Time    `json:"timestamp"`
-	Hardware  HardwareInfo `json:"hardware"`
-	OS        OSInfo       `json:"os"`
-	Smart     []DiskSmart  `json:"smart"`
-	Users     []UserInfo   `json:"users"`
-	Security  SecurityInfo `json:"security"`
-	Errors    []ScanError  `json:"errors,omitempty"`
+	Timestamp   time.Time         `json:"timestamp"`
+	Hardware    HardwareInfo      `json:"hardware"`
+	OS          OSInfo            `json:"os"`
+	Smart       []DiskSmart       `json:"smart"`
+	Users       []UserInfo        `json:"users"`
+	Security    SecurityInfo      `json:"security"`
+	TimeMachine *TimeMachineInfo  `json:"time_machine,omitempty"`
+	Errors      []ScanError       `json:"errors,omitempty"`
 }
 
 // ─── Hardware ─────────────────────────────────────────────────────────────────
@@ -184,6 +185,18 @@ type RunningProcess struct {
 	CPUPct   float64 `json:"cpu_pct"`
 	MemoryMB float64 `json:"memory_mb"`
 	IsSystem bool    `json:"is_system"`
+}
+
+// ─── Time Machine ─────────────────────────────────────────────────────────────
+
+// TimeMachineInfo beschreibt den Time-Machine-Status (macOS only).
+type TimeMachineInfo struct {
+	Enabled         bool      `json:"enabled"`           // Backup-Ziel konfiguriert?
+	Running         bool      `json:"running"`           // Backup läuft gerade?
+	LastBackup      time.Time `json:"last_backup,omitempty"` // Zeitpunkt des letzten Backups
+	DaysSinceBackup int       `json:"days_since_backup"` // Tage seit letztem Backup; -1 = noch nie
+	DestName        string    `json:"dest_name"`         // Name des Backup-Ziels
+	Status          string    `json:"status"`            // "OK" | "WARNING" | "CRITICAL" | "UNKNOWN"
 }
 
 // ─── Fehler-Tracking ──────────────────────────────────────────────────────────

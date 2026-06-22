@@ -106,6 +106,9 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 		if len(data.System.Smart) > 0 {
 			sb.WriteString("  <a href=\"#sec-smart\">💿 SMART</a>\n")
 		}
+		if data.System.TimeMachine != nil {
+			sb.WriteString("  <a href=\"#sec-timemachine\">🕐 Time Machine</a>\n")
+		}
 		sb.WriteString("  <a href=\"#sec-security\">🔒 Sicherheit</a>\n")
 	}
 	if data.Network != nil {
@@ -168,6 +171,12 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 		if len(data.System.Smart) > 0 {
 			sb.WriteString("<section id=\"sec-smart\">\n<h2 class=\"sec-title\">💿 SMART-Status</h2>\n")
 			writeSmartSection(sb, data.System.Smart)
+			sb.WriteString("</section>\n")
+		}
+
+		if data.System.TimeMachine != nil {
+			sb.WriteString("<section id=\"sec-timemachine\">\n<h2 class=\"sec-title\">🕐 Time Machine</h2>\n")
+			writeTimeMachineSection(sb, data.System.TimeMachine)
 			sb.WriteString("</section>\n")
 		}
 
@@ -485,6 +494,42 @@ func writeSmartSection(sb *strings.Builder, disks []system.DiskSmart) {
 		}
 		sb.WriteString("</tbody></table></div>\n")
 	}
+}
+
+// ─── Time Machine ─────────────────────────────────────────────────────────────
+
+func writeTimeMachineSection(sb *strings.Builder, tm *system.TimeMachineInfo) {
+	icons := map[string]string{"OK": "🟢", "WARNING": "🟡", "CRITICAL": "🔴", "UNKNOWN": "⚪"}
+	icon := icons[tm.Status]
+	if icon == "" {
+		icon = "⚪"
+	}
+	sb.WriteString("<table class=\"info-table\"><tbody>\n")
+	row(sb, "Status", icon+" "+tm.Status)
+	if tm.Enabled {
+		row(sb, "Backup-Ziel", h(tm.DestName))
+		if tm.Running {
+			row(sb, "Läuft gerade", "⏳ Ja")
+		}
+		if !tm.LastBackup.IsZero() {
+			days := tm.DaysSinceBackup
+			dayLabel := ""
+			switch {
+			case days == 0:
+				dayLabel = " (heute)"
+			case days == 1:
+				dayLabel = " (gestern)"
+			default:
+				dayLabel = fmt.Sprintf(" (vor %d Tagen)", days)
+			}
+			row(sb, "Letztes Backup", tm.LastBackup.Format("02.01.2006 15:04")+dayLabel)
+		} else {
+			row(sb, "Letztes Backup", "Noch kein Backup erstellt")
+		}
+	} else {
+		row(sb, "Aktiviert", "✗ Kein Ziel konfiguriert")
+	}
+	sb.WriteString("</tbody></table>\n")
 }
 
 // ─── Sicherheit & Benutzer ────────────────────────────────────────────────────

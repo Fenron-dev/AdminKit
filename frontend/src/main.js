@@ -615,9 +615,10 @@ async function runSystemScan() {
   setScanButtonsDisabled(true);
   addAction('System-Scan gestartet', 'info');
 
-  setPlaceholder('hw-info',    'Scanne Hardware…');
-  setPlaceholder('os-info',    'Scanne Betriebssystem…');
-  setPlaceholder('smart-info', 'Scanne Festplatten (SMART)…');
+  setPlaceholder('hw-info',          'Scanne Hardware…');
+  setPlaceholder('os-info',          'Scanne Betriebssystem…');
+  setPlaceholder('smart-info',       'Scanne Festplatten (SMART)…');
+  setPlaceholder('timemachine-info', 'Scanne Time Machine…');
 
   try {
     const result = await ScanSystem();
@@ -626,6 +627,7 @@ async function runSystemScan() {
     renderHardware(result.hardware);
     renderOS(result.os);
     renderSmart(result.smart);
+    renderTimeMachine(result.time_machine);
     renderSecurity(result.security);
     updateDashboardBadges(result);
 
@@ -1682,6 +1684,40 @@ function renderSmart(smarts) {
   });
 }
 
+function renderTimeMachine(tm) {
+  const container = document.getElementById('timemachine-info');
+  if (!container) return;
+
+  if (!tm) {
+    container.innerHTML = '<div class="info-placeholder">Keine Time-Machine-Daten (macOS only).</div>';
+    return;
+  }
+
+  const statusClass = { OK: 'badge-ok', WARNING: 'badge-warning', CRITICAL: 'badge-error', UNKNOWN: 'badge-unknown' }[tm.status] ?? 'badge-unknown';
+  const statusIcon  = { OK: '🟢', WARNING: '🟡', CRITICAL: '🔴', UNKNOWN: '⚪' }[tm.status] ?? '⚪';
+
+  let lastBackupStr = '–';
+  if (tm.last_backup && tm.last_backup !== '0001-01-01T00:00:00Z') {
+    const d = new Date(tm.last_backup);
+    const days = tm.days_since_backup;
+    const dayLabel = days === 0 ? 'heute' : days === 1 ? 'gestern' : `vor ${days} Tagen`;
+    lastBackupStr = `${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} (${dayLabel})`;
+  } else if (tm.enabled) {
+    lastBackupStr = 'Noch kein Backup erstellt';
+  }
+
+  const rows = [
+    ['Status', `<span class="status-badge ${statusClass}">${statusIcon} ${escapeHtml(tm.status)}</span>`],
+    ['Aktiviert', tm.enabled ? '✓ Ja' : '✗ Kein Ziel konfiguriert'],
+    ['Läuft gerade', tm.running ? '⏳ Backup läuft…' : '–'],
+    ['Letztes Backup', lastBackupStr],
+    ['Backup-Ziel', escapeHtml(tm.dest_name || '–')],
+  ];
+
+  container.innerHTML = '';
+  container.appendChild(buildInfoGrid(rows, true));
+}
+
 // ─── Netzwerk-Tab Rendering ──────────────────────────────────────────────────
 
 function renderAdapters(adapters) {
@@ -2095,6 +2131,7 @@ async function loadSession(sessionInfo) {
       renderHardware(r.hardware);
       renderOS(r.os);
       renderSmart(r.smart);
+      renderTimeMachine(r.time_machine);
       renderSecurity(r.security);
       updateDashboardBadges(r);
       loaded.push('System');
@@ -4907,7 +4944,8 @@ function initSysPrefsLinks() {
   var sysPrefsMap = {
     'section-hw':        { url: 'x-apple.systempreferences:com.apple.settings.Storage',           label: 'Lagerung' },
     'section-os':        { url: 'x-apple.systempreferences:com.apple.preference.softwareupdate',   label: 'Software-Aktualisierung' },
-    'section-smart':     { url: 'x-apple.systempreferences:com.apple.settings.Storage',           label: 'Lagerung' },
+    'section-smart':       { url: 'x-apple.systempreferences:com.apple.settings.Storage',                     label: 'Lagerung' },
+    'section-timemachine': { url: 'x-apple.systempreferences:com.apple.prefs.backup',                          label: 'Time Machine' },
     'section-autostart': { url: 'x-apple.systempreferences:com.apple.LoginItems-Settings.extension', label: 'Anmeldeobjekte' },
     'section-security':  { url: 'x-apple.systempreferences:com.apple.preference.security',        label: 'Datenschutz & Sicherheit' },
     'section-users':     { url: 'x-apple.systempreferences:com.apple.preference.accounts',        label: 'Benutzer:innen & Gruppen' },

@@ -39,6 +39,8 @@ func Scan() (*ScanResult, error) {
 	result.Security = sec
 	result.Errors = append(result.Errors, errs...)
 
+	result.TimeMachine = scanTimeMachine()
+
 	return result, nil
 }
 
@@ -877,4 +879,67 @@ func ScanProcesses() ([]RunningProcess, error) {
 		})
 	}
 	return procs, nil
+}
+
+// ─── Time Machine ─────────────────────────────────────────────────────────────
+
+// scanTimeMachine liest den Time-Machine-Status via tmutil.
+func scanTimeMachine() *TimeMachineInfo {
+	info := &TimeMachineInfo{DaysSinceBackup: -1, Status: "UNKNOWN"}
+
+	// Prüfen ob ein Backup-Ziel konfiguriert ist
+	destOut, destErr := exec.Command("tmutil", "destinationinfo").Output()
+	if destErr != nil || len(strings.TrimSpace(string(destOut))) == 0 {
+		info.Enabled = false
+		info.Status = "CRITICAL"
+		return info
+	}
+	info.Enabled = true
+
+	// Ziel-Name aus "Name         : My Drive" extrahieren
+	for _, line := range strings.Split(string(destOut), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Name") {
+			if i := strings.Index(line, ":"); i >= 0 {
+				info.DestName = strings.TrimSpace(line[i+1:])
+			}
+			break
+		}
+	}
+
+	// Letztes Backup-Datum via tmutil latestbackup
+	lbOut, lbErr := exec.Command("tmutil", "latestbackup").Output()
+	if lbErr == nil {
+		lbPath := strings.TrimSpace(string(lbOut))
+		base := filepath.Base(lbPath) // z.B. "2024-01-15-103000"
+		if len(base) >= 17 {
+			dateStr := base[:10] + " " + base[11:13] + ":" + base[13:15] + ":" + base[15:17]
+			if t, err := time.ParseInLocation("2006-01-02 15:04:05", dateStr, time.Local); err == nil {
+				info.LastBackup = t
+				info.DaysSinceBackup = int(time.Since(t).Hours() / 24)
+			}
+		}
+	}
+
+	// Prüfen ob gerade ein Backup läuft
+	statusOut, statusErr := exec.Command("tmutil", "status").Output()
+	if statusErr == nil && strings.Contains(string(statusOut), "Running = 1") {
+		info.Running = true
+	}
+
+	// Ampel-Status berechnen
+	switch {
+	case info.Running:
+		info.Status = "OK"
+	case info.DaysSinceBackup < 0:
+		info.Status = "WARNING" // konfiguriert, aber noch kein Backup
+	case info.DaysSinceBackup <= 2:
+		info.Status = "OK"
+	case info.DaysSinceBackup <= 7:
+		info.Status = "WARNING"
+	default:
+		info.Status = "CRITICAL"
+	}
+
+	return info
 }
