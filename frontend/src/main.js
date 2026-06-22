@@ -118,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initActionResultModal();
   initEventDetailModal();
   initQuickActions();
+  initWorkflows();
   initPeriodicMaintenance();
   initHomebrew();
   initSSHManagement();
@@ -308,6 +309,64 @@ function initPrinterScan() {
   document.getElementById('btn-scan-extensions')?.addEventListener('click', () => runBrowserExtScan());
   document.getElementById('btn-scan-processes')?.addEventListener('click', () => runProcessScan());
 }
+
+// Vordefinierte Workflows: [Label, async Scan-Funktion]
+// Jeder Workflow ist eine Teilmenge oder spezifische Kombination der Scanner.
+var WORKFLOW_DEFS = [
+  {
+    id: 'new-pc',
+    icon: '🖥',
+    name: 'Neue PC-Einrichtung',
+    desc: 'Vollscan + Sicherheits-Check + Autostart-Prüfung. Ideal als Einrichtungsprotokoll.',
+    steps: [
+      ['System',              () => runSystemScan()],
+      ['Autostart',          () => runAutostartScan()],
+      ['Dienste',            () => runServicesScan()],
+      ['Software',           () => runSoftwareScan()],
+      ['Benutzerkonten',     () => runUsersScan()],
+      ['Konfigurationsprofile', () => runProfilesScan()],
+    ],
+  },
+  {
+    id: 'maintenance',
+    icon: '🔧',
+    name: 'Wöchentliche Wartung',
+    desc: 'Ereignisse, Dienste, Autostart und Netzwerk — schnelle Routineprüfung.',
+    steps: [
+      ['System',    () => runSystemScan()],
+      ['Ereignisse', () => runEventsScan()],
+      ['Dienste',   () => runServicesScan()],
+      ['Autostart', () => runAutostartScan()],
+      ['Netzwerk',  () => runNetworkScanBasic()],
+    ],
+  },
+  {
+    id: 'troubleshoot',
+    icon: '🔍',
+    name: 'Problembehandlung',
+    desc: 'Ereignisse, Prozesse und Netzwerk — gezielter Blick auf laufende Probleme.',
+    steps: [
+      ['Ereignisse', () => runEventsScan()],
+      ['Prozesse',   () => runProcessScan()],
+      ['Netzwerk',   () => runNetworkScanBasic()],
+      ['Dienste',    () => runServicesScan()],
+    ],
+  },
+  {
+    id: 'security',
+    icon: '🛡',
+    name: 'Sicherheitsaudit',
+    desc: 'Vollständige Sicherheitsprüfung: Autostart, Benutzer, Profile, USB-History.',
+    steps: [
+      ['System',               () => runSystemScan()],
+      ['Autostart',            () => runAutostartScan()],
+      ['Browser-Extensions',   () => runBrowserExtScan()],
+      ['Benutzerkonten',       () => runUsersScan()],
+      ['Konfigurationsprofile', () => runProfilesScan()],
+      ['USB-Geräte',           () => runUSBScan()],
+    ],
+  },
+];
 
 /** Vollständiger Scan: alle Scanner nacheinander.
  *  Netzwerk-Scan läuft im Basic-Modus (kein Passwort-Dialog). */
@@ -578,6 +637,51 @@ function initQuickActions() {
         if (qaTitle) qaTitle.textContent = '✗ ' + label;
       }
     });
+  });
+}
+
+// ─── Workflows ───────────────────────────────────────────────────────────────
+
+function initWorkflows() {
+  const container = document.getElementById('workflows-grid');
+  if (!container) return;
+
+  container.innerHTML = WORKFLOW_DEFS.map(w => `
+    <button class="workflow-card" data-workflow="${escapeHtml(w.id)}">
+      <span class="workflow-icon">${w.icon}</span>
+      <span class="workflow-name">${escapeHtml(w.name)}</span>
+      <span class="workflow-desc">${escapeHtml(w.desc)}</span>
+    </button>
+  `).join('');
+
+  container.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.workflow-card');
+    if (!btn) return;
+    const wf = WORKFLOW_DEFS.find(w => w.id === btn.dataset.workflow);
+    if (!wf) return;
+
+    const stepNames = wf.steps.map(([label]) => '• ' + label).join('\n');
+    const ok = await showConfirm({
+      title: wf.icon + ' ' + wf.name + ' starten?',
+      what: `Führt folgende Scans sequentiell aus:\n${stepNames}`,
+      impact: 'Laufende Scans werden abgebrochen. Stellen Sie sicher, dass eine Session aktiv ist.',
+    });
+    if (!ok) return;
+
+    switchTab('system');
+    const total = wf.steps.length;
+    setFullscanProgress(0, total, wf.steps[0][0]);
+
+    for (let i = 0; i < wf.steps.length; i++) {
+      const [label, fn] = wf.steps[i];
+      setFullscanProgress(i + 1, total, label);
+      await fn();
+    }
+    setFullscanProgress(total, total, null);
+    showScanSummary();
+    await updateHealthScore();
+    await updateSuggestions();
+    addAction('Workflow abgeschlossen: ' + wf.name, 'success');
   });
 }
 

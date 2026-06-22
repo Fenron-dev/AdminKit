@@ -2534,6 +2534,30 @@ body.platform-mac .titlebar {
   overflow: hidden;
 }
 
+/* ── Workflows ── */
+.workflows-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.workflow-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s, border-color .15s;
+}
+.workflow-card:hover { background: var(--color-surface-3, var(--color-surface-2)); border-color: var(--color-accent); }
+.workflow-icon { font-size: 22px; }
+.workflow-name { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.workflow-desc { font-size: 11px; color: var(--color-text-muted, var(--color-muted)); line-height: 1.4; }
+
 /* ── Periodic Maintenance ── */
 .periodic-status {
   display: flex;
