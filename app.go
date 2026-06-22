@@ -1479,6 +1479,57 @@ func (a *App) RunHomebrewUpgrade(packages []string) (string, error) {
 	return result, nil
 }
 
+// ─── SSH-Verwaltung (macOS only) ─────────────────────────────────────────────
+
+// SSHStatus beschreibt den SSH-Fernzugriffsstatus auf macOS.
+type SSHStatus struct {
+	Enabled  bool     `json:"enabled"`
+	Sessions []string `json:"sessions"` // Aktive SSH-Sessions aus 'who'
+}
+
+// GetSSHStatus prüft ob Remote Login (SSH) aktiv ist und listet aktive Sessions.
+func (a *App) GetSSHStatus() (*SSHStatus, error) {
+	status := &SSHStatus{}
+
+	out, err := exec.Command("systemsetup", "-getremotelogin").Output()
+	if err != nil {
+		return nil, fmt.Errorf("systemsetup: %v", err)
+	}
+	status.Enabled = strings.Contains(strings.ToLower(string(out)), "on")
+
+	// Aktive SSH-Sessions aus 'who' (Zeilen mit "(.*)" = Remote)
+	whoOut, whoErr := exec.Command("who").Output()
+	if whoErr == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(whoOut)), "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" && strings.Contains(line, "(") {
+				status.Sessions = append(status.Sessions, line)
+			}
+		}
+	}
+
+	return status, nil
+}
+
+// SetSSHEnabled aktiviert oder deaktiviert Remote Login (SSH) via Admin-Rechte.
+func (a *App) SetSSHEnabled(enable bool) error {
+	state := "off"
+	if enable {
+		state = "on"
+	}
+	logging.Infof("SSH", "Remote Login → %s", state)
+	out, err := exec.Command("osascript", "-e",
+		fmt.Sprintf(`do shell script "systemsetup -setremotelogin %s" with administrator privileges`, state)).
+		CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		logging.Warnf("SSH", "setremotelogin %s fehlgeschlagen: %v — %s", state, err, msg)
+		return fmt.Errorf("systemsetup -setremotelogin %s: %s", state, msg)
+	}
+	logging.Infof("SSH", "Remote Login erfolgreich → %s", state)
+	return nil
+}
+
 // isWritable prüft, ob in einem Verzeichnis geschrieben werden kann.
 func isWritable(dir string) bool {
 	testFile := filepath.Join(dir, ".adminkit_write_test")

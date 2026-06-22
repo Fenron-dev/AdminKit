@@ -605,6 +605,18 @@
               <p class="settings-hint">Benötigt Homebrew (<a href="https://brew.sh" onclick="return false">brew.sh</a>). Nur auf macOS verfügbar.</p>
             </div>
 
+            <!-- SSH-Verwaltung (macOS) -->
+            <div class="tools-group" id="tools-ssh">
+              <h3 class="tools-group-title">Remote Login (SSH)</h3>
+              <div class="ssh-status-row">
+                <span id="ssh-status-badge" class="status-badge badge-unknown">⚪ Unbekannt</span>
+                <button class="btn btn-secondary btn-sm" id="btn-ssh-refresh" title="Status aktualisieren">↺</button>
+                <button class="btn btn-primary btn-sm hidden" id="btn-ssh-toggle"></button>
+              </div>
+              <div id="ssh-sessions" class="ssh-sessions hidden"></div>
+              <p class="settings-hint">Remote Login erlaubt SSH-Zugriff auf diesen Mac. Nur aktivieren wenn benötigt — offener SSH-Port ist eine Angriffsfläche.</p>
+            </div>
+
             <!-- VirusTotal Datei-Scanner -->
             <div class="tools-group">
               <h3 class="tools-group-title">VirusTotal Datei-Scanner</h3>

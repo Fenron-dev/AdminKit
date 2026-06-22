@@ -55,6 +55,8 @@ import {
   RunPeriodicMaintenance,
   GetHomebrewOutdated,
   RunHomebrewUpgrade,
+  GetSSHStatus,
+  SetSSHEnabled,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -118,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initQuickActions();
   initPeriodicMaintenance();
   initHomebrew();
+  initSSHManagement();
   initDiagnosticReport();
   initSidebarNav();
   initSysPrefsLinks();
@@ -701,6 +704,77 @@ function initHomebrew() {
   });
 
   upgradeAll?.addEventListener('click', () => runUpgrade(null));
+}
+
+// ─── SSH-Verwaltung ──────────────────────────────────────────────────────────
+
+function initSSHManagement() {
+  const badge      = document.getElementById('ssh-status-badge');
+  const toggleBtn  = document.getElementById('btn-ssh-toggle');
+  const refreshBtn = document.getElementById('btn-ssh-refresh');
+  const sessionsEl = document.getElementById('ssh-sessions');
+
+  var currentEnabled = false;
+
+  async function refreshSSH() {
+    if (badge) badge.textContent = '⏳ Prüfe…';
+    try {
+      const s = await GetSSHStatus();
+      currentEnabled = s.enabled;
+      if (badge) {
+        badge.className = s.enabled
+          ? 'status-badge badge-warning'
+          : 'status-badge badge-ok';
+        badge.textContent = s.enabled ? '🟡 Aktiviert' : '🟢 Deaktiviert';
+      }
+      if (toggleBtn) {
+        toggleBtn.classList.remove('hidden');
+        toggleBtn.textContent = s.enabled ? '🔒 SSH deaktivieren' : '🔓 SSH aktivieren';
+        toggleBtn.className = s.enabled
+          ? 'btn btn-danger btn-sm'
+          : 'btn btn-secondary btn-sm';
+      }
+      if (sessionsEl) {
+        if (s.sessions && s.sessions.length > 0) {
+          sessionsEl.classList.remove('hidden');
+          sessionsEl.innerHTML = '<strong>Aktive Sessions:</strong><br>' +
+            s.sessions.map(l => `<span class="mono-cell">${escapeHtml(l)}</span>`).join('<br>');
+        } else {
+          sessionsEl.classList.add('hidden');
+        }
+      }
+    } catch (e) {
+      if (badge) { badge.className = 'status-badge badge-unknown'; badge.textContent = '⚪ Fehler: ' + e; }
+    }
+  }
+
+  refreshBtn?.addEventListener('click', refreshSSH);
+
+  toggleBtn?.addEventListener('click', async () => {
+    const enabling = !currentEnabled;
+    const ok = await showConfirm({
+      title: enabling ? 'Remote Login (SSH) aktivieren?' : 'Remote Login (SSH) deaktivieren?',
+      what: enabling
+        ? 'Aktiviert den SSH-Server auf diesem Mac (systemsetup -setremotelogin on).'
+        : 'Deaktiviert den SSH-Server auf diesem Mac (systemsetup -setremotelogin off).',
+      impact: enabling
+        ? '⚠ SSH öffnet Port 22. Stelle sicher, dass starke Passwörter oder SSH-Keys verwendet werden. Admin-Passwort wird abgefragt.'
+        : 'Alle aktiven SSH-Verbindungen zu diesem Mac werden sofort getrennt. Admin-Passwort wird abgefragt.',
+    });
+    if (!ok) return;
+    try {
+      await SetSSHEnabled(enabling);
+      addAction('Remote Login (SSH) ' + (enabling ? 'aktiviert' : 'deaktiviert'), enabling ? 'warning' : 'success');
+      showToast('SSH ' + (enabling ? 'aktiviert' : 'deaktiviert'));
+      await refreshSSH();
+    } catch (e) {
+      showToast('Fehler: ' + e, 'error');
+      addAction('SSH-Toggle fehlgeschlagen: ' + e, 'error');
+    }
+  });
+
+  // Initial laden wenn Tools-Tab sichtbar
+  refreshSSH();
 }
 
 async function runFullScan() {

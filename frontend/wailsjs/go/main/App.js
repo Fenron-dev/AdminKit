@@ -311,3 +311,11 @@ export function GetHomebrewOutdated() {
 export function RunHomebrewUpgrade(arg1) {
     return window['go']['main']['App']['RunHomebrewUpgrade'](arg1);
 }
+
+// ── SSH-Verwaltung ──
+export function GetSSHStatus() {
+    return window['go']['main']['App']['GetSSHStatus']();
+}
+export function SetSSHEnabled(arg1) {
+    return window['go']['main']['App']['SetSSHEnabled'](arg1);
+}
