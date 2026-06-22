@@ -71,9 +71,13 @@ type DiskInfo struct {
 // BatteryInfo beschreibt den Akku-Status eines Geräts (nil = kein Akku vorhanden).
 type BatteryInfo struct {
 	Present          bool   `json:"present"`
-	ChargePct        int    `json:"charge_pct"`        // 0–100 %
-	Status           string `json:"status"`             // "Lädt", "Entlädt", "Voll (Netz)", "Netz"
-	RemainingMinutes int    `json:"remaining_minutes"`  // -1 = unbekannt
+	ChargePct        int    `json:"charge_pct"`         // 0–100 %
+	Status           string `json:"status"`              // "Lädt", "Entlädt", "Voll (Netz)", "Netz"
+	RemainingMinutes int    `json:"remaining_minutes"`   // -1 = unbekannt
+	CycleCount       int    `json:"cycle_count"`         // Ladezyklen, -1 = unbekannt
+	MaxCapacityPct   int    `json:"max_capacity_pct"`    // Aktuelle Max-Kapazität vs. Design-Kapazität in %, -1 = unbekannt
+	Condition        string `json:"condition"`           // "Normal", "Service empfohlen", "Ersetzen"
+	Temperature      string `json:"temperature"`         // z.B. "36°C", leer wenn nicht verfügbar
 }
 
 // VolumeInfo beschreibt eine gemountete Partition mit Speichernutzung.

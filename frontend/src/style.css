@@ -2594,3 +2594,48 @@ body.platform-mac .titlebar {
 .ssh-sessions { margin-top: 8px; padding: 8px 10px; background: var(--color-surface-2); border-radius: var(--radius-md); border: 1px solid var(--color-border); font-size: 12px; }
 .btn-danger { background: rgba(220,38,38,.15); color: #DC2626; border-color: rgba(220,38,38,.3); }
 .btn-danger:hover { background: rgba(220,38,38,.25); }
+
+/* ── Akku-Gesundheit ── */
+.battery-section { margin-top: 16px; }
+.battery-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.battery-icon { font-size: 24px; }
+.battery-title { font-weight: 600; font-size: 14px; }
+.battery-bar-wrap { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; height: 10px; margin: 6px 0; }
+.battery-bar { height: 100%; border-radius: 6px; transition: width .3s; }
+.battery-bar.ok      { background: #16a34a; }
+.battery-bar.warning { background: #ca8a04; }
+.battery-bar.critical{ background: #dc2626; }
+.battery-health-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.battery-health-badge.ok       { background: rgba(22,163,74,.12); color: #16a34a; }
+.battery-health-badge.warning  { background: rgba(202,138,4,.12);  color: #ca8a04; }
+.battery-health-badge.critical { background: rgba(220,38,38,.12); color: #dc2626; }
+
+/* ── Print/PDF ── */
+@media print {
+  /* Alles ausblenden was nicht Inhalt ist */
+  .app-header, .tab-bar, .action-log-wrap, .branding-bar,
+  .export-wrap, #btn-settings, #btn-theme, #btn-new-session,
+  .sidebar-nav, .section-sidebar, .tools-tab-content,
+  .modal-overlay, .confirm-overlay, .qa-output,
+  .back-to-top, .scan-btn-row, #status-bar,
+  .btn, button, .icon-btn { display: none !important; }
+
+  /* Alle Tabs gleichzeitig drucken */
+  .tab-panel { display: block !important; page-break-after: always; }
+  .tab-panel:last-child { page-break-after: auto; }
+
+  /* Farben für Druck */
+  body, .app-shell { background: #fff !important; color: #000 !important; }
+  .info-section { border: 1px solid #ccc; break-inside: avoid; margin-bottom: 12px; }
+  .section-title { font-size: 14pt; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  .info-grid { display: grid; grid-template-columns: 200px 1fr; font-size: 10pt; }
+  .info-label { color: #555; font-weight: 600; }
+  table { font-size: 9pt; border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ddd; padding: 3px 6px; text-align: left; }
+  th { background: #f0f0f0; }
+  a { color: #000; text-decoration: none; }
+  .badge, .vt-badge { border: 1px solid #999; background: #eee !important; color: #000 !important; }
+
+  /* Seitenkopf mit Hostname + Datum */
+  @page { margin: 15mm; size: A4; }
+}

@@ -30,6 +30,7 @@
             <button class="icon-btn export-btn" id="btn-export" title="Bericht exportieren">📤 Exportieren ▾</button>
             <div class="export-dropdown" id="export-dropdown">
               <button id="btn-export-html">📄 HTML-Bericht</button>
+              <button id="btn-export-pdf">🖨 Als PDF speichern</button>
               <button id="btn-export-csv">📊 CSV (Excel)</button>
               <button id="btn-export-json">📋 JSON-Rohdaten</button>
             </div>
@@ -243,6 +244,8 @@
                 <div class="info-grid" id="hw-info">
                   <div class="info-placeholder">Scan starten um Hardware-Daten zu laden…</div>
                 </div>
+                <!-- Akku-Sektion (nur bei MacBooks sichtbar) -->
+                <div class="battery-section hidden" id="battery-section"></div>
               </div>
               <div class="info-section" id="section-os">
                 <h3 class="section-title">Betriebssystem</h3>

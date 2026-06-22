@@ -106,6 +106,9 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 		if len(data.System.Smart) > 0 {
 			sb.WriteString("  <a href=\"#sec-smart\">💿 SMART</a>\n")
 		}
+		if data.System.Hardware.Battery != nil && data.System.Hardware.Battery.Present {
+			sb.WriteString("  <a href=\"#sec-battery\">🔋 Akku</a>\n")
+		}
 		if data.System.TimeMachine != nil {
 			sb.WriteString("  <a href=\"#sec-timemachine\">🕐 Time Machine</a>\n")
 		}
@@ -454,6 +457,31 @@ func writeSystemSection(sb *strings.Builder, r *system.ScanResult) {
 		row(sb, "Ausstehende Updates", fmt.Sprintf("%d", os.PendingUpdates))
 	}
 	sb.WriteString("</tbody></table>\n")
+
+	// Akku (nur wenn vorhanden)
+	if bat := hw.Battery; bat != nil && bat.Present {
+		sb.WriteString("<h3 class=\"sub-title\">Akku-Gesundheit</h3>\n<table class=\"info-table\"><tbody>\n")
+		row(sb, "Ladestand", fmt.Sprintf("%d%% – %s", bat.ChargePct, bat.Status))
+		if bat.MaxCapacityPct >= 0 {
+			row(sb, "Kapazität", fmt.Sprintf("%d%% der Original-Kapazität", bat.MaxCapacityPct))
+		}
+		if bat.CycleCount >= 0 {
+			row(sb, "Ladezyklen", fmt.Sprintf("%d", bat.CycleCount))
+		}
+		if bat.Temperature != "" {
+			row(sb, "Temperatur", bat.Temperature)
+		}
+		if bat.Condition != "" {
+			condIcon := "🟢"
+			if bat.Condition == "Service empfohlen" {
+				condIcon = "🟡"
+			} else if bat.Condition == "Ersetzen" {
+				condIcon = "🔴"
+			}
+			row(sb, "Zustand", condIcon+" "+bat.Condition)
+		}
+		sb.WriteString("</tbody></table>\n")
+	}
 }
 
 // ─── SMART ────────────────────────────────────────────────────────────────────

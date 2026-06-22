@@ -218,6 +218,23 @@ func scanHardware() (HardwareInfo, []ScanError) {
 	return hw, errs
 }
 
+// spPowerDataType ist die JSON-Struktur von `system_profiler SPPowerDataType -json`.
+type spPowerDataType struct {
+	SPPowerDataType []struct {
+		ChargeInfo struct {
+			CurrentCapacity int    `json:"sppower_battery_current_capacity"`
+			MaxCapacity     int    `json:"sppower_battery_max_capacity"`
+			ChargeState     string `json:"sppower_battery_charge_current"` // "Charging", "AC attached"
+		} `json:"sppower_battery_charge_info"`
+		HealthInfo struct {
+			CycleCount int    `json:"sppower_battery_cycle_count"`
+			Health     string `json:"sppower_battery_health"`           // "Good", "Fair", "Poor"
+			Condition  string `json:"sppower_battery_health_condition"` // "Normal", "Service Recommended", "Replace Now"
+		} `json:"sppower_battery_health_info"`
+		Temperature string `json:"sppower_battery_temperature"` // z.B. "36 °C"
+	} `json:"SPPowerDataType"`
+}
+
 func scanBattery() *BatteryInfo {
 	out, err := exec.Command("pmset", "-g", "batt").Output()
 	if err != nil {
@@ -225,7 +242,7 @@ func scanBattery() *BatteryInfo {
 	}
 	text := string(out)
 
-	// Suche Akku-Zeile (enthält "%" und "Battery")
+	// Suche Akku-Zeile (enthält "%")
 	var battLine string
 	for _, line := range strings.Split(text, "\n") {
 		if strings.Contains(line, "%") {
@@ -237,7 +254,7 @@ func scanBattery() *BatteryInfo {
 		return nil // Kein Akku (Desktop-Mac)
 	}
 
-	b := &BatteryInfo{Present: true, RemainingMinutes: -1}
+	b := &BatteryInfo{Present: true, RemainingMinutes: -1, CycleCount: -1, MaxCapacityPct: -1}
 
 	// Ladestand: "87%"
 	if idx := strings.Index(battLine, "%"); idx > 0 {
@@ -277,6 +294,38 @@ func scanBattery() *BatteryInfo {
 		var h, m int
 		if n, err := fmt.Sscanf(timePart, "%d:%d", &h, &m); n == 2 && err == nil && (h > 0 || m > 0) {
 			b.RemainingMinutes = h*60 + m
+		}
+	}
+
+	// Erweiterte Daten via system_profiler (Zyklen, Kapazität, Gesundheit)
+	if spOut, err := exec.Command("system_profiler", "SPPowerDataType", "-json").Output(); err == nil {
+		var sp spPowerDataType
+		if json.Unmarshal(spOut, &sp) == nil && len(sp.SPPowerDataType) > 0 {
+			entry := sp.SPPowerDataType[0]
+			hi := entry.HealthInfo
+			ci := entry.ChargeInfo
+
+			if hi.CycleCount > 0 {
+				b.CycleCount = hi.CycleCount
+			}
+			// Kapazität in % berechnen: current/max * 100
+			if ci.MaxCapacity > 0 && ci.CurrentCapacity > 0 {
+				b.MaxCapacityPct = int(float64(ci.CurrentCapacity) / float64(ci.MaxCapacity) * 100)
+			}
+			// Gesundheits-Condition normalisieren
+			switch {
+			case strings.Contains(hi.Condition, "Normal") || hi.Health == "Good":
+				b.Condition = "Normal"
+			case strings.Contains(hi.Condition, "Recommended") || hi.Health == "Fair":
+				b.Condition = "Service empfohlen"
+			case strings.Contains(hi.Condition, "Replace") || hi.Health == "Poor":
+				b.Condition = "Ersetzen"
+			default:
+				b.Condition = "Normal"
+			}
+			if entry.Temperature != "" {
+				b.Temperature = entry.Temperature
+			}
 		}
 	}
 

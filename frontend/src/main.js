@@ -937,6 +937,7 @@ async function runSystemScan() {
     state.lastScanResult = result;
 
     renderHardware(result.hardware);
+    renderBattery(result.hardware?.battery);
     renderOS(result.os);
     renderSmart(result.smart);
     renderTimeMachine(result.time_machine);
@@ -1899,18 +1900,10 @@ function renderHardware(hw) {
     });
   }
 
-  // Akku-Zeile am Ende der Info-Grid einfügen
-  if (hw.battery?.present) {
-    const bat = hw.battery;
-    const pct = bat.charge_pct ?? 0;
-    const icon = pct > 80 ? '🔋' : pct > 30 ? '🪫' : '🔴';
-    const remaining = bat.remaining_minutes > 0
-      ? ` · ${Math.floor(bat.remaining_minutes / 60)}:${String(bat.remaining_minutes % 60).padStart(2, '0')} verbleibend`
-      : '';
-    rows.push(['Akku', `${icon} ${pct}% – ${bat.status}${remaining}`]);
-  }
-
   setInfoGrid('hw-info', rows);
+
+  // Akku-Sektion (nur bei MacBooks)
+  renderBattery(hw.battery);
 
   // Speichernutzung (Volume-Balken unterhalb der Info-Grid)
   if (hw.volumes?.length > 0) {
@@ -1942,6 +1935,50 @@ function renderHardware(hw) {
 
     container.appendChild(section);
   }
+}
+
+function renderBattery(bat) {
+  const container = document.getElementById('battery-section');
+  if (!container) return;
+  if (!bat?.present) { container.classList.add('hidden'); return; }
+  container.classList.remove('hidden');
+
+  const chargePct = bat.charge_pct ?? 0;
+  const capPct    = bat.max_capacity_pct >= 0 ? bat.max_capacity_pct : null;
+  const cycles    = bat.cycle_count >= 0 ? bat.cycle_count : null;
+
+  const condClass = bat.condition === 'Normal' ? 'ok'
+                  : bat.condition === 'Service empfohlen' ? 'warning' : 'critical';
+  const condIcon  = bat.condition === 'Normal' ? '🟢'
+                  : bat.condition === 'Service empfohlen' ? '🟡' : '🔴';
+  const chargeBarClass = chargePct > 50 ? 'ok' : chargePct > 20 ? 'warning' : 'critical';
+
+  const remaining = bat.remaining_minutes > 0
+    ? `${Math.floor(bat.remaining_minutes / 60)}:${String(bat.remaining_minutes % 60).padStart(2, '0')} verbleibend`
+    : null;
+
+  const rows = [
+    ['Ladestand', `${chargePct}% – ${bat.status}${remaining ? ' · ' + remaining : ''}`],
+    capPct !== null ? ['Kapazität (Gesundheit)', `${capPct}% der Original-Kapazität`] : null,
+    cycles !== null ? ['Ladezyklen', `${cycles}`] : null,
+    bat.temperature ? ['Temperatur', bat.temperature] : null,
+    bat.condition ? ['Zustand', `${condIcon} ${bat.condition}`] : null,
+  ].filter(Boolean);
+
+  container.innerHTML = `
+    <div class="battery-header">
+      <span class="battery-icon">${chargePct > 80 ? '🔋' : chargePct > 20 ? '🪫' : '🪫'}</span>
+      <span class="battery-title">Akku-Gesundheit</span>
+      ${bat.condition ? `<span class="battery-health-badge ${condClass}">${condIcon} ${bat.condition}</span>` : ''}
+    </div>
+    ${capPct !== null ? `
+    <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:3px">Kapazität: ${capPct}%</div>
+    <div class="battery-bar-wrap">
+      <div class="battery-bar ${capPct > 80 ? 'ok' : capPct > 50 ? 'warning' : 'critical'}" style="width:${capPct}%"></div>
+    </div>` : ''}
+    <div class="info-grid" style="margin-top:10px">${rows.map(([l,v]) =>
+      `<span class="info-label">${escapeHtml(l)}</span><span class="info-value">${escapeHtml(String(v))}</span>`
+    ).join('')}</div>`;
 }
 
 function renderOS(os) {
@@ -2451,6 +2488,7 @@ async function loadSession(sessionInfo) {
     if (snapshots.system) {
       const r = JSON.parse(snapshots.system);
       renderHardware(r.hardware);
+      renderBattery(r.hardware?.battery);
       renderOS(r.os);
       renderSmart(r.smart);
       renderTimeMachine(r.time_machine);
@@ -4931,6 +4969,7 @@ function escapeHtml(str) {
 function initExport() {
   // Dropdown-Buttons
   document.getElementById('btn-export-html')?.addEventListener('click', () => runExport('html'));
+  document.getElementById('btn-export-pdf')?.addEventListener('click', () => runExportPDF());
   document.getElementById('btn-export-csv')?.addEventListener('click', () => runExportCSV());
   document.getElementById('btn-export-json')?.addEventListener('click', () => runExport('json'));
 
@@ -4970,6 +5009,16 @@ async function runExport(format) {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '📤 Exportieren ▾'; }
   }
+}
+
+function runExportPDF() {
+  document.getElementById('export-dropdown')?.classList.remove('open');
+  // Ersten HTML-Bericht erstellen, dann drucken — oder direkt Drucken wenn Bericht schon offen.
+  // Einfachster Weg: HTML-Bericht als Datei exportieren, dann im Browser via Druckdialog als PDF.
+  // Da wir WKWebView nutzen, öffnen wir den erstellten HTML-Bericht im System-Browser
+  // und der Nutzer wählt "Als PDF sichern" im macOS-Druckdialog.
+  // Kurzweg: direkt window.print() auf den aktuellen App-Inhalt.
+  window.print();
 }
 
 async function runExportCSV() {
