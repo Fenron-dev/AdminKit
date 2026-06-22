@@ -248,7 +248,7 @@ async function loadAppInfo() {
 // Erzeugt den Vorschlags-Sessionsnamen: YYYY-MM-DD_Techniker_Gerät
 function buildDefaultSessionName(customer) {
   var today  = new Date().toISOString().slice(0, 10);
-  var tech   = (state.config?.technician || '').replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_').replace(/_+/g, '_');
+  var tech   = (state.config?.branding?.technician_name || '').replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_').replace(/_+/g, '_');
   var device = (state.hostname || '').replace(/[^a-zA-Z0-9äöüÄÖÜß\-]/g, '_').replace(/_+/g, '_');
   var cust   = (customer || '').trim().replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_').replace(/_+/g, '_');
   var parts  = [today];
@@ -4693,8 +4693,9 @@ async function updateBrandingBar() {
 
   const company    = branding?.company_name    ?? '';
   const technician = branding?.technician_name ?? '';
+  const hasLogo    = !!(branding?.logo_path);
 
-  if (!company && !technician) {
+  if (!company && !technician && !hasLogo) {
     bar.classList.add('hidden');
     return;
   }
