@@ -557,6 +557,54 @@
               </div>
             </div>
 
+            <!-- Periodic Maintenance (macOS) -->
+            <div class="tools-group" id="tools-maintenance">
+              <h3 class="tools-group-title">macOS Wartung (Periodic Maintenance)</h3>
+              <div id="periodic-status" class="periodic-status">
+                <span class="periodic-item"><strong>Daily:</strong> <span id="periodic-daily-date">–</span></span>
+                <span class="periodic-item"><strong>Weekly:</strong> <span id="periodic-weekly-date">–</span></span>
+                <span class="periodic-item"><strong>Monthly:</strong> <span id="periodic-monthly-date">–</span></span>
+                <button class="btn btn-secondary btn-sm" id="btn-periodic-refresh" title="Datum neu laden">↺</button>
+              </div>
+              <div class="tools-grid" style="margin-top:8px">
+                <button class="tool-btn tool-btn-action" id="btn-periodic-daily">
+                  <span class="tool-icon">🗓</span><span>Daily ausführen</span>
+                </button>
+                <button class="tool-btn tool-btn-action" id="btn-periodic-weekly">
+                  <span class="tool-icon">📅</span><span>Weekly ausführen</span>
+                </button>
+                <button class="tool-btn tool-btn-action" id="btn-periodic-monthly">
+                  <span class="tool-icon">🗃</span><span>Monthly ausführen</span>
+                </button>
+              </div>
+              <div class="qa-output hidden" id="periodic-output">
+                <div class="qa-output-header">
+                  <span id="periodic-output-title">Ergebnis</span>
+                  <button class="modal-close" id="periodic-output-close">✕</button>
+                </div>
+                <pre class="qa-output-pre" id="periodic-output-text"></pre>
+              </div>
+              <p class="settings-hint">Führt die macOS-Systemwartung aus, die normalerweise nachts läuft. Erfordert Admin-Rechte.</p>
+            </div>
+
+            <!-- Homebrew Updates (macOS) -->
+            <div class="tools-group" id="tools-homebrew">
+              <h3 class="tools-group-title">Homebrew Updates</h3>
+              <div class="homebrew-controls">
+                <button class="btn btn-secondary btn-sm" id="btn-brew-check">🔍 Updates prüfen</button>
+                <button class="btn btn-primary btn-sm hidden" id="btn-brew-upgrade-all">⬆ Alle aktualisieren</button>
+              </div>
+              <div id="brew-outdated-list" class="brew-outdated-list hidden"></div>
+              <div class="qa-output hidden" id="brew-output">
+                <div class="qa-output-header">
+                  <span id="brew-output-title">Homebrew Upgrade</span>
+                  <button class="modal-close" id="brew-output-close">✕</button>
+                </div>
+                <pre class="qa-output-pre" id="brew-output-text"></pre>
+              </div>
+              <p class="settings-hint">Benötigt Homebrew (<a href="https://brew.sh" onclick="return false">brew.sh</a>). Nur auf macOS verfügbar.</p>
+            </div>
+
             <!-- VirusTotal Datei-Scanner -->
             <div class="tools-group">
               <h3 class="tools-group-title">VirusTotal Datei-Scanner</h3>

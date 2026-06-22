@@ -295,3 +295,19 @@ export function ScanEventsRange(arg1, arg2, arg3) {
 export function GetDiagnosticReport(arg1, arg2, arg3) {
     return window['go']['main']['App']['GetDiagnosticReport'](arg1, arg2, arg3);
 }
+
+// ── Periodic Maintenance ──
+export function GetPeriodicStatus() {
+    return window['go']['main']['App']['GetPeriodicStatus']();
+}
+export function RunPeriodicMaintenance(arg1) {
+    return window['go']['main']['App']['RunPeriodicMaintenance'](arg1);
+}
+
+// ── Homebrew ──
+export function GetHomebrewOutdated() {
+    return window['go']['main']['App']['GetHomebrewOutdated']();
+}
+export function RunHomebrewUpgrade(arg1) {
+    return window['go']['main']['App']['RunHomebrewUpgrade'](arg1);
+}

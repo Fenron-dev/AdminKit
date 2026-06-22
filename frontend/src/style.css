@@ -2533,3 +2533,23 @@ body.platform-mac .titlebar {
   height: 100%;
   overflow: hidden;
 }
+
+/* ── Periodic Maintenance ── */
+.periodic-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+}
+.periodic-item { white-space: nowrap; }
+
+/* ── Homebrew ── */
+.homebrew-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.brew-outdated-list { margin-top: 8px; }
+.brew-outdated-list .data-table { font-size: 12px; }
+.brew-upgrade-single { padding: 2px 8px; font-size: 11px; }

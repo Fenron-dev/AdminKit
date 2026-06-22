@@ -1370,6 +1370,115 @@ func (a *App) ToggleAutostartEntry(plistPath string, enable bool) error {
 	return nil
 }
 
+// ─── Periodic Maintenance (macOS only) ───────────────────────────────────────
+
+// PeriodicStatus gibt den Zeitpunkt der letzten Ausführung von periodic daily/weekly/monthly zurück.
+func (a *App) GetPeriodicStatus() map[string]string {
+	status := map[string]string{
+		"daily":   "–",
+		"weekly":  "–",
+		"monthly": "–",
+	}
+	files := map[string]string{
+		"daily":   "/var/log/daily.out",
+		"weekly":  "/var/log/weekly.out",
+		"monthly": "/var/log/monthly.out",
+	}
+	for level, path := range files {
+		info, err := os.Stat(path)
+		if err == nil {
+			status[level] = info.ModTime().Format("02.01.2006 15:04")
+		}
+	}
+	return status
+}
+
+// RunPeriodicMaintenance führt periodic daily/weekly/monthly mit Admin-Rechten aus.
+// level muss "daily", "weekly" oder "monthly" sein.
+func (a *App) RunPeriodicMaintenance(level string) (string, error) {
+	allowed := map[string]bool{"daily": true, "weekly": true, "monthly": true}
+	if !allowed[level] {
+		return "", fmt.Errorf("ungültiger Level: %s", level)
+	}
+	logging.Infof("Maintenance", "periodic %s gestartet", level)
+	out, err := exec.Command("osascript", "-e",
+		fmt.Sprintf(`do shell script "periodic %s" with administrator privileges`, level)).
+		CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		logging.Warnf("Maintenance", "periodic %s fehlgeschlagen: %v — %s", level, err, msg)
+		return "", fmt.Errorf("periodic %s: %s", level, msg)
+	}
+	result := strings.TrimSpace(string(out))
+	if result == "" {
+		result = fmt.Sprintf("✓ periodic %s erfolgreich abgeschlossen.", level)
+	}
+	logging.Infof("Maintenance", "periodic %s abgeschlossen", level)
+	return result, nil
+}
+
+// ─── Homebrew (macOS only) ────────────────────────────────────────────────────
+
+// HomebrewPackage beschreibt ein veraltetes Homebrew-Paket.
+type HomebrewPackage struct {
+	Name           string `json:"name"`
+	InstalledVersion string `json:"installed_version"`
+	CurrentVersion   string `json:"current_version"`
+}
+
+// GetHomebrewOutdated prüft ob Homebrew installiert ist und gibt veraltete Pakete zurück.
+func (a *App) GetHomebrewOutdated() ([]HomebrewPackage, error) {
+	brewPath, err := exec.LookPath("brew")
+	if err != nil {
+		return nil, fmt.Errorf("Homebrew nicht installiert (brew nicht im PATH)")
+	}
+	out, err := exec.Command(brewPath, "outdated", "--verbose").Output()
+	if err != nil {
+		return nil, fmt.Errorf("brew outdated: %v", err)
+	}
+	var pkgs []HomebrewPackage
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Format: "package (installed_version) < current_version"
+		// oder: "package installed_version -> current_version"
+		parts := strings.Fields(line)
+		pkg := HomebrewPackage{Name: parts[0]}
+		if len(parts) >= 4 {
+			pkg.InstalledVersion = strings.Trim(parts[1], "()")
+			pkg.CurrentVersion = parts[len(parts)-1]
+		}
+		pkgs = append(pkgs, pkg)
+	}
+	return pkgs, nil
+}
+
+// RunHomebrewUpgrade aktualisiert ausgewählte oder alle Homebrew-Pakete.
+// packages = nil oder leer → alle aktualisieren.
+func (a *App) RunHomebrewUpgrade(packages []string) (string, error) {
+	brewPath, err := exec.LookPath("brew")
+	if err != nil {
+		return "", fmt.Errorf("Homebrew nicht installiert")
+	}
+	args := []string{"upgrade"}
+	if len(packages) > 0 {
+		args = append(args, packages...)
+		logging.Infof("Homebrew", "upgrade: %v", packages)
+	} else {
+		logging.Infof("Homebrew", "upgrade --all")
+	}
+	out, err := exec.Command(brewPath, args...).CombinedOutput()
+	result := strings.TrimSpace(string(out))
+	if err != nil {
+		logging.Warnf("Homebrew", "upgrade fehlgeschlagen: %v", err)
+		return result, fmt.Errorf("brew upgrade: %v", err)
+	}
+	logging.Infof("Homebrew", "upgrade abgeschlossen")
+	return result, nil
+}
+
 // isWritable prüft, ob in einem Verzeichnis geschrieben werden kann.
 func isWritable(dir string) bool {
 	testFile := filepath.Join(dir, ".adminkit_write_test")

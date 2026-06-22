@@ -51,6 +51,10 @@ import {
   GetHostname,
   SaveScanSnapshot,
   LoadSession,
+  GetPeriodicStatus,
+  RunPeriodicMaintenance,
+  GetHomebrewOutdated,
+  RunHomebrewUpgrade,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -112,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initActionResultModal();
   initEventDetailModal();
   initQuickActions();
+  initPeriodicMaintenance();
+  initHomebrew();
   initDiagnosticReport();
   initSidebarNav();
   initSysPrefsLinks();
@@ -570,6 +576,131 @@ function initQuickActions() {
       }
     });
   });
+}
+
+// ─── Periodic Maintenance ────────────────────────────────────────────────────
+
+function initPeriodicMaintenance() {
+  const out    = document.getElementById('periodic-output');
+  const pre    = document.getElementById('periodic-output-text');
+  const title  = document.getElementById('periodic-output-title');
+  const close  = document.getElementById('periodic-output-close');
+
+  close?.addEventListener('click', () => out?.classList.add('hidden'));
+
+  // Status beim Laden abfragen
+  async function refreshStatus() {
+    try {
+      const s = await GetPeriodicStatus();
+      document.getElementById('periodic-daily-date').textContent   = s['daily']   || '–';
+      document.getElementById('periodic-weekly-date').textContent  = s['weekly']  || '–';
+      document.getElementById('periodic-monthly-date').textContent = s['monthly'] || '–';
+    } catch (_) {}
+  }
+  refreshStatus();
+  document.getElementById('btn-periodic-refresh')?.addEventListener('click', refreshStatus);
+
+  const levels = [
+    ['btn-periodic-daily',   'daily',   'Periodic Daily'],
+    ['btn-periodic-weekly',  'weekly',  'Periodic Weekly'],
+    ['btn-periodic-monthly', 'monthly', 'Periodic Monthly'],
+  ];
+
+  levels.forEach(([btnId, level, label]) => {
+    document.getElementById(btnId)?.addEventListener('click', async () => {
+      const ok = await showConfirm({
+        title:  label + ' ausführen?',
+        what:   `Führt 'sudo periodic ${level}' aus — Systemwartungsaufgaben die normalerweise nachts ausgeführt werden.`,
+        impact: level === 'monthly'
+          ? 'Der Monthly-Lauf kann mehrere Minuten dauern. Admin-Passwort wird abgefragt.'
+          : 'Kurzfristig erhöhte CPU-Last. Admin-Passwort wird abgefragt.',
+      });
+      if (!ok) return;
+      if (out) out.classList.remove('hidden');
+      if (pre) pre.textContent = label + ' wird ausgeführt…';
+      if (title) title.textContent = '⏳ ' + label;
+      try {
+        const result = await RunPeriodicMaintenance(level);
+        if (pre) pre.textContent = result || '✓ Abgeschlossen (kein Output)';
+        if (title) title.textContent = '✓ ' + label;
+        addAction(label + ' abgeschlossen', 'success');
+        refreshStatus();
+      } catch (e) {
+        if (pre) pre.textContent = 'Fehler: ' + e;
+        if (title) title.textContent = '✗ ' + label;
+        addAction(label + ' fehlgeschlagen: ' + e, 'error');
+      }
+    });
+  });
+}
+
+// ─── Homebrew ────────────────────────────────────────────────────────────────
+
+function initHomebrew() {
+  const out   = document.getElementById('brew-output');
+  const pre   = document.getElementById('brew-output-text');
+  const title = document.getElementById('brew-output-title');
+  const close = document.getElementById('brew-output-close');
+  const list  = document.getElementById('brew-outdated-list');
+  const upgradeAll = document.getElementById('btn-brew-upgrade-all');
+
+  close?.addEventListener('click', () => out?.classList.add('hidden'));
+
+  async function runUpgrade(packages) {
+    const pkgLabel = packages?.length ? packages.join(', ') : 'alle';
+    const ok = await showConfirm({
+      title:  'Homebrew Update starten?',
+      what:   packages?.length
+        ? `Aktualisiert: ${pkgLabel}`
+        : 'Führt brew upgrade aus — aktualisiert alle veralteten Homebrew-Pakete.',
+      impact: 'Pakete werden heruntergeladen und aktualisiert. Laufende Dienste können kurz unterbrochen werden.',
+    });
+    if (!ok) return;
+    if (out) out.classList.remove('hidden');
+    if (pre) pre.textContent = 'brew upgrade ' + pkgLabel + ' wird ausgeführt…';
+    if (title) title.textContent = '⏳ Homebrew Upgrade';
+    try {
+      const result = await RunHomebrewUpgrade(packages || []);
+      if (pre) pre.textContent = result || '✓ Abgeschlossen';
+      if (title) title.textContent = '✓ Homebrew Upgrade';
+      addAction('Homebrew Upgrade abgeschlossen: ' + pkgLabel, 'success');
+    } catch (e) {
+      if (pre) pre.textContent = 'Fehler: ' + e;
+      if (title) title.textContent = '✗ Homebrew Upgrade fehlgeschlagen';
+      addAction('Homebrew Upgrade fehlgeschlagen: ' + e, 'error');
+    }
+  }
+
+  document.getElementById('btn-brew-check')?.addEventListener('click', async () => {
+    if (list) { list.innerHTML = '<div class="info-placeholder">Prüfe veraltete Pakete…</div>'; list.classList.remove('hidden'); }
+    if (upgradeAll) upgradeAll.classList.add('hidden');
+    try {
+      const pkgs = await GetHomebrewOutdated();
+      if (!pkgs || pkgs.length === 0) {
+        if (list) list.innerHTML = '<div class="info-placeholder">✓ Alle Homebrew-Pakete sind aktuell.</div>';
+        return;
+      }
+      if (list) {
+        list.innerHTML = `<table class="data-table"><thead><tr><th>Paket</th><th>Installiert</th><th>Aktuell</th><th></th></tr></thead><tbody>
+          ${pkgs.map(p => `<tr>
+            <td><strong>${escapeHtml(p.name)}</strong></td>
+            <td class="mono-cell">${escapeHtml(p.installed_version || '–')}</td>
+            <td class="mono-cell">${escapeHtml(p.current_version || '–')}</td>
+            <td><button class="btn btn-sm btn-secondary brew-upgrade-single" data-pkg="${escapeHtml(p.name)}">↑</button></td>
+          </tr>`).join('')}
+        </tbody></table>`;
+        list.querySelectorAll('.brew-upgrade-single').forEach(btn => {
+          btn.addEventListener('click', () => runUpgrade([btn.dataset.pkg]));
+        });
+      }
+      if (upgradeAll) upgradeAll.classList.remove('hidden');
+      addAction(`Homebrew: ${pkgs.length} Update(s) verfügbar`, 'info');
+    } catch (e) {
+      if (list) list.innerHTML = `<div class="info-placeholder text-danger">Fehler: ${escapeHtml(String(e))}</div>`;
+    }
+  });
+
+  upgradeAll?.addEventListener('click', () => runUpgrade(null));
 }
 
 async function runFullScan() {
