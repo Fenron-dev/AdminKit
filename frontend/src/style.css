@@ -2595,6 +2595,13 @@ body.platform-mac .titlebar {
 .btn-danger { background: rgba(220,38,38,.15); color: #DC2626; border-color: rgba(220,38,38,.3); }
 .btn-danger:hover { background: rgba(220,38,38,.25); }
 
+/* ── Disk-Nutzung nach Ordner ── */
+.disk-folder-item { margin-bottom: 10px; }
+.disk-folder-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+.disk-folder-label { font-size: 13px; font-weight: 600; }
+.disk-folder-size  { font-size: 13px; font-weight: 700; color: var(--color-primary); }
+.disk-folder-path  { font-size: 10px; color: var(--color-text-muted); margin-top: 2px; }
+
 /* ── Akku-Gesundheit ── */
 .battery-section { margin-top: 16px; }
 .battery-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }

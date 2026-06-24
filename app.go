@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1528,6 +1529,213 @@ func (a *App) SetSSHEnabled(enable bool) error {
 	}
 	logging.Infof("SSH", "Remote Login erfolgreich → %s", state)
 	return nil
+}
+
+// ── Disk-Nutzung nach Ordner ──────────────────────────────────────────────────
+
+// DiskFolderEntry beschreibt die Größe eines Verzeichnisses.
+type DiskFolderEntry struct {
+	Path    string  `json:"path"`
+	Label   string  `json:"label"`
+	Bytes   int64   `json:"bytes"`
+	Human   string  `json:"human"`
+	PctOfTotal float64 `json:"pct_of_total"`
+}
+
+// GetDiskUsageByFolder misst die Größe vordefinierter Verzeichnisse via du.
+func (a *App) GetDiskUsageByFolder() ([]DiskFolderEntry, error) {
+	home, _ := os.UserHomeDir()
+	targets := []struct{ path, label string }{
+		{filepath.Join(home, "Downloads"),        "Downloads"},
+		{filepath.Join(home, "Desktop"),          "Desktop"},
+		{filepath.Join(home, "Documents"),        "Dokumente"},
+		{filepath.Join(home, "Library", "Caches"),"Library/Caches"},
+		{filepath.Join(home, "Library", "Logs"),  "Library/Logs"},
+		{filepath.Join(home, ".Trash"),           "Papierkorb"},
+		{"/tmp",                                  "/tmp"},
+		{"/var/log",                              "/var/log"},
+		{"/Library/Caches",                       "/Library/Caches (System)"},
+	}
+
+	var entries []DiskFolderEntry
+	var total int64
+	for _, t := range targets {
+		if _, err := os.Stat(t.path); err != nil {
+			continue
+		}
+		out, err := exec.Command("du", "-sk", t.path).Output()
+		if err != nil {
+			continue
+		}
+		// Format: "1234\t/path"
+		parts := strings.Fields(string(out))
+		if len(parts) < 1 {
+			continue
+		}
+		kb, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			continue
+		}
+		bytes := kb * 1024
+		total += bytes
+		entries = append(entries, DiskFolderEntry{
+			Path:  t.path,
+			Label: t.label,
+			Bytes: bytes,
+			Human: formatBytes(bytes),
+		})
+	}
+	// Prozentwerte berechnen
+	if total > 0 {
+		for i := range entries {
+			entries[i].PctOfTotal = float64(entries[i].Bytes) / float64(total) * 100
+		}
+	}
+	// Absteigend sortieren
+	for i := 0; i < len(entries); i++ {
+		for j := i + 1; j < len(entries); j++ {
+			if entries[j].Bytes > entries[i].Bytes {
+				entries[i], entries[j] = entries[j], entries[i]
+			}
+		}
+	}
+	return entries, nil
+}
+
+func formatBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+// ── Zertifikats-Check ─────────────────────────────────────────────────────────
+
+// CertInfo beschreibt ein Zertifikat aus dem macOS Keychain.
+type CertInfo struct {
+	Subject   string `json:"subject"`
+	Issuer    string `json:"issuer"`
+	NotBefore string `json:"not_before"`
+	NotAfter  string `json:"not_after"`
+	Status    string `json:"status"`    // "ok", "expiring", "expired", "self_signed"
+	DaysLeft  int    `json:"days_left"` // negativ = abgelaufen
+	Keychain  string `json:"keychain"`  // "system" oder "login"
+}
+
+// ScanCertificates liest Zertifikate aus System- und Login-Keychain und prüft Ablaufdaten.
+func (a *App) ScanCertificates() ([]CertInfo, error) {
+	home, _ := os.UserHomeDir()
+	keychains := []struct{ path, name string }{
+		{"/Library/Keychains/System.keychain", "system"},
+		{filepath.Join(home, "Library/Keychains/login.keychain-db"), "login"},
+	}
+
+	var all []CertInfo
+	for _, kc := range keychains {
+		if _, err := os.Stat(kc.path); err != nil {
+			continue
+		}
+		// Zertifikate als PEM exportieren
+		pemOut, err := exec.Command("security", "find-certificate", "-a", "-p", kc.path).Output()
+		if err != nil || len(pemOut) == 0 {
+			continue
+		}
+		// Jedes PEM-Zertifikat einzeln mit openssl parsen
+		pem := string(pemOut)
+		for {
+			start := strings.Index(pem, "-----BEGIN CERTIFICATE-----")
+			end := strings.Index(pem, "-----END CERTIFICATE-----")
+			if start < 0 || end < 0 {
+				break
+			}
+			block := pem[start : end+len("-----END CERTIFICATE-----")]
+			pem = pem[end+len("-----END CERTIFICATE-----"):]
+
+			cmd := exec.Command("openssl", "x509", "-noout", "-subject", "-issuer", "-dates")
+			cmd.Stdin = strings.NewReader(block)
+			opOut, opErr := cmd.Output()
+			if opErr != nil {
+				continue
+			}
+			cert := parseCertOutput(string(opOut), kc.name)
+			if cert != nil {
+				all = append(all, *cert)
+			}
+		}
+	}
+	return all, nil
+}
+
+func parseCertOutput(s, keychain string) *CertInfo {
+	c := &CertInfo{Keychain: keychain, DaysLeft: 9999}
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "subject="):
+			c.Subject = cleanCertField(strings.TrimPrefix(line, "subject="))
+		case strings.HasPrefix(line, "issuer="):
+			c.Issuer = cleanCertField(strings.TrimPrefix(line, "issuer="))
+		case strings.HasPrefix(line, "notBefore="):
+			c.NotBefore = strings.TrimPrefix(line, "notBefore=")
+		case strings.HasPrefix(line, "notAfter="):
+			c.NotAfter = strings.TrimPrefix(line, "notAfter=")
+		}
+	}
+	if c.Subject == "" {
+		return nil
+	}
+	// Ablaufdatum parsen
+	if c.NotAfter != "" {
+		// Format: "Jun 24 12:00:00 2027 GMT"
+		t, err := time.Parse("Jan  2 15:04:05 2006 MST", c.NotAfter)
+		if err != nil {
+			t, err = time.Parse("Jan 2 15:04:05 2006 MST", c.NotAfter)
+		}
+		if err == nil {
+			c.DaysLeft = int(time.Until(t).Hours() / 24)
+		}
+	}
+	// Status bestimmen
+	selfSigned := c.Subject == c.Issuer || c.Issuer == ""
+	switch {
+	case c.DaysLeft < 0:
+		c.Status = "expired"
+	case c.DaysLeft <= 30:
+		c.Status = "expiring"
+	case selfSigned:
+		c.Status = "self_signed"
+	default:
+		c.Status = "ok"
+	}
+	return c
+}
+
+func cleanCertField(s string) string {
+	// "CN = My Cert, O = Company" → "My Cert (Company)"
+	// Einfach: CN-Wert extrahieren
+	parts := strings.Split(s, ",")
+	var cn, o string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if strings.HasPrefix(p, "CN = ") || strings.HasPrefix(p, "CN=") {
+			cn = strings.TrimPrefix(strings.TrimPrefix(p, "CN = "), "CN=")
+		} else if strings.HasPrefix(p, "O = ") || strings.HasPrefix(p, "O=") {
+			o = strings.TrimPrefix(strings.TrimPrefix(p, "O = "), "O=")
+		}
+	}
+	if cn != "" && o != "" && o != cn {
+		return cn + " (" + o + ")"
+	}
+	if cn != "" {
+		return cn
+	}
+	return strings.TrimSpace(s)
 }
 
 // isWritable prüft, ob in einem Verzeichnis geschrieben werden kann.

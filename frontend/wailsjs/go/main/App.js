@@ -319,3 +319,13 @@ export function GetSSHStatus() {
 export function SetSSHEnabled(arg1) {
     return window['go']['main']['App']['SetSSHEnabled'](arg1);
 }
+
+// ── Disk-Nutzung nach Ordner ──
+export function GetDiskUsageByFolder() {
+    return window['go']['main']['App']['GetDiskUsageByFolder']();
+}
+
+// ── Zertifikats-Check ──
+export function ScanCertificates() {
+    return window['go']['main']['App']['ScanCertificates']();
+}

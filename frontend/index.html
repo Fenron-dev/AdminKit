@@ -197,6 +197,10 @@
               <div class="sidebar-row">
                 <a class="sidebar-link" data-target="section-security">🛡 Sicherheit</a>
               </div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-certificates">🔐 Zertifikate</a>
+                <button class="sidebar-mini-scan" id="btn-scan-certificates" title="Zertifikate prüfen">↺</button>
+              </div>
               <div class="sidebar-sep"></div>
               <div class="sidebar-row">
                 <a class="sidebar-link" data-target="section-autostart">🚀 Autostart</a>
@@ -295,6 +299,12 @@
                   <div class="info-placeholder">System-Scan starten um Sicherheitsinformationen zu laden…</div>
                 </div>
               </div>
+              <div class="info-section" id="section-certificates">
+                <h3 class="section-title">Zertifikate <span class="count-badge" id="certs-count"></span></h3>
+                <div id="certs-info">
+                  <div class="info-placeholder">🔐 Zertifikate klicken um Keychain-Zertifikate zu prüfen…</div>
+                </div>
+              </div>
               <div class="info-section" id="section-processes">
                 <h3 class="section-title">Laufende Prozesse <span class="count-badge" id="processes-count"></span></h3>
                 <div id="processes-info">
@@ -348,6 +358,9 @@
                 <a class="sidebar-link" data-target="connections-section">⚡ Verbindungen</a>
                 <button class="sidebar-mini-scan" id="btn-scan-connections" title="Verbindungen laden">↺</button>
               </div>
+              <div class="sidebar-row">
+                <a class="sidebar-link" data-target="section-open-ports">🔓 Offene Ports</a>
+              </div>
             </nav>
           </aside>
           <div class="tab-content-area">
@@ -399,6 +412,13 @@
                     <tr><td colspan="6" class="info-placeholder">Verbindungen laden…</td></tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+            <div class="info-section" id="section-open-ports">
+              <h3 class="section-title">Offene Ports (LISTEN) <span class="count-badge" id="ports-count"></span></h3>
+              <p class="settings-hint" style="margin-bottom:8px">Prozesse die auf eingehende Verbindungen lauschen. Verbindungen zuerst laden (↺ oben).</p>
+              <div id="ports-info">
+                <div class="info-placeholder">⚡ Verbindungen laden um Ports anzuzeigen…</div>
               </div>
             </div>
           </div>
@@ -624,6 +644,18 @@
               </div>
               <div id="ssh-sessions" class="ssh-sessions hidden"></div>
               <p class="settings-hint">Remote Login erlaubt SSH-Zugriff auf diesen Mac. Nur aktivieren wenn benötigt — offener SSH-Port ist eine Angriffsfläche.</p>
+            </div>
+
+            <!-- Disk-Nutzung nach Ordner -->
+            <div class="tools-group tools-group-full" id="tools-disk-usage">
+              <h3 class="tools-group-title">Disk-Nutzung nach Ordner</h3>
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+                <button class="btn btn-secondary btn-sm" id="btn-disk-usage-scan">🔍 Analysieren</button>
+                <span class="status-badge badge-unknown hidden" id="disk-usage-status"></span>
+              </div>
+              <div id="disk-usage-result">
+                <div class="info-placeholder">„Analysieren" klicken um Verzeichnisgrößen zu messen…</div>
+              </div>
             </div>
 
             <!-- VirusTotal Datei-Scanner -->

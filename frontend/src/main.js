@@ -57,6 +57,8 @@ import {
   RunHomebrewUpgrade,
   GetSSHStatus,
   SetSSHEnabled,
+  GetDiskUsageByFolder,
+  ScanCertificates,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -122,6 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initPeriodicMaintenance();
   initHomebrew();
   initSSHManagement();
+  initDiskUsage();
+  initCertificates();
   initDiagnosticReport();
   initSidebarNav();
   initSysPrefsLinks();
@@ -884,6 +888,160 @@ function initSSHManagement() {
   refreshSSH();
 }
 
+// ─── Disk-Nutzung nach Ordner ─────────────────────────────────────────────────
+
+function initDiskUsage() {
+  const btn    = document.getElementById('btn-disk-usage-scan');
+  const result = document.getElementById('disk-usage-result');
+  const status = document.getElementById('disk-usage-status');
+
+  btn?.addEventListener('click', async () => {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Analysiere…'; }
+    if (result) result.innerHTML = '<div class="info-placeholder">Verzeichnisgrößen werden gemessen…</div>';
+    try {
+      const entries = await GetDiskUsageByFolder();
+      renderDiskUsage(entries, result);
+      if (status) {
+        status.className = 'status-badge badge-ok';
+        status.textContent = `${entries.length} Verzeichnisse`;
+        status.classList.remove('hidden');
+      }
+    } catch (e) {
+      if (result) result.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(e))}</div>`;
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔍 Analysieren'; }
+    }
+  });
+}
+
+function renderDiskUsage(entries, container) {
+  if (!container) return;
+  if (!entries || entries.length === 0) {
+    container.innerHTML = '<div class="info-placeholder">Keine Daten gefunden.</div>';
+    return;
+  }
+  const maxBytes = entries[0].bytes;
+  container.innerHTML = entries.map(e => {
+    const barPct = maxBytes > 0 ? Math.round(e.bytes / maxBytes * 100) : 0;
+    const barClass = barPct > 80 ? 'fill-critical' : barPct > 50 ? 'fill-warning' : 'fill-ok';
+    return `<div class="disk-folder-item">
+      <div class="disk-folder-header">
+        <span class="disk-folder-label">${escapeHtml(e.label)}</span>
+        <span class="disk-folder-size">${escapeHtml(e.human)}</span>
+      </div>
+      <div class="hw-volume-bar-bg">
+        <div class="hw-volume-bar-fill ${barClass}" style="width:${barPct}%"></div>
+      </div>
+      <div class="disk-folder-path mono-cell">${escapeHtml(e.path)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Zertifikats-Check ────────────────────────────────────────────────────────
+
+var WELL_KNOWN_PORTS = {
+  20: 'FTP-Data', 21: 'FTP', 22: 'SSH', 23: 'Telnet', 25: 'SMTP',
+  53: 'DNS', 80: 'HTTP', 110: 'POP3', 143: 'IMAP', 443: 'HTTPS',
+  445: 'SMB', 465: 'SMTPS', 587: 'SMTP/Sub', 993: 'IMAPS', 995: 'POP3S',
+  1194: 'OpenVPN', 1433: 'MSSQL', 3306: 'MySQL', 3389: 'RDP',
+  5900: 'VNC', 5901: 'VNC-1', 6379: 'Redis', 8080: 'HTTP-Alt',
+  8443: 'HTTPS-Alt', 27017: 'MongoDB',
+};
+
+function initCertificates() {
+  const btn = document.getElementById('btn-scan-certificates');
+  btn?.addEventListener('click', async () => {
+    const info   = document.getElementById('certs-info');
+    const count  = document.getElementById('certs-count');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    if (info) info.innerHTML = '<div class="info-placeholder">Keychain wird geprüft…</div>';
+    try {
+      const certs = await ScanCertificates();
+      if (count) count.textContent = certs.length;
+      renderCertificates(certs, info);
+      addAction(`Zertifikats-Check: ${certs.length} Zertifikate`, 'info');
+    } catch (e) {
+      if (info) info.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(e))}</div>`;
+      addAction('Zertifikats-Check fehlgeschlagen: ' + e, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '↺'; }
+    }
+  });
+}
+
+function renderCertificates(certs, container) {
+  if (!container) return;
+  if (!certs || certs.length === 0) {
+    container.innerHTML = '<div class="info-placeholder">Keine Zertifikate gefunden.</div>';
+    return;
+  }
+  // Sortierung: abgelaufen → bald ablaufend → selbst-signiert → ok
+  const order = { expired: 0, expiring: 1, self_signed: 2, ok: 3 };
+  const sorted = [...certs].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+
+  const statusInfo = {
+    expired:     { icon: '🔴', label: 'Abgelaufen',    cls: 'badge-error' },
+    expiring:    { icon: '🟡', label: 'Läuft bald ab', cls: 'badge-warning' },
+    self_signed: { icon: '⚪', label: 'Selbst-signiert', cls: 'badge-unknown' },
+    ok:          { icon: '🟢', label: 'Gültig',        cls: 'badge-ok' },
+  };
+
+  container.innerHTML = `<table class="data-table">
+    <thead><tr>
+      <th>Status</th><th>Betreff</th><th>Aussteller</th><th>Ablauf</th><th>Keychain</th>
+    </tr></thead>
+    <tbody>${sorted.map(c => {
+      const si = statusInfo[c.status] || statusInfo.ok;
+      const daysLabel = c.days_left < 0
+        ? `vor ${-c.days_left} Tagen`
+        : c.days_left < 9999 ? `in ${c.days_left} Tagen` : '–';
+      return `<tr>
+        <td><span class="status-badge ${si.cls}">${si.icon} ${si.label}</span></td>
+        <td>${escapeHtml(c.subject || '–')}</td>
+        <td style="color:var(--color-text-muted);font-size:11px">${escapeHtml(c.issuer || '–')}</td>
+        <td style="font-size:11px">${escapeHtml(c.not_after || '–')}<br><span style="color:var(--color-text-muted)">${daysLabel}</span></td>
+        <td style="font-size:11px">${escapeHtml(c.keychain)}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+// ─── Offene Ports (aus Verbindungs-Daten) ─────────────────────────────────────
+
+function renderOpenPorts(connections) {
+  const container = document.getElementById('ports-info');
+  const countEl   = document.getElementById('ports-count');
+  if (!container) return;
+
+  const listening = (connections || []).filter(c => c.state === 'LISTEN');
+  if (countEl) countEl.textContent = listening.length;
+
+  if (listening.length === 0) {
+    container.innerHTML = '<div class="info-placeholder">Keine lauschenden Ports gefunden.</div>';
+    return;
+  }
+
+  // Nach Port sortieren
+  const sorted = [...listening].sort((a, b) => a.local_port - b.local_port);
+
+  container.innerHTML = `<table class="data-table">
+    <thead><tr>
+      <th>Port</th><th>Protokoll</th><th>Dienst</th><th>Prozess</th><th>PID</th>
+    </tr></thead>
+    <tbody>${sorted.map(c => {
+      const service = WELL_KNOWN_PORTS[c.local_port] || '';
+      const portClass = service ? 'style="font-weight:600"' : '';
+      return `<tr>
+        <td ${portClass}>${c.local_port}</td>
+        <td><span class="proto-badge">${escapeHtml(c.protocol)}</span></td>
+        <td>${service ? `<span class="status-badge badge-ok" style="font-size:10px">${escapeHtml(service)}</span>` : '–'}</td>
+        <td>${escapeHtml(c.process_name || '–')}</td>
+        <td class="mono-cell" style="color:var(--color-text-muted)">${c.pid || '–'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
 async function runFullScan() {
   switchTab('system');
   // Alte Ergebnisse löschen damit die Zusammenfassung nur den aktuellen Scan zeigt
@@ -1046,6 +1204,7 @@ async function runConnectionsScan() {
     allConnections = await GetNetworkConnections() ?? [];
     setEl('connections-count', allConnections.length.toString());
     renderConnections(allConnections);
+    renderOpenPorts(allConnections);
     setStatus(`Verbindungs-Scan: ${allConnections.length} Verbindungen`);
     addAction(`Verbindungs-Scan: ${allConnections.length} aktive Verbindungen`, 'info');
   } catch (err) {
