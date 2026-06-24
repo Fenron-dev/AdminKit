@@ -1427,11 +1427,29 @@ type HomebrewPackage struct {
 	CurrentVersion   string `json:"current_version"`
 }
 
+// findBrew gibt den Pfad zu brew zurück — sucht bekannte Installationsorte,
+// da Wails-Apps den Shell-PATH nicht erben.
+func findBrew() (string, error) {
+	for _, p := range []string{
+		"/opt/homebrew/bin/brew",  // Apple Silicon
+		"/usr/local/bin/brew",     // Intel
+		"/home/linuxbrew/.linuxbrew/bin/brew",
+	} {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+	if p, err := exec.LookPath("brew"); err == nil {
+		return p, nil
+	}
+	return "", fmt.Errorf("Homebrew nicht installiert (brew nicht gefunden)")
+}
+
 // GetHomebrewOutdated prüft ob Homebrew installiert ist und gibt veraltete Pakete zurück.
 func (a *App) GetHomebrewOutdated() ([]HomebrewPackage, error) {
-	brewPath, err := exec.LookPath("brew")
+	brewPath, err := findBrew()
 	if err != nil {
-		return nil, fmt.Errorf("Homebrew nicht installiert (brew nicht im PATH)")
+		return nil, err
 	}
 	out, err := exec.Command(brewPath, "outdated", "--verbose").Output()
 	if err != nil {
@@ -1459,9 +1477,9 @@ func (a *App) GetHomebrewOutdated() ([]HomebrewPackage, error) {
 // RunHomebrewUpgrade aktualisiert ausgewählte oder alle Homebrew-Pakete.
 // packages = nil oder leer → alle aktualisieren.
 func (a *App) RunHomebrewUpgrade(packages []string) (string, error) {
-	brewPath, err := exec.LookPath("brew")
+	brewPath, err := findBrew()
 	if err != nil {
-		return "", fmt.Errorf("Homebrew nicht installiert")
+		return "", err
 	}
 	args := []string{"upgrade"}
 	if len(packages) > 0 {
@@ -1546,15 +1564,23 @@ type DiskFolderEntry struct {
 func (a *App) GetDiskUsageByFolder() ([]DiskFolderEntry, error) {
 	home, _ := os.UserHomeDir()
 	targets := []struct{ path, label string }{
-		{filepath.Join(home, "Downloads"),        "Downloads"},
-		{filepath.Join(home, "Desktop"),          "Desktop"},
-		{filepath.Join(home, "Documents"),        "Dokumente"},
-		{filepath.Join(home, "Library", "Caches"),"Library/Caches"},
-		{filepath.Join(home, "Library", "Logs"),  "Library/Logs"},
-		{filepath.Join(home, ".Trash"),           "Papierkorb"},
-		{"/tmp",                                  "/tmp"},
-		{"/var/log",                              "/var/log"},
-		{"/Library/Caches",                       "/Library/Caches (System)"},
+		{filepath.Join(home, "Documents"),                          "Dokumente"},
+		{filepath.Join(home, "Downloads"),                         "Downloads"},
+		{filepath.Join(home, "Movies"),                            "Filme"},
+		{filepath.Join(home, "Music"),                             "Musik"},
+		{filepath.Join(home, "Pictures"),                          "Bilder"},
+		{filepath.Join(home, "Desktop"),                           "Desktop"},
+		{"/Applications",                                           "Applications"},
+		{filepath.Join(home, "Library", "Application Support"),    "Library/Application Support"},
+		{filepath.Join(home, "Library", "Caches"),                 "Library/Caches"},
+		{filepath.Join(home, "Library", "Mobile Documents"),       "iCloud Drive"},
+		{filepath.Join(home, "Library", "Developer"),              "Library/Developer (Xcode)"},
+		{filepath.Join(home, "Library", "Logs"),                   "Library/Logs"},
+		{filepath.Join(home, ".Trash"),                            "Papierkorb"},
+		{"/Library/Application Support",                            "/Library/App Support (System)"},
+		{"/Library/Caches",                                         "/Library/Caches (System)"},
+		{"/var/log",                                                "/var/log"},
+		{"/tmp",                                                    "/tmp"},
 	}
 
 	var entries []DiskFolderEntry

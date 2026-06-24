@@ -5,6 +5,7 @@ package system
 import (
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -275,15 +276,34 @@ func scanOS() (OSInfo, []ScanError) {
 // queryLicenseStatus fragt den Windows-Aktivierungsstatus ab.
 // Gibt "Licensed", "Unlicensed" oder "Unknown" zurück.
 func queryLicenseStatus() string {
+	// Primär: WMI — sprachunabhängig und schneller als slmgr.vbs
+	type wmiLicense struct {
+		LicenseStatus uint32
+	}
+	var lic []wmiLicense
+	if err := wmi.QueryNamespace(
+		"SELECT LicenseStatus FROM SoftwareLicensingProduct WHERE PartialProductKey IS NOT NULL AND ApplicationId = '55c92734-d682-4d71-983e-d6ec3f16059f'",
+		&lic,
+		"root\\cimv2",
+	); err == nil && len(lic) > 0 {
+		// LicenseStatus 1 = Licensed
+		if lic[0].LicenseStatus == 1 {
+			return "Licensed"
+		}
+		return "Unlicensed"
+	}
+
+	// Fallback: slmgr.vbs (langsam, aber sprachübergreifend parsen)
 	out, err := exec.Command("cscript", "//NoLogo", `C:\Windows\System32\slmgr.vbs`, "/dli").Output()
 	if err != nil {
 		return "Unknown"
 	}
 	lower := strings.ToLower(string(out))
-	if strings.Contains(lower, "license status: licensed") {
+	// Englisch: "license status: licensed" / Deutsch: "lizenzstatus: lizenziert"
+	if strings.Contains(lower, "licensed") || strings.Contains(lower, "lizenziert") {
 		return "Licensed"
 	}
-	if strings.Contains(lower, "unlicensed") {
+	if strings.Contains(lower, "unlicensed") || strings.Contains(lower, "nicht lizenziert") {
 		return "Unlicensed"
 	}
 	return "Unknown"
@@ -466,32 +486,40 @@ func scanUsers() ([]UserInfo, []ScanError) {
 // fetchAdminGroupMembers gibt eine Map mit Benutzernamen (klein) zurück, die in der Admin-Gruppe sind.
 func fetchAdminGroupMembers(errs *[]ScanError) map[string]bool {
 	admins := make(map[string]bool)
-	var members []wmiGroupUser
-	// Suche nach der lokalen Administratoren-Gruppe (SID S-1-5-32-544)
-	err := wmi.Query(`SELECT GroupComponent, PartComponent FROM Win32_GroupUser WHERE GroupComponent="Win32_Group.Domain='"+%COMPUTERNAME%+"',Name='Administrators'"`, &members)
+
+	// Primär: net localgroup (sprachunabhängig via Gruppenname, kein Admin nötig)
+	out, err := exec.Command("net", "localgroup", "Administrators").Output()
 	if err != nil {
-		// Alternative: über net localgroup (als Fallback)
-		out, execErr := exec.Command("net", "localgroup", "Administrators").Output()
-		if execErr != nil {
-			*errs = append(*errs, ScanError{"users.admins", fmt.Sprintf("Admin-Gruppen-Abfrage fehlgeschlagen: %v", err)})
-			return admins
-		}
+		// Fallback auf deutsche Gruppenbezeichnung
+		out, err = exec.Command("net", "localgroup", "Administratoren").Output()
+	}
+	if err == nil {
 		lines := strings.Split(string(out), "\n")
 		parsing := false
 		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "---") {
+			line = strings.TrimSpace(strings.TrimRight(line, "\r"))
+			if strings.HasPrefix(line, "---") || strings.HasPrefix(line, "---") {
 				parsing = true
 				continue
 			}
-			if parsing && line != "" && !strings.HasPrefix(line, "The command") {
+			if parsing && line != "" &&
+				!strings.HasPrefix(line, "The command") &&
+				!strings.HasPrefix(line, "Der Befehl") {
 				admins[strings.ToLower(line)] = true
 			}
 		}
 		return admins
 	}
+
+	// Letzter Fallback: WMI (benötigt Admin, %COMPUTERNAME% muss expandiert werden)
+	hostname, _ := os.Hostname()
+	var members []wmiGroupUser
+	query := fmt.Sprintf(`SELECT GroupComponent, PartComponent FROM Win32_GroupUser WHERE GroupComponent="Win32_Group.Domain='%s',Name='Administrators'"`, hostname)
+	if wmiErr := wmi.Query(query, &members); wmiErr != nil {
+		*errs = append(*errs, ScanError{"users.admins", fmt.Sprintf("Admin-Gruppen-Abfrage fehlgeschlagen: %v", wmiErr)})
+		return admins
+	}
 	for _, m := range members {
-		// PartComponent: Win32_UserAccount.Domain="...",Name="username"
 		if idx := strings.Index(m.PartComponent, `Name="`); idx >= 0 {
 			name := m.PartComponent[idx+6:]
 			name = strings.TrimSuffix(name, `"`)
@@ -510,9 +538,10 @@ func scanSecurity() (SecurityInfo, []ScanError) {
 
 	info.BitLockerVolumes = scanBitLocker(&errs)
 	scanDefender(&info, &errs)
+	prevErrCount := len(errs)
 	fw := checkFirewall(&errs)
 	info.FirewallEnabled = fw
-	info.FirewallKnown = true
+	info.FirewallKnown = len(errs) == prevErrCount // nur als bekannt markieren wenn kein Fehler
 	info.LocalShares = scanLocalShares(&errs)
 	scanRDP(&info, &errs)
 
@@ -625,17 +654,37 @@ func scanBitLocker(errs *[]ScanError) []BitLockerVolume {
 }
 
 func scanDefender(info *SecurityInfo, errs *[]ScanError) {
-	type wmiDefender struct {
-		AMServiceEnabled            bool
-		AntispywareSignatureVersion string
-		AntivirusSignatureVersion   string
-		QuickScanAge                uint32
-		NISEnabled                  bool
+	// Erst prüfen ob ein Drittanbieter-AV aktiv ist (ersetzt dann Defender)
+	type wmiAVProduct struct {
+		DisplayName  string
+		ProductState uint32
+	}
+	var avProducts []wmiAVProduct
+	if err := wmi.QueryNamespace(
+		"SELECT DisplayName, ProductState FROM AntiVirusProduct",
+		&avProducts,
+		`root\SecurityCenter2`,
+	); err == nil {
+		for _, av := range avProducts {
+			// ProductState bit 12: 0=deaktiviert, 1=aktiviert; bit 4: 0=aktuell
+			enabled := (av.ProductState>>12)&0x0F == 1
+			if enabled && !strings.Contains(strings.ToLower(av.DisplayName), "windows defender") {
+				info.DefenderEnabled = true
+				info.DefenderVersion = "Drittanbieter: " + av.DisplayName
+				return // Drittanbieter-AV ist aktiv — kein Defender-Check nötig
+			}
+		}
 	}
 
+	// Kein Drittanbieter-AV → Windows Defender direkt abfragen
+	// Struct OHNE NISEnabled (nicht im SELECT — würde Unmarshal-Fehler verursachen)
+	type wmiDefender struct {
+		AMServiceEnabled          bool
+		AntivirusSignatureVersion string
+	}
 	var def []wmiDefender
 	if err := wmi.QueryNamespace(
-		"SELECT AMServiceEnabled, AntispywareSignatureVersion, AntivirusSignatureVersion FROM MSFT_MpComputerStatus",
+		"SELECT AMServiceEnabled, AntivirusSignatureVersion FROM MSFT_MpComputerStatus",
 		&def,
 		`root\microsoft\windows\defender`,
 	); err != nil {
@@ -645,8 +694,6 @@ func scanDefender(info *SecurityInfo, errs *[]ScanError) {
 	if len(def) > 0 {
 		info.DefenderEnabled = def[0].AMServiceEnabled
 		info.DefenderVersion = def[0].AntivirusSignatureVersion
-		// Signaturdatum aus Signatur-Alter berechnen ist unzuverlässig;
-		// stattdessen Registrierung lesen
 		info.DefenderSignatureDate = queryDefenderSignatureDate()
 	}
 }
@@ -677,7 +724,9 @@ func checkFirewall(errs *[]ScanError) bool {
 		*errs = append(*errs, ScanError{"security.firewall", err.Error()})
 		return false
 	}
-	return strings.Contains(strings.ToLower(string(out)), "on")
+	lower := strings.ToLower(string(out))
+	// Unterstützt englische ("on") und deutsche ("ein"/"an") Windows-Lokalisierung
+	return strings.Contains(lower, " on") || strings.Contains(lower, " ein") || strings.Contains(lower, " an\r")
 }
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────

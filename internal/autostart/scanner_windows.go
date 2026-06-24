@@ -172,25 +172,32 @@ func scanScheduledTasks() ([]Entry, []ScanError) {
 		return nil, nil
 	}
 
-	// CSV-Header parsen um Spalten-Indices zu finden
+	// CSV-Header parsen — Englisch und Deutsch unterstützt
 	headers := parseCSVLine(lines[0])
 	idxName, idxStatus, idxNextRun, idxTaskToRun := -1, -1, -1, -1
 	for i, h := range headers {
 		switch strings.TrimSpace(h) {
-		case "TaskName":
+		case "TaskName", "Aufgabenname":
 			idxName = i
 		case "Status":
 			idxStatus = i
-		case "Next Run Time":
+		case "Next Run Time", "Nächste Ausführungszeit":
 			idxNextRun = i
-		case "Task To Run":
+		case "Task To Run", "Aufgabe":
 			idxTaskToRun = i
 		}
 	}
 	_ = idxNextRun
 	if idxName < 0 || idxTaskToRun < 0 {
-		errs = append(errs, ScanError{Module: "schtasks", Message: "CSV-Header nicht erkannt"})
-		return entries, errs
+		// Letzter Versuch: positionsbasiert (Name=0, TaskToRun=8 in deutschen schtasks)
+		if len(headers) >= 9 {
+			idxName = 0
+			idxStatus = 3
+			idxTaskToRun = 8
+		} else {
+			errs = append(errs, ScanError{Module: "schtasks", Message: fmt.Sprintf("CSV-Header nicht erkannt: %v", headers[:min(len(headers), 5)])})
+			return entries, errs
+		}
 	}
 
 	seen := map[string]bool{}

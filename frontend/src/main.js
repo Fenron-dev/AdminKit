@@ -381,7 +381,6 @@ var FULLSCAN_STEPS = [
   ['Autostart',          () => runAutostartScan()],
   ['Dienste',            () => runServicesScan()],
   ['Prozesse',           () => runProcessScan()],
-  ['Ereignisse',         () => runEventsScan()],
   ['Drucker',            () => runPrinterScan()],
   ['Netzwerk',           () => runNetworkScanBasic()],
   ['Software',           () => runSoftwareScan()],
@@ -390,6 +389,7 @@ var FULLSCAN_STEPS = [
   ['Geplante Aufgaben',  () => runTasksScan()],
   ['Konfigurationsprofile', () => runProfilesScan()],
   ['USB-Geräte',         () => runUSBScan()],
+  ['Ereignisse',         () => runEventsScan()],   // zuletzt — dauert am längsten
 ];
 
 function setFullscanProgress(step, total, label) {
