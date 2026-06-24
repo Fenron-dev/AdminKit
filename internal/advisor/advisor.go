@@ -41,12 +41,22 @@ type Suggestion struct {
 	FixWarning  string   `json:"fix_warning"` // Warnung vor Auto-Fix (leer = keine)
 }
 
+// t returns the German string when locale is "de", otherwise the English one.
+func t(locale, de, en string) string {
+	if locale == "de" {
+		return de
+	}
+	return en
+}
+
 // Analyze wertet die übergebenen Scan-Ergebnisse aus und gibt eine priorisierte
 // Liste von Optimierungsvorschlägen zurück (höchster Risk-Score zuerst).
+// locale should be "de" or "en" — used for macOS-specific hint texts.
 func Analyze(
 	sys *system.ScanResult,
 	ast *autostart.ScanResult,
 	evts *events.ScanResult,
+	locale string,
 ) []Suggestion {
 	var suggestions []Suggestion
 
@@ -93,8 +103,15 @@ func Analyze(
 			}
 		}
 		if anyUnencrypted {
-			label := "FileVault aktivieren"
-			detail := "Ohne FileVault sind alle Daten bei Diebstahl des Geräts sofort lesbar. Aktivierung in Systemeinstellungen → Datenschutz & Sicherheit → FileVault."
+			label := t(locale, "FileVault aktivieren", "Enable FileVault")
+			settingsPath := t(locale,
+				"Systemeinstellungen → Datenschutz & Sicherheit → FileVault",
+				"System Settings → Privacy & Security → FileVault",
+			)
+			detail := t(locale,
+				"Ohne FileVault sind alle Daten bei Diebstahl des Geräts sofort lesbar. Aktivierung in "+settingsPath+".",
+				"Without FileVault all data is immediately readable if the device is stolen. Enable in "+settingsPath+".",
+			)
 			navigateID := "open_filevault"
 			if sec.Platform == "windows" {
 				label = "BitLocker aktivieren"
@@ -151,7 +168,7 @@ func Analyze(
 				Severity:  SeverityInfo,
 				RiskScore: scoring.SecurityRisk("rdp_enabled"),
 				FixType:   FixManual,
-				FixLabel:  "Systemeinstellungen öffnen",
+				FixLabel:  "Systemsteuerung öffnen",
 				FixID:     "open_rdp_settings",
 			})
 		}

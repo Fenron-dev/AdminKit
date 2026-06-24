@@ -59,6 +59,7 @@ import {
   SetSSHEnabled,
   GetDiskUsageByFolder,
   ScanCertificates,
+  GetOSLocale,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -84,6 +85,7 @@ const state = {
   selectedItems: new Map(),       // key → {name, path, type, extra}
   vtAbortController: null,        // Für Abbrechen des VT-Scans
   platform: 'darwin',             // Wird beim Boot via GetPlatform() gesetzt
+  osLocale: 'de',                 // Wird beim Boot via GetOSLocale() gesetzt ('de', 'en', ...)
   // Terminal
   terminalHistory: [],            // Befehlsverlauf
   terminalHistoryIdx: -1,         // Aktueller Verlaufsindex
@@ -230,8 +232,8 @@ function switchTab(tabId) {
 
 async function loadAppInfo() {
   try {
-    const [version, vaultPath, cfg, hostname] = await Promise.all([
-      GetAppVersion(), GetVaultPath(), GetConfig(), GetHostname(),
+    const [version, vaultPath, cfg, hostname, locale] = await Promise.all([
+      GetAppVersion(), GetVaultPath(), GetConfig(), GetHostname(), GetOSLocale(),
     ]);
     setEl('app-version', `v${version}`);
     setEl('vault-label', shortenPath(vaultPath));
@@ -239,6 +241,7 @@ async function loadAppInfo() {
 
     state.config   = cfg;
     state.hostname = hostname || '';
+    state.osLocale = locale || 'de';
     updateBrandingBar();
     applyQuickActionVisibility();
 
@@ -5607,30 +5610,36 @@ function initSidebarNav() {
 // Fügt kleine ⚙-Buttons in Sektions-Titelzeilen ein die direkt
 // zur passenden macOS-Systemeinstellungs-Seite öffnen.
 function initSysPrefsLinks() {
-  // Mapping: SektionsID → { url, label }
+  var isEn = (state.osLocale || 'de').startsWith('en');
+  var settingsApp = isEn ? 'System Settings' : 'Systemeinstellungen';
+
+  // Mapping: SektionsID → { url, label_de, label_en }
   var sysPrefsMap = {
-    'section-hw':        { url: 'x-apple.systempreferences:com.apple.settings.Storage',           label: 'Lagerung' },
-    'section-os':        { url: 'x-apple.systempreferences:com.apple.preference.softwareupdate',   label: 'Software-Aktualisierung' },
-    'section-smart':       { url: 'x-apple.systempreferences:com.apple.settings.Storage',                     label: 'Lagerung' },
-    'section-timemachine': { url: 'x-apple.systempreferences:com.apple.prefs.backup',                          label: 'Time Machine' },
-    'section-autostart': { url: 'x-apple.systempreferences:com.apple.LoginItems-Settings.extension', label: 'Anmeldeobjekte' },
-    'section-security':  { url: 'x-apple.systempreferences:com.apple.preference.security',        label: 'Datenschutz & Sicherheit' },
-    'section-users':     { url: 'x-apple.systempreferences:com.apple.preference.accounts',        label: 'Benutzer:innen & Gruppen' },
-    'section-printer':   { url: 'x-apple.systempreferences:com.apple.preference.printfax',        label: 'Drucker & Scanner' },
-    'section-profiles':  { url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_DeviceManagement', label: 'Profile (Datenschutz)' },
-    'section-adapter':   { url: 'x-apple.systempreferences:com.apple.preference.network',         label: 'Netzwerk' },
-    'section-wifi':      { url: 'x-apple.systempreferences:com.apple.WiFiSettings',               label: 'WLAN' },
-    'section-shares':    { url: 'x-apple.systempreferences:com.apple.preferences.sharing',        label: 'Sharing' },
+    'section-hw':          { url: 'x-apple.systempreferences:com.apple.settings.Storage',                               de: 'Speicher',               en: 'Storage' },
+    'section-os':          { url: 'x-apple.systempreferences:com.apple.preference.softwareupdate',                      de: 'Software-Aktualisierung', en: 'Software Update' },
+    'section-smart':       { url: 'x-apple.systempreferences:com.apple.settings.Storage',                               de: 'Speicher',               en: 'Storage' },
+    'section-timemachine': { url: 'x-apple.systempreferences:com.apple.prefs.backup',                                   de: 'Time Machine',           en: 'Time Machine' },
+    'section-autostart':   { url: 'x-apple.systempreferences:com.apple.LoginItems-Settings.extension',                  de: 'Anmeldeobjekte',         en: 'Login Items' },
+    'section-security':    { url: 'x-apple.systempreferences:com.apple.preference.security',                            de: 'Datenschutz & Sicherheit', en: 'Privacy & Security' },
+    'section-users':       { url: 'x-apple.systempreferences:com.apple.preference.accounts',                            de: 'Benutzer & Gruppen',     en: 'Users & Groups' },
+    'section-printer':     { url: 'x-apple.systempreferences:com.apple.preference.printfax',                            de: 'Drucker & Scanner',      en: 'Printers & Scanners' },
+    'section-profiles':    { url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_DeviceManagement',   de: 'Profile (Datenschutz)',  en: 'Profiles (Privacy)' },
+    'section-adapter':     { url: 'x-apple.systempreferences:com.apple.preference.network',                             de: 'Netzwerk',               en: 'Network' },
+    'section-wifi':        { url: 'x-apple.systempreferences:com.apple.WiFiSettings',                                   de: 'WLAN',                   en: 'Wi-Fi' },
+    'section-shares':      { url: 'x-apple.systempreferences:com.apple.preferences.sharing',                            de: 'Sharing',                en: 'Sharing' },
+    'section-certificates':{ url: 'x-apple.systempreferences:com.apple.preference.security',                            de: 'Datenschutz & Sicherheit', en: 'Privacy & Security' },
   };
+
   Object.keys(sysPrefsMap).forEach(function(id) {
     var section = document.getElementById(id);
     if (!section) return;
     var h3 = section.querySelector('.section-title');
     if (!h3) return;
     var info = sysPrefsMap[id];
+    var label = isEn ? info.en : info.de;
     var btn = document.createElement('button');
     btn.className = 'btn-sysprefs';
-    btn.title = 'Systemeinstellungen → ' + info.label;
+    btn.title = settingsApp + ' → ' + label;
     btn.textContent = '⚙';
     btn.addEventListener('click', function(e) {
       e.stopPropagation();

@@ -320,6 +320,11 @@ export function SetSSHEnabled(arg1) {
     return window['go']['main']['App']['SetSSHEnabled'](arg1);
 }
 
+// ── Betriebssystem-Locale ──
+export function GetOSLocale() {
+    return window['go']['main']['App']['GetOSLocale']();
+}
+
 // ── Disk-Nutzung nach Ordner ──
 export function GetDiskUsageByFolder() {
     return window['go']['main']['App']['GetDiskUsageByFolder']();

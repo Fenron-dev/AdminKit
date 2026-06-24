@@ -176,6 +176,36 @@ func (a *App) GetPlatform() string {
 	return goruntime.GOOS
 }
 
+// GetOSLocale gibt das primäre Sprach-Tag des Betriebssystems zurück (z.B. "de", "en").
+// Wird genutzt um Systempfad-Bezeichnungen (System Settings Panes) korrekt anzuzeigen.
+func (a *App) GetOSLocale() string {
+	if goruntime.GOOS == "darwin" {
+		// macOS: primäre Sprache aus den globalen Preferences
+		out, err := exec.Command("defaults", "read", ".GlobalPreferences", "AppleLocale").Output()
+		if err == nil {
+			locale := strings.TrimSpace(string(out))
+			// z.B. "de_DE", "en_US", "fr_FR" → nur erstes Segment
+			if idx := strings.IndexAny(locale, "_-"); idx > 0 {
+				locale = locale[:idx]
+			}
+			return strings.ToLower(locale)
+		}
+		// Fallback: LANG-Variable
+		lang := os.Getenv("LANG")
+		if len(lang) >= 2 {
+			return strings.ToLower(lang[:2])
+		}
+	}
+	if goruntime.GOOS == "windows" {
+		out, err := exec.Command("powershell", "-NoProfile", "-Command",
+			"(Get-Culture).TwoLetterISOLanguageName").Output()
+		if err == nil {
+			return strings.ToLower(strings.TrimSpace(string(out)))
+		}
+	}
+	return "en" // sicherer Standard
+}
+
 // SaveConfig speichert die Konfiguration (z.B. Branding-Einstellungen) dauerhaft in config.yaml.
 func (a *App) SaveConfig(cfg *config.Config) error {
 	if a.vault == nil {
@@ -802,7 +832,7 @@ func (a *App) OpenEventInConsole(processName string) error {
 
 // GetSuggestions analysiert gecachte Scan-Ergebnisse und gibt Optimierungsvorschläge zurück.
 func (a *App) GetSuggestions() []advisor.Suggestion {
-	return advisor.Analyze(a.lastSystemScan, a.lastAutostartScan, a.lastEventsScan)
+	return advisor.Analyze(a.lastSystemScan, a.lastAutostartScan, a.lastEventsScan, a.GetOSLocale())
 }
 
 // RunFix führt einen Optimierungs-Fix anhand der Fix-ID aus.

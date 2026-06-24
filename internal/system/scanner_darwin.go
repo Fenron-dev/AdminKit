@@ -122,13 +122,15 @@ func scanHardware() (HardwareInfo, []ScanError) {
 		}
 	}
 
-	// Fallback: Text-Ausgabe parsen wenn CPU-Name oder Mainboard noch fehlen
+	// Fallback: Text-Ausgabe parsen wenn CPU-Name oder Mainboard noch fehlen.
+	// Unterstützt englische UND deutsche macOS-Bezeichnungen.
 	if cpuName == "" || hw.Motherboard.Product == "" {
 		if txtOut, txtErr := exec.Command("system_profiler", "SPHardwareDataType").Output(); txtErr == nil {
 			for _, line := range strings.Split(string(txtOut), "\n") {
 				line = strings.TrimSpace(line)
 				if cpuName == "" {
-					for _, prefix := range []string{"Chip:", "Processor Name:", "Chip Name:"} {
+					// EN: "Chip:" / "Processor Name:" | DE: "Chip:" / "Prozessor:"
+					for _, prefix := range []string{"Chip:", "Processor Name:", "Chip Name:", "Prozessor:"} {
 						if strings.HasPrefix(line, prefix) {
 							cpuName = strings.TrimSpace(strings.TrimPrefix(line, prefix))
 							break
@@ -136,7 +138,8 @@ func scanHardware() (HardwareInfo, []ScanError) {
 					}
 				}
 				if hw.Motherboard.Product == "" {
-					for _, prefix := range []string{"Model Name:", "Model Identifier:"} {
+					// EN: "Model Name:" | DE: "Modellbezeichnung:" / "Modell:"
+					for _, prefix := range []string{"Model Name:", "Model Identifier:", "Modellbezeichnung:", "Modell:", "Modellkennung:"} {
 						if strings.HasPrefix(line, prefix) {
 							hw.Motherboard.Manufacturer = "Apple Inc."
 							hw.Motherboard.Product = strings.TrimSpace(strings.TrimPrefix(line, prefix))
