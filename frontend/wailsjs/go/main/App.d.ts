@@ -55,3 +55,5 @@ export function GetFleetOverview(): Promise<any>;
 export function ExportSessionBundle(sessionPath: string): Promise<string>;
 export function ImportSessionBundle(): Promise<string>;
 export function NewCustomerSession(customerName: string, deviceAlias: string, location: string): Promise<string>;
+export function GetFleetSummary(): Promise<any>;
+export function SyncRole(): Promise<string>;

@@ -384,3 +384,11 @@ export function ImportSessionBundle() {
 export function NewCustomerSession(arg1, arg2, arg3) {
     return window['go']['main']['App']['NewCustomerSession'](arg1, arg2, arg3);
 }
+
+// ── Fleet-Sync (#74): Übersicht + Rolle ──
+export function GetFleetSummary() {
+    return window['go']['main']['App']['GetFleetSummary']();
+}
+export function SyncRole() {
+    return window['go']['main']['App']['SyncRole']();
+}

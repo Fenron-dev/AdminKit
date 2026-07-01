@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"adminkit/internal/bundle"
 	"adminkit/internal/clients"
 	"adminkit/internal/config"
+	"adminkit/internal/fleet"
 	"adminkit/internal/hub"
 	syncpkg "adminkit/internal/sync"
 )
@@ -249,6 +251,42 @@ func (a *App) GetFleetOverview() (map[string][]hub.SessionMeta, error) {
 	return client.Fleet(ctx)
 }
 
+// GetFleetSummary liefert die aggregierte Fleet-Übersicht (Kunden → Geräte mit
+// Health-Status und Trend) für das Flotte-Tab (Phase C, #79).
+func (a *App) GetFleetSummary() (fleet.Overview, error) {
+	sessions, err := a.fleetSessions()
+	if err != nil {
+		return fleet.Overview{}, err
+	}
+	return fleet.BuildOverview(sessions), nil
+}
+
+// fleetSessions holt die Roh-Sessions: als Hub lokal, als Client über den Hub.
+func (a *App) fleetSessions() ([]hub.SessionMeta, error) {
+	if a.hubServer != nil {
+		return a.hubServer.ListSessions()
+	}
+	client, err := a.ensureSyncClient()
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 15*time.Second)
+	defer cancel()
+	return client.ListSessions(ctx)
+}
+
+// SyncRole gibt die aktuelle Rolle zurück (offline/hub/client) – für die
+// Tab-Sichtbarkeit im Frontend.
+func (a *App) SyncRole() string {
+	if a.hubServer != nil {
+		return string(config.SyncRoleHub)
+	}
+	if a.cfg != nil && a.cfg.Sync.Role != "" {
+		return string(a.cfg.Sync.Role)
+	}
+	return string(config.SyncRoleOffline)
+}
+
 // --- Air-Gap-Bundles (#74) ---
 
 // ExportSessionBundle exportiert eine Session als .adminkit-Datei. Öffnet einen
@@ -323,9 +361,24 @@ func (a *App) readSessionForSync(sessionPath string) (hub.SessionMeta, map[strin
 		DeviceID:     a.cfg.Sync.DeviceID,
 		SourceDevice: a.cfg.Sync.DeviceName,
 		ScannedAt:    m.ScannedAt,
+		HealthScore:  healthFromSnapshot(snapMap["health"]),
 	}
 	meta.ID = hub.SessionID(meta.DeviceID, meta.SessionName)
 	return meta, snapshots, nil
+}
+
+// healthFromSnapshot liest den Score aus dem "health"-Snapshot (0 wenn keiner).
+func healthFromSnapshot(raw string) int {
+	if raw == "" {
+		return 0
+	}
+	var hs struct {
+		Score int `json:"score"`
+	}
+	if json.Unmarshal([]byte(raw), &hs) != nil {
+		return 0
+	}
+	return hs.Score
 }
 
 // readSessionMeta liest die meta.json einer Session oder leitet sie aus dem

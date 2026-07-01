@@ -139,6 +139,11 @@ func (s *Server) GeneratePairingCode() (string, time.Time, error) {
 	return s.auth.GeneratePIN()
 }
 
+// ListSessions gibt alle Sessions des lokalen Stores zurück (Instanz ist Hub).
+func (s *Server) ListSessions() ([]SessionMeta, error) {
+	return s.store.ListSessions()
+}
+
 // Fleet gibt die nach Kunde gruppierten Sessions direkt aus dem lokalen Store
 // zurück (genutzt, wenn diese Instanz selbst der Hub ist).
 func (s *Server) Fleet() (map[string][]SessionMeta, error) {

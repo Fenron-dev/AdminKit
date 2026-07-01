@@ -65,6 +65,7 @@ import {
   DiscoverHubs, PairWithHub, PushSessionToHub,
   ExportSessionBundle, ImportSessionBundle,
   NewCustomerSession,
+  GetFleetSummary, SyncRole,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -103,6 +104,7 @@ const state = {
 document.addEventListener('DOMContentLoaded', () => {
   applyTheme(state.theme);
   initTabs();
+  initFleetTab();
   initThemeToggle();
   initSessionModal();
   initSessionHistory();
@@ -231,6 +233,7 @@ function switchTab(tabId) {
     panel.classList.toggle('active', panel.id === `tab-${tabId}`)
   );
   state.activeTab = tabId;
+  if (tabId === 'fleet') loadFleet();
 }
 
 // ─── App-Infos ────────────────────────────────────────────────────────────────
@@ -444,6 +447,10 @@ function setFullscanProgress(step, total, label) {
 async function updateHealthScore() {
   try {
     const result = await GetHealthScore();
+    // Score als Snapshot sichern, damit er in Fleet-Übersicht (#74) einfließt
+    if (state.currentSessionPath && result && typeof result.score === 'number') {
+      saveSnapshot('health', result);
+    }
     const ring  = document.getElementById('health-score-ring');
     const value = document.getElementById('health-score-value');
     const label = document.getElementById('health-score-label');
@@ -5616,6 +5623,126 @@ async function refreshSyncStatus() {
   if (!running) {
     document.getElementById('hub-pair-code-wrap')?.classList.add('hidden');
   }
+  updateFleetTabVisibility();
+}
+
+// ─── Flotte / Fleet-Übersicht (#74) ───────────────────────────────────────────
+
+const FLEET_STATUS = {
+  ok:       { icon: '✅', cls: 'fleet-ok',       text: 'OK' },
+  warn:     { icon: '⚠️', cls: 'fleet-warn',     text: 'Warnung' },
+  critical: { icon: '🔴', cls: 'fleet-critical', text: 'Kritisch' },
+  stale:    { icon: '🕒', cls: 'fleet-stale',    text: 'Scan veraltet' },
+  unknown:  { icon: '⚪', cls: 'fleet-unknown',  text: 'Kein Score' },
+};
+
+function initFleetTab() {
+  document.getElementById('btn-fleet-refresh')?.addEventListener('click', loadFleet);
+  updateFleetTabVisibility();
+}
+
+// Blendet das Flotte-Tab nur ein, wenn diese Instanz Hub oder Client ist.
+async function updateFleetTabVisibility() {
+  const btn = document.getElementById('tab-btn-fleet');
+  if (!btn) return;
+  let role = 'offline';
+  try {
+    role = await SyncRole();
+  } catch (_) { /* offline */ }
+  const active = role === 'hub' || role === 'client';
+  btn.classList.toggle('hidden', !active);
+  // Wenn deaktiviert und gerade sichtbar → zurück aufs Dashboard.
+  if (!active && state.activeTab === 'fleet') switchTab('dashboard');
+}
+
+async function loadFleet() {
+  const container = document.getElementById('fleet-container');
+  const line = document.getElementById('fleet-summary-line');
+  if (!container) return;
+  container.innerHTML = '<div class="empty-state">⏳ Lade Flotten-Daten…</div>';
+  try {
+    const ov = await GetFleetSummary();
+    renderFleet(ov, container, line);
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state">Flotten-Daten nicht verfügbar: ${escapeHtml(String(err))}</div>`;
+    if (line) line.textContent = 'Kein Hub verbunden.';
+  }
+}
+
+function renderFleet(ov, container, line) {
+  const customers = (ov && ov.customers) || [];
+  if (line) {
+    line.textContent = customers.length
+      ? `${ov.total_devices} Gerät(e) · ${ov.total_sessions} Session(s) · ${customers.length} Kunde(n)`
+      : 'Noch keine Sessions auf dem Hub.';
+  }
+  if (!customers.length) {
+    container.innerHTML = '<div class="empty-state">Noch keine Sessions vorhanden. Sobald Geräte gescannt und gepusht werden, erscheinen sie hier.</div>';
+    return;
+  }
+  container.innerHTML = customers.map(renderCustomerGroup).join('');
+}
+
+function renderCustomerGroup(group) {
+  const worst = FLEET_STATUS[group.worst_status] || FLEET_STATUS.unknown;
+  const devices = (group.devices || []).map(renderDeviceCard).join('');
+  return `
+    <div class="fleet-group">
+      <div class="fleet-group-head">
+        <span class="fleet-group-name">${worst.icon} ${escapeHtml(group.name)}</span>
+        <span class="fleet-group-count">${group.device_count} Gerät(e)</span>
+      </div>
+      <div class="fleet-device-grid">${devices}</div>
+    </div>`;
+}
+
+function renderDeviceCard(dev) {
+  const st = FLEET_STATUS[dev.status] || FLEET_STATUS.unknown;
+  const health = dev.latest_health > 0 ? `${dev.latest_health}/100` : '–';
+  const loc = dev.location ? ` · ${escapeHtml(dev.location)}` : '';
+  const host = dev.hostname ? escapeHtml(dev.hostname) : '';
+  return `
+    <div class="fleet-device-card ${st.cls}">
+      <div class="fleet-device-top">
+        <span class="fleet-device-name">${escapeHtml(dev.label)}</span>
+        <span class="fleet-badge ${st.cls}">${st.icon} ${health}</span>
+      </div>
+      <div class="fleet-device-meta">${host}${loc}</div>
+      ${sparklineSvg(dev.trend)}
+      <div class="fleet-device-foot">
+        <span>${dev.session_count} Scan(s)</span>
+        <span>Zuletzt: ${formatFleetDate(dev.latest_scan)}</span>
+      </div>
+    </div>`;
+}
+
+// sparklineSvg zeichnet den Health-Trend als kleine SVG-Linie (kein npm).
+function sparklineSvg(trend) {
+  const pts = (trend || []).filter(p => typeof p.health_score === 'number');
+  if (pts.length < 2) return '<div class="fleet-spark-empty">Kein Trend</div>';
+  const w = 200, h = 36, pad = 3;
+  const n = pts.length;
+  const coords = pts.map((p, i) => {
+    const x = pad + (i * (w - 2 * pad)) / (n - 1);
+    const y = pad + (h - 2 * pad) * (1 - Math.max(0, Math.min(100, p.health_score)) / 100);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = pts[n - 1].health_score;
+  const stroke = last >= 85 ? 'var(--fleet-green,#22a565)' : last >= 60 ? 'var(--fleet-yellow,#d69e2e)' : 'var(--fleet-red,#e53e3e)';
+  const lastX = coords[n - 1].split(',')[0];
+  const lastY = coords[n - 1].split(',')[1];
+  return `
+    <svg class="fleet-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Health-Verlauf">
+      <polyline fill="none" stroke="${stroke}" stroke-width="2" points="${coords.join(' ')}" />
+      <circle cx="${lastX}" cy="${lastY}" r="2.5" fill="${stroke}" />
+    </svg>`;
+}
+
+function formatFleetDate(iso) {
+  if (!iso) return '–';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '–';
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 // Aktualisiert die Branding-Zeile über der Tab-Navigation anhand state.config
