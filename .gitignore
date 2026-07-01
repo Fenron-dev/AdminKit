@@ -43,3 +43,6 @@ desktop.ini
 # go.sum und go.mod werden committed (kein sensitives Material)
 # Aber temporäre Go-Artefakte nicht
 /adminkit
+
+# Claude Code lokale Einstellungen (enthält absolute Pfade / Permissions)
+.claude/
