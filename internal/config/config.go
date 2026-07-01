@@ -23,6 +23,54 @@ type Config struct {
 	Logging   Logging  `yaml:"logging"              json:"logging"`
 	APIKeys   APIKeys  `yaml:"api_keys,omitempty"   json:"api_keys,omitempty"`
 	AIModels  AIModels `yaml:"ai_models,omitempty"  json:"ai_models,omitempty"`
+	Sync      Sync     `yaml:"sync,omitempty"       json:"sync,omitempty"`
+}
+
+// SyncRole beschreibt die Rolle dieser AdminKit-Instanz im Sync-Verbund.
+type SyncRole string
+
+const (
+	// SyncRoleOffline: kein Sync (Standard). Tool läuft rein lokal.
+	SyncRoleOffline SyncRole = "offline"
+	// SyncRoleHub: diese Instanz stellt einen LAN-Hub bereit.
+	SyncRoleHub SyncRole = "hub"
+	// SyncRoleClient: diese Instanz pusht Sessions an einen Hub.
+	SyncRoleClient SyncRole = "client"
+)
+
+// Sync konfiguriert die optionale Fleet-Synchronisierung (siehe #74).
+// Tokens landen ausschließlich in der Vault-config.yaml, niemals im Git-Repo.
+type Sync struct {
+	// Role: offline (Standard) | hub | client.
+	Role SyncRole `yaml:"role,omitempty"          json:"role,omitempty"`
+	// DeviceID: stabile UUID dieses Geräts/Sticks (für Session-Identität).
+	DeviceID string `yaml:"device_id,omitempty"     json:"device_id,omitempty"`
+	// DeviceName: menschenlesbarer Name (z.B. "Dennis-Stick").
+	DeviceName string `yaml:"device_name,omitempty"   json:"device_name,omitempty"`
+	// HubHost/HubPort: zuletzt bekannter Hub (für USB-Stick-Wiederfinden).
+	HubHost string `yaml:"hub_host,omitempty"      json:"hub_host,omitempty"`
+	HubPort int    `yaml:"hub_port,omitempty"      json:"hub_port,omitempty"`
+	// HubPort für den eingebetteten Hub-Server (Rolle hub).
+	ListenPort int `yaml:"listen_port,omitempty"   json:"listen_port,omitempty"`
+	// AccessToken/RefreshToken: JWT-Pairing (nur Rolle client).
+	AccessToken  string `yaml:"access_token,omitempty"  json:"-"`
+	RefreshToken string `yaml:"refresh_token,omitempty" json:"-"`
+}
+
+// DefaultSyncPort ist der Standard-Port für den eingebetteten LAN-Hub.
+const DefaultSyncPort = 8767
+
+// Customer ist ein Kundenprofil (siehe #74). Wird nicht in config.yaml,
+// sondern als eigene Datei unter vault/clients/<id>.yaml gespeichert, damit
+// Kundenlisten über den Hub synchronisiert werden können.
+type Customer struct {
+	ID           string `yaml:"id"                      json:"id"`
+	Name         string `yaml:"name"                    json:"name"`
+	ShortName    string `yaml:"short_name,omitempty"    json:"short_name,omitempty"`
+	ContactName  string `yaml:"contact_name,omitempty"  json:"contact_name,omitempty"`
+	ContactEmail string `yaml:"contact_email,omitempty" json:"contact_email,omitempty"`
+	Notes        string `yaml:"notes,omitempty"         json:"notes,omitempty"`
+	CreatedAt    string `yaml:"created_at,omitempty"    json:"created_at,omitempty"`
 }
 
 // APIKeys enthält API-Schlüssel für externe Dienste.
@@ -55,11 +103,11 @@ type Branding struct {
 }
 
 type Defaults struct {
-	LogLocation          string   `yaml:"log_location"            json:"log_location"`
-	ExportFormat         string   `yaml:"export_format"           json:"export_format"`
-	IncludeWifiPasswords bool     `yaml:"include_wifi_passwords"  json:"include_wifi_passwords"`
-	IncludeSmartData     bool     `yaml:"include_smart_data"      json:"include_smart_data"`
-	AutoVTScan           bool     `yaml:"auto_vt_scan"            json:"auto_vt_scan"`
+	LogLocation          string `yaml:"log_location"            json:"log_location"`
+	ExportFormat         string `yaml:"export_format"           json:"export_format"`
+	IncludeWifiPasswords bool   `yaml:"include_wifi_passwords"  json:"include_wifi_passwords"`
+	IncludeSmartData     bool   `yaml:"include_smart_data"      json:"include_smart_data"`
+	AutoVTScan           bool   `yaml:"auto_vt_scan"            json:"auto_vt_scan"`
 	// EnabledQuickActions: Leer = alle aktiviert. Nur explizit deaktivierte werden weggelassen.
 	DisabledQuickActions []string `yaml:"disabled_quick_actions,omitempty" json:"disabled_quick_actions,omitempty"`
 }
