@@ -159,6 +159,45 @@ func Import(bundlePath, dataDir string) (string, Meta, error) {
 	return sessionPath, meta, nil
 }
 
+// Read lädt Meta und alle Snapshots eines Bundles in den Speicher, ohne auf
+// die Platte zu entpacken. Genutzt vom Hub, um ein importiertes Bundle über
+// denselben Storage-Pfad wie ein normaler Push abzulegen. Der zurückgegebene
+// Map-Key ist der Snapshot-Name ohne Verzeichnis und Endung (z.B. "system").
+func Read(bundlePath string) (Meta, map[string][]byte, error) {
+	zr, err := zip.OpenReader(bundlePath)
+	if err != nil {
+		return Meta{}, nil, fmt.Errorf("bundle konnte nicht geöffnet werden: %w", err)
+	}
+	defer zr.Close()
+
+	meta, err := readMeta(&zr.Reader)
+	if err != nil {
+		return Meta{}, nil, err
+	}
+
+	snapshots := map[string][]byte{}
+	for _, f := range zr.File {
+		if f.FileInfo().IsDir() || !strings.HasPrefix(f.Name, "snapshots/") {
+			continue
+		}
+		key := strings.TrimSuffix(filepath.Base(f.Name), ".json")
+		if key == "" {
+			continue
+		}
+		rc, openErr := f.Open()
+		if openErr != nil {
+			return Meta{}, nil, openErr
+		}
+		data, readErr := io.ReadAll(io.LimitReader(rc, 50<<20))
+		rc.Close()
+		if readErr != nil {
+			return Meta{}, nil, readErr
+		}
+		snapshots[key] = data
+	}
+	return meta, snapshots, nil
+}
+
 // ReadMeta liest nur die Metadaten eines Bundles, ohne es zu entpacken.
 // Nützlich für eine Vorschau vor dem Import.
 func ReadMeta(bundlePath string) (Meta, error) {
