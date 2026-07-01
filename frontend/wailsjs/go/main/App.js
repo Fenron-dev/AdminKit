@@ -334,3 +334,53 @@ export function GetDiskUsageByFolder() {
 export function ScanCertificates() {
     return window['go']['main']['App']['ScanCertificates']();
 }
+
+// ── Fleet-Sync (#74): Kundenverwaltung ──
+export function GetClients() {
+    return window['go']['main']['App']['GetClients']();
+}
+export function SaveClient(arg1) {
+    return window['go']['main']['App']['SaveClient'](arg1);
+}
+export function DeleteClient(arg1) {
+    return window['go']['main']['App']['DeleteClient'](arg1);
+}
+
+// ── Fleet-Sync (#74): Hub-Rolle ──
+export function StartHub() {
+    return window['go']['main']['App']['StartHub']();
+}
+export function StopHub() {
+    return window['go']['main']['App']['StopHub']();
+}
+export function GetHubStatus() {
+    return window['go']['main']['App']['GetHubStatus']();
+}
+export function GetHubPairingCode() {
+    return window['go']['main']['App']['GetHubPairingCode']();
+}
+
+// ── Fleet-Sync (#74): Client-Rolle ──
+export function DiscoverHubs() {
+    return window['go']['main']['App']['DiscoverHubs']();
+}
+export function PairWithHub(arg1, arg2) {
+    return window['go']['main']['App']['PairWithHub'](arg1, arg2);
+}
+export function PushSessionToHub(arg1) {
+    return window['go']['main']['App']['PushSessionToHub'](arg1);
+}
+export function GetFleetOverview() {
+    return window['go']['main']['App']['GetFleetOverview']();
+}
+
+// ── Fleet-Sync (#74): Air-Gap-Bundles + Session-Dialog ──
+export function ExportSessionBundle(arg1) {
+    return window['go']['main']['App']['ExportSessionBundle'](arg1);
+}
+export function ImportSessionBundle() {
+    return window['go']['main']['App']['ImportSessionBundle']();
+}
+export function NewCustomerSession(arg1, arg2, arg3) {
+    return window['go']['main']['App']['NewCustomerSession'](arg1, arg2, arg3);
+}

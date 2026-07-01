@@ -172,20 +172,11 @@ func (s *Server) handleImportBundle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFleet(w http.ResponseWriter, _ *http.Request) {
-	sessions, err := s.store.ListSessions()
+	// Detaillierte Aggregation (Trends, Health-Verlauf) folgt in Phase C (#79).
+	groups, err := s.Fleet()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
-	}
-	// Nach Kunde gruppieren. Die detaillierte Aggregation (Trends, Health-
-	// Verlauf) folgt in Phase C (internal/fleet, #79).
-	groups := map[string][]SessionMeta{}
-	for _, sess := range sessions {
-		name := sess.CustomerName
-		if name == "" {
-			name = "Ohne Kunde"
-		}
-		groups[name] = append(groups[name], sess)
 	}
 	writeJSON(w, http.StatusOK, groups)
 }

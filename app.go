@@ -15,25 +15,27 @@ import (
 	"strings"
 	"time"
 
+	"adminkit/internal/advisor"
 	"adminkit/internal/aiassist"
 	"adminkit/internal/autostart"
 	"adminkit/internal/browserext"
 	"adminkit/internal/config"
 	"adminkit/internal/events"
 	"adminkit/internal/export"
+	"adminkit/internal/hub"
 	"adminkit/internal/logging"
 	"adminkit/internal/network"
 	"adminkit/internal/printers"
 	"adminkit/internal/profiles"
-	"adminkit/internal/services"
-	"adminkit/internal/usbhistory"
-	"adminkit/internal/software"
-	"adminkit/internal/system"
-	"adminkit/internal/advisor"
 	"adminkit/internal/quickactions"
 	"adminkit/internal/scoring"
+	"adminkit/internal/services"
+	"adminkit/internal/software"
+	syncpkg "adminkit/internal/sync"
+	"adminkit/internal/system"
 	"adminkit/internal/tasks"
 	"adminkit/internal/tools"
+	"adminkit/internal/usbhistory"
 	"adminkit/internal/users"
 	"adminkit/internal/vault"
 	"adminkit/internal/virustotal"
@@ -51,25 +53,29 @@ type App struct {
 	cfg   *config.Config
 
 	// Zwischengespeicherte Scan-Ergebnisse für den Export
-	lastSystemScan    *system.ScanResult
-	lastNetworkScan   *network.ScanResult
-	lastSoftwareScan  *software.ScanResult
-	lastPrinterScan   *printers.ScanResult
-	lastAutostartScan   *autostart.ScanResult
-	lastServicesScan    *services.ScanResult
-	lastEventsScan      *events.ScanResult
-	lastBrowserExtScan  *browserext.ScanResult
-	lastProcessScan     []system.RunningProcess
-	lastVTAuditLog      []export.VTAuditEntry
-	lastUsersScan       *users.ScanResult
-	lastTasksScan       *tasks.ScanResult
-	lastProfilesScan    *profiles.ScanResult
-	lastUSBScan         *usbhistory.ScanResult
-	lastSessionName     string
-	lastSessionPath     string
+	lastSystemScan     *system.ScanResult
+	lastNetworkScan    *network.ScanResult
+	lastSoftwareScan   *software.ScanResult
+	lastPrinterScan    *printers.ScanResult
+	lastAutostartScan  *autostart.ScanResult
+	lastServicesScan   *services.ScanResult
+	lastEventsScan     *events.ScanResult
+	lastBrowserExtScan *browserext.ScanResult
+	lastProcessScan    []system.RunningProcess
+	lastVTAuditLog     []export.VTAuditEntry
+	lastUsersScan      *users.ScanResult
+	lastTasksScan      *tasks.ScanResult
+	lastProfilesScan   *profiles.ScanResult
+	lastUSBScan        *usbhistory.ScanResult
+	lastSessionName    string
+	lastSessionPath    string
 
 	// VirusTotal-Client (lazy-initialisiert wenn API-Key vorhanden)
 	vtClient *virustotal.Client
+
+	// Fleet-Sync (#74): Hub-Server (Rolle hub) bzw. Sync-Client (Rolle client).
+	hubServer  *hub.Server
+	syncClient *syncpkg.Client
 }
 
 // NewApp erstellt eine neue App-Instanz.
@@ -123,6 +129,10 @@ func (a *App) Startup(ctx context.Context) {
 
 // Shutdown wird von Wails beim Beenden aufgerufen.
 func (a *App) Shutdown(ctx context.Context) {
+	if a.hubServer != nil {
+		_ = a.hubServer.Stop()
+		a.hubServer = nil
+	}
 	logging.Info("App", "AdminKit beendet")
 	logging.Close()
 }
@@ -1220,12 +1230,12 @@ func (a *App) GetAvailableAIProviders() []AIProviderInfo {
 		keys = a.cfg.APIKeys
 	}
 	return []AIProviderInfo{
-		{ID: "openai",     Name: "OpenAI",     HasKey: keys.OpenAI != "",     IsLocal: false},
-		{ID: "anthropic",  Name: "Anthropic",  HasKey: keys.Anthropic != "",  IsLocal: false},
-		{ID: "groq",       Name: "Groq",       HasKey: keys.Groq != "",       IsLocal: false},
+		{ID: "openai", Name: "OpenAI", HasKey: keys.OpenAI != "", IsLocal: false},
+		{ID: "anthropic", Name: "Anthropic", HasKey: keys.Anthropic != "", IsLocal: false},
+		{ID: "groq", Name: "Groq", HasKey: keys.Groq != "", IsLocal: false},
 		{ID: "openrouter", Name: "OpenRouter", HasKey: keys.OpenRouter != "", IsLocal: false},
-		{ID: "ollama",     Name: "Ollama",     HasKey: true,                   IsLocal: true},
-		{ID: "lmstudio",   Name: "LM Studio",  HasKey: true,                  IsLocal: true},
+		{ID: "ollama", Name: "Ollama", HasKey: true, IsLocal: true},
+		{ID: "lmstudio", Name: "LM Studio", HasKey: true, IsLocal: true},
 	}
 }
 
@@ -1452,7 +1462,7 @@ func (a *App) RunPeriodicMaintenance(level string) (string, error) {
 
 // HomebrewPackage beschreibt ein veraltetes Homebrew-Paket.
 type HomebrewPackage struct {
-	Name           string `json:"name"`
+	Name             string `json:"name"`
 	InstalledVersion string `json:"installed_version"`
 	CurrentVersion   string `json:"current_version"`
 }
@@ -1461,8 +1471,8 @@ type HomebrewPackage struct {
 // da Wails-Apps den Shell-PATH nicht erben.
 func findBrew() (string, error) {
 	for _, p := range []string{
-		"/opt/homebrew/bin/brew",  // Apple Silicon
-		"/usr/local/bin/brew",     // Intel
+		"/opt/homebrew/bin/brew", // Apple Silicon
+		"/usr/local/bin/brew",    // Intel
 		"/home/linuxbrew/.linuxbrew/bin/brew",
 	} {
 		if _, err := os.Stat(p); err == nil {
@@ -1583,10 +1593,10 @@ func (a *App) SetSSHEnabled(enable bool) error {
 
 // DiskFolderEntry beschreibt die Größe eines Verzeichnisses.
 type DiskFolderEntry struct {
-	Path    string  `json:"path"`
-	Label   string  `json:"label"`
-	Bytes   int64   `json:"bytes"`
-	Human   string  `json:"human"`
+	Path       string  `json:"path"`
+	Label      string  `json:"label"`
+	Bytes      int64   `json:"bytes"`
+	Human      string  `json:"human"`
 	PctOfTotal float64 `json:"pct_of_total"`
 }
 
@@ -1594,23 +1604,23 @@ type DiskFolderEntry struct {
 func (a *App) GetDiskUsageByFolder() ([]DiskFolderEntry, error) {
 	home, _ := os.UserHomeDir()
 	targets := []struct{ path, label string }{
-		{filepath.Join(home, "Documents"),                          "Dokumente"},
-		{filepath.Join(home, "Downloads"),                         "Downloads"},
-		{filepath.Join(home, "Movies"),                            "Filme"},
-		{filepath.Join(home, "Music"),                             "Musik"},
-		{filepath.Join(home, "Pictures"),                          "Bilder"},
-		{filepath.Join(home, "Desktop"),                           "Desktop"},
-		{"/Applications",                                           "Applications"},
-		{filepath.Join(home, "Library", "Application Support"),    "Library/Application Support"},
-		{filepath.Join(home, "Library", "Caches"),                 "Library/Caches"},
-		{filepath.Join(home, "Library", "Mobile Documents"),       "iCloud Drive"},
-		{filepath.Join(home, "Library", "Developer"),              "Library/Developer (Xcode)"},
-		{filepath.Join(home, "Library", "Logs"),                   "Library/Logs"},
-		{filepath.Join(home, ".Trash"),                            "Papierkorb"},
-		{"/Library/Application Support",                            "/Library/App Support (System)"},
-		{"/Library/Caches",                                         "/Library/Caches (System)"},
-		{"/var/log",                                                "/var/log"},
-		{"/tmp",                                                    "/tmp"},
+		{filepath.Join(home, "Documents"), "Dokumente"},
+		{filepath.Join(home, "Downloads"), "Downloads"},
+		{filepath.Join(home, "Movies"), "Filme"},
+		{filepath.Join(home, "Music"), "Musik"},
+		{filepath.Join(home, "Pictures"), "Bilder"},
+		{filepath.Join(home, "Desktop"), "Desktop"},
+		{"/Applications", "Applications"},
+		{filepath.Join(home, "Library", "Application Support"), "Library/Application Support"},
+		{filepath.Join(home, "Library", "Caches"), "Library/Caches"},
+		{filepath.Join(home, "Library", "Mobile Documents"), "iCloud Drive"},
+		{filepath.Join(home, "Library", "Developer"), "Library/Developer (Xcode)"},
+		{filepath.Join(home, "Library", "Logs"), "Library/Logs"},
+		{filepath.Join(home, ".Trash"), "Papierkorb"},
+		{"/Library/Application Support", "/Library/App Support (System)"},
+		{"/Library/Caches", "/Library/Caches (System)"},
+		{"/var/log", "/var/log"},
+		{"/tmp", "/tmp"},
 	}
 
 	var entries []DiskFolderEntry

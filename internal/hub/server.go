@@ -139,6 +139,24 @@ func (s *Server) GeneratePairingCode() (string, time.Time, error) {
 	return s.auth.GeneratePIN()
 }
 
+// Fleet gibt die nach Kunde gruppierten Sessions direkt aus dem lokalen Store
+// zurück (genutzt, wenn diese Instanz selbst der Hub ist).
+func (s *Server) Fleet() (map[string][]SessionMeta, error) {
+	sessions, err := s.store.ListSessions()
+	if err != nil {
+		return nil, err
+	}
+	groups := map[string][]SessionMeta{}
+	for _, sess := range sessions {
+		name := sess.CustomerName
+		if name == "" {
+			name = "Ohne Kunde"
+		}
+		groups[name] = append(groups[name], sess)
+	}
+	return groups, nil
+}
+
 // Status liefert den aktuellen Laufzeitzustand für das UI.
 func (s *Server) Status() Status {
 	s.mu.Lock()

@@ -39,3 +39,19 @@ export function ExportCSV(): Promise<string>;
 export function SaveConfig(cfg: any): Promise<void>;
 export function PickLogoFile(): Promise<string>;
 export function GetLogoBase64(): Promise<string>;
+
+// Fleet-Sync (#74)
+export function GetClients(): Promise<any>;
+export function SaveClient(customer: any): Promise<any>;
+export function DeleteClient(id: string): Promise<void>;
+export function StartHub(): Promise<void>;
+export function StopHub(): Promise<void>;
+export function GetHubStatus(): Promise<any>;
+export function GetHubPairingCode(): Promise<string>;
+export function DiscoverHubs(): Promise<any>;
+export function PairWithHub(baseURL: string, pin: string): Promise<void>;
+export function PushSessionToHub(sessionPath: string): Promise<void>;
+export function GetFleetOverview(): Promise<any>;
+export function ExportSessionBundle(sessionPath: string): Promise<string>;
+export function ImportSessionBundle(): Promise<string>;
+export function NewCustomerSession(customerName: string, deviceAlias: string, location: string): Promise<string>;

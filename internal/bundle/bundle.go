@@ -209,6 +209,39 @@ func ReadMeta(bundlePath string) (Meta, error) {
 	return readMeta(&zr.Reader)
 }
 
+// WriteSessionMeta schreibt die meta.json direkt in einen Session-Ordner
+// (nicht ins Bundle). Wird bei Session-Erstellung genutzt, damit Kunde/Alias
+// erhalten bleiben und Export/Push dieselben Metadaten wiederverwenden.
+func WriteSessionMeta(sessionPath string, meta Meta) error {
+	if meta.SchemaVersion == 0 {
+		meta.SchemaVersion = currentSchemaVersion
+	}
+	if meta.SessionName == "" {
+		meta.SessionName = filepath.Base(sessionPath)
+	}
+	if err := os.MkdirAll(sessionPath, 0755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(sessionPath, metaFilename), data, 0644)
+}
+
+// ReadSessionMeta liest die meta.json aus einem Session-Ordner.
+func ReadSessionMeta(sessionPath string) (Meta, error) {
+	data, err := os.ReadFile(filepath.Join(sessionPath, metaFilename))
+	if err != nil {
+		return Meta{}, err
+	}
+	var meta Meta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return Meta{}, err
+	}
+	return meta, nil
+}
+
 func readMeta(zr *zip.Reader) (Meta, error) {
 	for _, f := range zr.File {
 		if f.Name != metaFilename {
