@@ -1466,6 +1466,62 @@
             </div>
           </div>
 
+          <div class="settings-section">
+            <h3 class="settings-section-title">Synchronisierung / Fleet (#74)</h3>
+            <p class="settings-hint" style="margin-bottom:8px">
+              Sessions zwischen Techniker-Geräten im LAN zusammenführen. Läuft nur, wenn du den Hub explizit aktivierst.
+            </p>
+            <div class="settings-row">
+              <label>Status</label>
+              <span id="sync-status-line" class="sync-status-line">Rolle: offline</span>
+            </div>
+
+            <!-- Hub-Rolle -->
+            <div class="sync-subsection">
+              <div class="sync-subsection-head">🖧 Als Hub bereitstellen</div>
+              <div class="sync-btn-row">
+                <button class="btn btn-primary btn-sm" id="btn-hub-start">Hub starten</button>
+                <button class="btn btn-secondary btn-sm hidden" id="btn-hub-stop">Hub stoppen</button>
+                <button class="btn btn-secondary btn-sm hidden" id="btn-hub-pair-code">Pairing-Code erzeugen</button>
+              </div>
+              <div id="hub-pair-code-wrap" class="sync-pin-wrap hidden">
+                <span class="settings-hint">PIN (5 Min. gültig, einmalig):</span>
+                <code id="hub-pair-code" class="session-name-preview">––––––</code>
+              </div>
+            </div>
+
+            <!-- Client-Rolle -->
+            <div class="sync-subsection">
+              <div class="sync-subsection-head">🔗 Mit einem Hub koppeln</div>
+              <div class="sync-btn-row">
+                <button class="btn btn-secondary btn-sm" id="btn-hub-discover">Hubs im LAN suchen</button>
+              </div>
+              <div class="settings-row">
+                <label for="sync-hub-url">Hub-Adresse</label>
+                <input type="text" id="sync-hub-url" placeholder="http://192.168.1.10:8767" autocomplete="off">
+              </div>
+              <div id="sync-discover-list" class="sync-discover-list"></div>
+              <div class="settings-row">
+                <label for="sync-hub-pin">Pairing-PIN</label>
+                <input type="text" id="sync-hub-pin" placeholder="6-stelliger PIN vom Hub" autocomplete="off" maxlength="6" inputmode="numeric">
+              </div>
+              <div class="sync-btn-row">
+                <button class="btn btn-primary btn-sm" id="btn-hub-pair">Koppeln</button>
+                <button class="btn btn-secondary btn-sm" id="btn-push-session">Aktuelle Session zum Hub senden</button>
+              </div>
+            </div>
+
+            <!-- Air-Gap-Bundles -->
+            <div class="sync-subsection">
+              <div class="sync-subsection-head">💾 Air-Gap-Bundle (isolierte Geräte)</div>
+              <p class="settings-hint" style="margin-bottom:6px">Session als portable .adminkit-Datei exportieren/importieren – für Geräte ohne Netzwerk.</p>
+              <div class="sync-btn-row">
+                <button class="btn btn-secondary btn-sm" id="btn-export-bundle">Aktuelle Session exportieren</button>
+                <button class="btn btn-secondary btn-sm" id="btn-import-bundle">Bundle importieren</button>
+              </div>
+            </div>
+          </div>
+
           <div class="modal-actions">
             <button class="btn btn-secondary" id="settings-cancel">Abbrechen</button>
             <button class="btn btn-primary" id="settings-save">Speichern</button>
@@ -1524,10 +1580,19 @@
       <div class="modal-overlay hidden" id="modal-session">
         <div class="modal">
           <h2>Session erstellen</h2>
-          <p class="session-modal-hint">Gib den <strong>Kundennamen</strong> ein. Name und Gerät werden automatisch ergänzt.</p>
+          <p class="session-modal-hint">Wähle den <strong>Kunden</strong> und benenne das Gerät. Datum wird automatisch ergänzt.</p>
           <div class="session-field-row">
-            <label for="session-customer-input">Kundenname</label>
-            <input class="modal-input" type="text" id="session-customer-input" placeholder="z.B. MusterGmbH" autocomplete="off" />
+            <label for="session-customer-input">Kunde</label>
+            <input class="modal-input" type="text" id="session-customer-input" placeholder="z.B. Musterfirma GmbH" autocomplete="off" list="session-customer-list" />
+            <datalist id="session-customer-list"></datalist>
+          </div>
+          <div class="session-field-row">
+            <label for="session-alias-input">Geräte-Alias</label>
+            <input class="modal-input" type="text" id="session-alias-input" placeholder="z.B. Empfang-PC" autocomplete="off" />
+          </div>
+          <div class="session-field-row">
+            <label for="session-location-input">Standort <span class="settings-hint">(optional)</span></label>
+            <input class="modal-input" type="text" id="session-location-input" placeholder="z.B. EG Büro 3" autocomplete="off" />
           </div>
           <div class="session-preview-wrap">
             <span class="session-preview-label">Session-Name:</span>

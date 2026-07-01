@@ -60,6 +60,11 @@ import {
   GetDiskUsageByFolder,
   ScanCertificates,
   GetOSLocale,
+  GetClients, SaveClient,
+  StartHub, StopHub, GetHubStatus, GetHubPairingCode,
+  DiscoverHubs, PairWithHub, PushSessionToHub,
+  ExportSessionBundle, ImportSessionBundle,
+  NewCustomerSession,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -277,19 +282,41 @@ function buildDefaultSessionName(customer) {
 }
 
 function openStartupSessionModal() {
-  var modal   = document.getElementById('modal-session');
-  var custIn  = document.getElementById('session-customer-input');
-  var preview = document.getElementById('session-name-preview');
+  var modal    = document.getElementById('modal-session');
+  var custIn   = document.getElementById('session-customer-input');
+  var aliasIn  = document.getElementById('session-alias-input');
+  var preview  = document.getElementById('session-name-preview');
   if (!modal) return;
-  // Preview aktualisieren während Eingabe
+  // Kunden-Vorschlagsliste (datalist) aus der Vault befüllen
+  populateCustomerDatalist();
+  // Preview aktualisieren während Eingabe: Kunde + Geräte-Alias
   function refreshPreview() {
-    if (preview) preview.textContent = buildDefaultSessionName(custIn?.value || '');
+    var label = (custIn?.value || '').trim();
+    var alias = (aliasIn?.value || '').trim();
+    if (alias) label = label ? label + '_' + alias : alias;
+    if (preview) preview.textContent = buildDefaultSessionName(label);
   }
   refreshPreview();
   custIn?.removeEventListener('input', refreshPreview);
   custIn?.addEventListener('input', refreshPreview);
+  aliasIn?.removeEventListener('input', refreshPreview);
+  aliasIn?.addEventListener('input', refreshPreview);
   modal.classList.remove('hidden');
   custIn?.focus();
+}
+
+// Befüllt die <datalist> im Session-Dialog mit bekannten Kunden.
+async function populateCustomerDatalist() {
+  var list = document.getElementById('session-customer-list');
+  if (!list) return;
+  try {
+    var clients = await GetClients();
+    list.innerHTML = (clients || [])
+      .map(c => `<option value="${escapeHtml(c.name)}"></option>`)
+      .join('');
+  } catch (err) {
+    console.error('Kundenliste konnte nicht geladen werden:', err);
+  }
 }
 
 // ─── Scan-Buttons ─────────────────────────────────────────────────────────────
@@ -3593,10 +3620,14 @@ function setBadge(badgeId, detailId, status, detail) {
 function initSessionModal() {
   const modal   = document.getElementById('modal-session');
   const custIn  = document.getElementById('session-customer-input');
+  const aliasIn = document.getElementById('session-alias-input');
+  const locIn   = document.getElementById('session-location-input');
   const preview = document.getElementById('session-name-preview');
 
   document.getElementById('btn-new-session')?.addEventListener('click', () => {
-    if (custIn) custIn.value = '';
+    if (custIn)  custIn.value  = '';
+    if (aliasIn) aliasIn.value = '';
+    if (locIn)   locIn.value   = '';
     if (preview) preview.textContent = buildDefaultSessionName('');
     openStartupSessionModal();
   });
@@ -3606,13 +3637,55 @@ function initSessionModal() {
     if (!state.currentSession) createSession(buildDefaultSessionName(''));
   });
   document.getElementById('btn-session-create')?.addEventListener('click', () => {
-    var name = buildDefaultSessionName(custIn?.value || '');
-    createSession(name);
+    createCustomerSession(custIn?.value || '', aliasIn?.value || '', locIn?.value || '');
   });
-  custIn?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') createSession(buildDefaultSessionName(custIn.value));
+  const submitOnEnter = e => {
+    if (e.key === 'Enter') createCustomerSession(custIn?.value || '', aliasIn?.value || '', locIn?.value || '');
     if (e.key === 'Escape') modal?.classList.add('hidden');
-  });
+  };
+  custIn?.addEventListener('keydown', submitOnEnter);
+  aliasIn?.addEventListener('keydown', submitOnEnter);
+  locIn?.addEventListener('keydown', submitOnEnter);
+}
+
+// createCustomerSession legt eine Session mit Kunde, Alias und Standort an.
+// Ohne Kundenname fällt es auf die klassische Auto-Session zurück.
+async function createCustomerSession(customer, alias, location) {
+  customer = (customer || '').trim();
+  alias    = (alias || '').trim();
+  location = (location || '').trim();
+  if (!customer && !alias) {
+    createSession(buildDefaultSessionName(''));
+    return;
+  }
+  const modal = document.getElementById('modal-session');
+  try {
+    const sessionPath = await NewCustomerSession(customer, alias, location);
+    const label = alias ? `${customer || 'Gerät'} · ${alias}` : customer;
+    state.currentSession = label;
+    state.currentSessionPath = sessionPath;
+    setEl('status-session', label);
+    modal?.classList.add('hidden');
+    // Kunde ggf. neu in der Kundenliste anlegen (für künftige Vorschläge)
+    if (customer) ensureCustomerExists(customer);
+    addAction(`Session "${label}" erstellt`, 'success');
+    setStatus(`Session: ${label}`);
+  } catch (err) {
+    console.error('Session konnte nicht erstellt werden:', err);
+    addAction('Session konnte nicht erstellt werden: ' + err, 'error');
+    modal?.classList.add('hidden');
+  }
+}
+
+// ensureCustomerExists legt einen Kunden an, falls sein Name noch nicht bekannt ist.
+async function ensureCustomerExists(name) {
+  try {
+    const clients = await GetClients();
+    const exists = (clients || []).some(c => (c.name || '').toLowerCase() === name.toLowerCase());
+    if (!exists) await SaveClient({ name });
+  } catch (err) {
+    console.error('Kunde konnte nicht gespeichert werden:', err);
+  }
 }
 
 async function createSession(name) {
@@ -5308,6 +5381,9 @@ function initSettings() {
     });
   });
 
+  // Synchronisierung / Fleet (#74)
+  initSyncSettings();
+
   // Logo-Picker: nativer Datei-Dialog, Datei wird in Vault kopiert
   document.getElementById('btn-pick-logo')?.addEventListener('click', async () => {
     const btn = document.getElementById('btn-pick-logo');
@@ -5367,10 +5443,179 @@ function openSettings() {
     document.getElementById('setting-model-openrouter').value  = cfg.ai_models?.openrouter ?? '';
   }
   document.getElementById('settings-modal-overlay')?.classList.remove('hidden');
+  refreshSyncStatus();
 }
 
 function closeSettings() {
   document.getElementById('settings-modal-overlay')?.classList.add('hidden');
+}
+
+// ─── Synchronisierung / Fleet (#74) ───────────────────────────────────────────
+
+function initSyncSettings() {
+  // Hub starten (öffnet einen Netzwerk-Port → Bestätigung)
+  document.getElementById('btn-hub-start')?.addEventListener('click', async () => {
+    const ok = await showConfirm({
+      title: 'Hub starten?',
+      what: 'AdminKit startet einen lokalen Server und macht sich im LAN per mDNS bekannt, damit andere Geräte Sessions hierher pushen können.',
+      impact: 'Es wird ein Netzwerk-Port geöffnet. Unter Windows erscheint ggf. eine Firewall-Abfrage.',
+    });
+    if (!ok) return;
+    try {
+      await StartHub();
+      addAction('Hub gestartet', 'success');
+    } catch (err) {
+      addAction('Hub konnte nicht gestartet werden: ' + err, 'error');
+    }
+    refreshSyncStatus();
+  });
+
+  // Hub stoppen
+  document.getElementById('btn-hub-stop')?.addEventListener('click', async () => {
+    try {
+      await StopHub();
+      addAction('Hub gestoppt', 'info');
+    } catch (err) {
+      addAction('Hub konnte nicht gestoppt werden: ' + err, 'error');
+    }
+    refreshSyncStatus();
+  });
+
+  // Pairing-Code erzeugen
+  document.getElementById('btn-hub-pair-code')?.addEventListener('click', async () => {
+    try {
+      const pin = await GetHubPairingCode();
+      const wrap = document.getElementById('hub-pair-code-wrap');
+      const code = document.getElementById('hub-pair-code');
+      if (code) code.textContent = pin;
+      wrap?.classList.remove('hidden');
+    } catch (err) {
+      addAction('Pairing-Code fehlgeschlagen: ' + err, 'error');
+    }
+  });
+
+  // Hubs im LAN suchen
+  document.getElementById('btn-hub-discover')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-hub-discover');
+    const list = document.getElementById('sync-discover-list');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Suche…'; }
+    try {
+      const hubs = await DiscoverHubs();
+      if (list) {
+        if (!hubs || hubs.length === 0) {
+          list.innerHTML = '<span class="settings-hint">Kein Hub gefunden. Adresse manuell eingeben.</span>';
+        } else {
+          list.innerHTML = hubs.map(h =>
+            `<button class="btn btn-secondary btn-sm sync-hub-hit" data-url="${escapeHtml(h.base_url)}">${escapeHtml(h.name)} — ${escapeHtml(h.base_url)}</button>`
+          ).join('');
+          list.querySelectorAll('.sync-hub-hit').forEach(b => {
+            b.addEventListener('click', () => {
+              const urlIn = document.getElementById('sync-hub-url');
+              if (urlIn) urlIn.value = b.dataset.url;
+            });
+          });
+        }
+      }
+    } catch (err) {
+      addAction('Hub-Suche fehlgeschlagen: ' + err, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Hubs im LAN suchen'; }
+    }
+  });
+
+  // Koppeln
+  document.getElementById('btn-hub-pair')?.addEventListener('click', async () => {
+    const url = (document.getElementById('sync-hub-url')?.value || '').trim();
+    const pin = (document.getElementById('sync-hub-pin')?.value || '').trim();
+    if (!url || !pin) {
+      addAction('Hub-Adresse und PIN erforderlich', 'warning');
+      return;
+    }
+    try {
+      await PairWithHub(url, pin);
+      addAction('Mit Hub gekoppelt: ' + url, 'success');
+      const pinIn = document.getElementById('sync-hub-pin');
+      if (pinIn) pinIn.value = '';
+    } catch (err) {
+      addAction('Kopplung fehlgeschlagen: ' + err, 'error');
+    }
+    refreshSyncStatus();
+  });
+
+  // Aktuelle Session zum Hub senden (Daten verlassen dieses Gerät → Bestätigung)
+  document.getElementById('btn-push-session')?.addEventListener('click', async () => {
+    if (!state.currentSessionPath) {
+      addAction('Keine aktive Session zum Senden', 'warning');
+      return;
+    }
+    const ok = await showConfirm({
+      title: 'Session zum Hub senden?',
+      what: 'Die Metadaten und Scan-Snapshots der aktuellen Session werden an den gekoppelten Hub übertragen.',
+      impact: 'Kundendaten verlassen dieses Gerät und liegen danach auch auf dem Hub.',
+    });
+    if (!ok) return;
+    try {
+      await PushSessionToHub(state.currentSessionPath);
+      addAction('Session zum Hub gesendet', 'success');
+    } catch (err) {
+      addAction('Senden fehlgeschlagen: ' + err, 'error');
+    }
+  });
+
+  // Aktuelle Session als Bundle exportieren
+  document.getElementById('btn-export-bundle')?.addEventListener('click', async () => {
+    if (!state.currentSessionPath) {
+      addAction('Keine aktive Session zum Exportieren', 'warning');
+      return;
+    }
+    try {
+      const path = await ExportSessionBundle(state.currentSessionPath);
+      if (path) addAction('Bundle exportiert: ' + path, 'success', { filePath: path });
+    } catch (err) {
+      addAction('Export fehlgeschlagen: ' + err, 'error');
+    }
+  });
+
+  // Bundle importieren
+  document.getElementById('btn-import-bundle')?.addEventListener('click', async () => {
+    try {
+      const path = await ImportSessionBundle();
+      if (path) {
+        addAction('Bundle importiert. Externe Session — VirusTotal-Scan empfohlen.', 'success');
+      }
+    } catch (err) {
+      addAction('Import fehlgeschlagen: ' + err, 'error');
+    }
+  });
+}
+
+// refreshSyncStatus liest den Hub-Status und aktualisiert die Sync-UI.
+async function refreshSyncStatus() {
+  const line   = document.getElementById('sync-status-line');
+  const btnStart = document.getElementById('btn-hub-start');
+  const btnStop  = document.getElementById('btn-hub-stop');
+  const btnCode  = document.getElementById('btn-hub-pair-code');
+  let status = null;
+  try {
+    status = await GetHubStatus();
+  } catch (err) {
+    console.error('Hub-Status konnte nicht gelesen werden:', err);
+  }
+  const running = !!(status && status.running);
+  if (line) {
+    if (running) {
+      line.textContent = `Rolle: Hub · läuft auf Port ${status.port} · ${status.session_count} Session(s) · ${status.paired_devices} Gerät(e)`;
+    } else {
+      const role = state.config?.sync?.role || 'offline';
+      line.textContent = 'Rolle: ' + role;
+    }
+  }
+  btnStart?.classList.toggle('hidden', running);
+  btnStop?.classList.toggle('hidden', !running);
+  btnCode?.classList.toggle('hidden', !running);
+  if (!running) {
+    document.getElementById('hub-pair-code-wrap')?.classList.add('hidden');
+  }
 }
 
 // Aktualisiert die Branding-Zeile über der Tab-Navigation anhand state.config
