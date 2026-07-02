@@ -1,0 +1,24 @@
+# AdminKit-Hub – Beispielkonfiguration (hub-config.yaml)
+# Kopiere diese Datei nach hub-config.yaml und passe sie an.
+
+# Vault-Verzeichnis des Hubs (Sessions, Signing-Key, Kundenprofile).
+# Im Docker-Container per Volume gemountet.
+root: ./hub_vault
+
+# Listen-Port des Hubs.
+port: 8767
+
+# mDNS-Bekanntmachung im LAN. Für reine Online-Hubs (VPS) auf false setzen.
+advertise: true
+
+tls:
+  # HTTPS aktivieren. Für Online-Betrieb Pflicht.
+  enabled: false
+  # Selbstsigniertes Zertifikat automatisch erzeugen (löst Client-Warnungen aus).
+  # Für Produktion besser einen Reverse-Proxy (Caddy/nginx + Let's Encrypt) davorschalten.
+  self_signed: false
+  # Eigenes Zertifikat (leer + self_signed → wird unter root/ erzeugt).
+  cert_file: ""
+  key_file: ""
+  # Zusätzliche DNS-Namen/IPs für das selbstsignierte Zertifikat.
+  hosts: []

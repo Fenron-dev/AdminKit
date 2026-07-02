@@ -27,6 +27,13 @@ type Server struct {
 	port       int
 	running    bool
 	advertise  bool
+	certFile   string
+	keyFile    string
+}
+
+// TLSEnabled meldet, ob der Hub per HTTPS lauscht.
+func (s *Server) TLSEnabled() bool {
+	return s.certFile != "" && s.keyFile != ""
 }
 
 // Options konfiguriert einen Hub-Server.
@@ -39,6 +46,10 @@ type Options struct {
 	Version string
 	// Advertise aktiviert die mDNS-Bekanntmachung im LAN.
 	Advertise bool
+	// CertFile/KeyFile aktivieren HTTPS. Sind beide gesetzt, lauscht der Hub
+	// per TLS (Pflicht für Online-Hubs, siehe Konzept). Sonst Klartext-HTTP.
+	CertFile string
+	KeyFile  string
 }
 
 // NewServer initialisiert Store, Authenticator und Kundenspeicher des Hubs.
@@ -67,6 +78,8 @@ func NewServer(opts Options) (*Server, error) {
 		limiter:   newRateLimiter(10, time.Minute),
 		port:      opts.Port,
 		advertise: opts.Advertise,
+		certFile:  opts.CertFile,
+		keyFile:   opts.KeyFile,
 	}, nil
 }
 
@@ -88,9 +101,17 @@ func (s *Server) Start() error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	s.running = true
+	tls := s.TLSEnabled()
+	certFile, keyFile := s.certFile, s.keyFile
 
 	go func() {
-		if serveErr := s.httpServer.Serve(ln); serveErr != nil && serveErr != http.ErrServerClosed {
+		var serveErr error
+		if tls {
+			serveErr = s.httpServer.ServeTLS(ln, certFile, keyFile)
+		} else {
+			serveErr = s.httpServer.Serve(ln)
+		}
+		if serveErr != nil && serveErr != http.ErrServerClosed {
 			s.mu.Lock()
 			s.running = false
 			s.mu.Unlock()

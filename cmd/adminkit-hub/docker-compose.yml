@@ -1,0 +1,28 @@
+# AdminKit-Hub – Deployment auf VPS/NAS (Phase D, #80)
+# Start:  docker compose -f cmd/adminkit-hub/docker-compose.yml up -d
+# Logs (enthalten den Pairing-PIN beim Start):  docker compose logs -f
+#
+# Für einen neuen Pairing-PIN: Container neu starten (Startup gibt einen aus)
+# oder an das STDIN anhängen und Enter senden:
+#   docker attach adminkit-hub   (dann Enter, danach Strg+P Strg+Q zum Lösen)
+
+services:
+  adminkit-hub:
+    build:
+      context: ../..
+      dockerfile: cmd/adminkit-hub/Dockerfile
+    image: adminkit-hub:latest
+    container_name: adminkit-hub
+    restart: unless-stopped
+    stdin_open: true          # ermöglicht neuen PIN via "docker attach"
+    tty: true
+    ports:
+      - "8767:8767"
+    volumes:
+      - adminkit-hub-data:/data
+    # HTTPS: eigenes Zertifikat einbinden oder self-signed erzeugen lassen.
+    # Empfehlung Produktion: Reverse-Proxy (Caddy/nginx + Let's Encrypt) davor.
+    # command: ["--advertise=false", "--self-signed"]
+
+volumes:
+  adminkit-hub-data:
