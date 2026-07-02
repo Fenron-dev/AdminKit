@@ -14,6 +14,7 @@ import (
 	"adminkit/internal/bundle"
 	"adminkit/internal/clients"
 	"adminkit/internal/config"
+	"adminkit/internal/export"
 	"adminkit/internal/fleet"
 	"adminkit/internal/hub"
 	syncpkg "adminkit/internal/sync"
@@ -273,6 +274,29 @@ func (a *App) fleetSessions() ([]hub.SessionMeta, error) {
 	ctx, cancel := context.WithTimeout(a.ctx, 15*time.Second)
 	defer cancel()
 	return client.ListSessions(ctx)
+}
+
+// ExportFleetReport erzeugt einen kombinierten HTML-Bericht über alle Geräte
+// der Flotte und speichert ihn im Vault (exports/reports). Gibt den Pfad zurück.
+func (a *App) ExportFleetReport() (string, error) {
+	if a.vault == nil {
+		return "", fmt.Errorf("keine Vault initialisiert")
+	}
+	ov, err := a.GetFleetSummary()
+	if err != nil {
+		return "", err
+	}
+	report := &export.FleetReport{
+		GeneratedAt: time.Now(),
+		Overview:    ov,
+	}
+	if a.cfg != nil {
+		report.CompanyName = a.cfg.Branding.CompanyName
+		report.TechnicianName = a.cfg.Branding.TechnicianName
+		report.LogoBase64 = a.readLogoBase64()
+	}
+	outDir := filepath.Join(a.vault.RootPath, "exports", "reports")
+	return export.ExportFleetHTML(report, outDir)
 }
 
 // SyncRole gibt die aktuelle Rolle zurück (offline/hub/client) – für die

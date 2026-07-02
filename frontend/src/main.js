@@ -65,7 +65,7 @@ import {
   DiscoverHubs, PairWithHub, PushSessionToHub,
   ExportSessionBundle, ImportSessionBundle,
   NewCustomerSession,
-  GetFleetSummary, SyncRole,
+  GetFleetSummary, SyncRole, ExportFleetReport,
 } from '../wailsjs/go/main/App';
 
 // ─── Zustand ─────────────────────────────────────────────────────────────────
@@ -5638,6 +5638,21 @@ const FLEET_STATUS = {
 
 function initFleetTab() {
   document.getElementById('btn-fleet-refresh')?.addEventListener('click', loadFleet);
+  document.getElementById('btn-fleet-report')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-fleet-report');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Erstelle…'; }
+    try {
+      const path = await ExportFleetReport();
+      if (path) {
+        addAction('Flotten-Bericht erstellt: ' + path, 'success', { filePath: path });
+        setStatus('Flotten-Bericht erstellt');
+      }
+    } catch (err) {
+      addAction('Bericht-Export fehlgeschlagen: ' + err, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📄 Bericht (HTML/PDF)'; }
+    }
+  });
   updateFleetTabVisibility();
 }
 

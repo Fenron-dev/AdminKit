@@ -392,3 +392,6 @@ export function GetFleetSummary() {
 export function SyncRole() {
     return window['go']['main']['App']['SyncRole']();
 }
+export function ExportFleetReport() {
+    return window['go']['main']['App']['ExportFleetReport']();
+}
