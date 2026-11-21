@@ -7,6 +7,7 @@ import { getContext } from './platform.adminkit.js';
 import { $, $$, esc, ic } from './ui.js';
 import { md, setImages, plain } from './markdown.js';
 import { ILLU } from './data/illu.js';
+import { viewToggleHTML, getView, setView } from './viewmode.js';
 
 let ctx = null, root = null, list = [], cat = '', query = '';
 let editing = null; // Artikel im Editor (null = keiner)
@@ -47,15 +48,19 @@ function layout(main) {
 function showList() {
   editing = null;
   layout(`<div class="lk-head"><div><h3>${cat ? esc(cat) : 'Wissen'}</h3><p class="muted">${cat ? 'Artikel in dieser Kategorie.' : 'Das gesammelte Wissen des Teams.'}</p></div>
-      <div class="row"><input type="search" class="input" id="wkQ" placeholder="Artikel durchsuchen" value="${esc(query)}" autocomplete="off"></div></div>
+      <div class="row"><input type="search" class="input" id="wkQ" placeholder="Artikel durchsuchen" value="${esc(query)}" autocomplete="off">${viewToggleHTML(getView(ctx, 'wiki'))}</div></div>
     <div id="wkList"></div>`);
   const draw = () => {
     const q = query.toLowerCase().trim();
     const L = list.filter(a => (!cat || a.kategorie === cat) && (!q || (a.titel + ' ' + a.kategorie + ' ' + (a.tags || []).join(' ') + ' ' + a.auszug).toLowerCase().includes(q)));
-    $('#wkList', root).innerHTML = L.length ? `<div class="art-grid">${L.map(a => `<a class="art-card" href="#" data-slug="${esc(a.slug)}"><span class="cat">${esc(a.kategorie)}</span><h2>${esc(a.titel)}</h2><p>${esc(a.auszug)}</p><span class="art-meta"><span>${a.geaendert ? 'Aktualisiert ' + esc(fmtDate(a.geaendert)) : ''}</span><span>${a.autor ? 'von ' + esc(a.autor) : ''}</span></span></a>`).join('')}</div>`
+    const meta = a => [a.geaendert ? 'Aktualisiert ' + fmtDate(a.geaendert) : '', a.autor ? 'von ' + a.autor : ''].filter(Boolean).join(' ');
+    $('#wkList', root).innerHTML = L.length && getView(ctx, 'wiki') === 'list'
+      ? `<div class="art-list">${L.map(a => `<a class="art-row" href="#" data-slug="${esc(a.slug)}"><span class="art-row-t">${esc(a.titel)}</span><span class="art-row-x">${esc(a.auszug)}</span><span class="cat">${esc(a.kategorie)}</span><span class="art-row-m">${esc(meta(a))}</span></a>`).join('')}</div>`
+      : L.length ? `<div class="art-grid">${L.map(a => `<a class="art-card" href="#" data-slug="${esc(a.slug)}"><span class="cat">${esc(a.kategorie)}</span><h2>${esc(a.titel)}</h2><p>${esc(a.auszug)}</p><span class="art-meta"><span>${a.geaendert ? 'Aktualisiert ' + esc(fmtDate(a.geaendert)) : ''}</span><span>${a.autor ? 'von ' + esc(a.autor) : ''}</span></span></a>`).join('')}</div>`
       : `<div class="panel empty">${ic('bookopen')}<p>${q ? `Kein Artikel enthält „${esc(q)}“.` : 'Hier gibt es noch keine Artikel.'}</p></div>`;
   };
   $('#wkQ', root).addEventListener('input', e => { query = e.target.value; draw(); });
+  $$('.view-toggle [data-view]', root).forEach(b => b.addEventListener('click', () => { setView(ctx, 'wiki', b.dataset.view, root); draw(); }));
   draw();
 }
 

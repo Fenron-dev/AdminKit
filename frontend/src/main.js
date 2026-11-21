@@ -8,6 +8,7 @@ import './style.css';
 import QRCode from 'qrcode';
 import { initPackages } from './packages.js';
 import { initFavorites } from './favorites.js';
+import { initToolsNav, showToolsGroup, attachToolsState } from './toolsnav.js';
 import { initPalette, registerPaletteProvider, open as openPalette } from './palette.js';
 import {
   GetAppVersion, GetVaultPath, GetConfig, NewSession,
@@ -113,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSoftwareTab();
   initSystemSearch();
   initToolsTab();
+  initToolsNav();
   initExport();
   initSettings();
   initDashboardCardNav();
@@ -136,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initPackages(_pkgDeps);
   initFavorites(_pkgDeps);
   initPinnedLinks();
+  initToolsState();
   initPalette();
   document.getElementById('btn-palette')?.addEventListener('click', function() { openPalette(); });
   var kh = document.querySelector('.kbd-hint');
@@ -170,6 +173,23 @@ function ensureLinks() {
   var el = document.getElementById('links-root');
   import('./werkzeug/links.js').then(function(m) { return m.initLinksTab(el, _pkgDeps); })
     .catch(function(e) { _linksLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Links konnten nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
+}
+
+// Handbuch im Wiki-Stil (#94): Kapitel aus dem statischen Hilfe-HTML
+var _handbuchLoaded = false;
+function ensureHandbuch() {
+  if (_handbuchLoaded) return;
+  _handbuchLoaded = true;
+  var el = document.getElementById('handbuch-root');
+  import('./werkzeug/handbuch.js').then(function(m) { return m.initHandbuch(el, _pkgDeps); })
+    .catch(function(e) { _handbuchLoaded = false; console.warn('Handbuch', e); });
+}
+
+// Zuletzt gewählte Tools-Gruppe aus dem Vault (werkzeug/state.json)
+function initToolsState() {
+  import('./werkzeug/platform.adminkit.js').then(function(m) { return m.getContext(_pkgDeps); })
+    .then(function(ctx) { attachToolsState(ctx.state); })
+    .catch(function() { /* ohne Zustand startet die erste Gruppe */ });
 }
 
 // Angeheftete Links auf dem Dashboard (liest nur die Vault-Datei, offline)
@@ -361,6 +381,7 @@ function switchTab(tabId) {
   if (tabId === 'fleet') loadFleet();
   if (tabId === 'werkzeug') ensureWerkzeug();
   if (tabId === 'links') ensureLinks();
+  if (tabId === 'help') ensureHandbuch();
   if (tabId === 'wiki' && !document.getElementById('wiki-view-articles')?.classList.contains('hidden')) ensureWikiArticles();
 }
 
@@ -4024,6 +4045,7 @@ function initToolsTab() {
     // Treiber-Export über Konsolen-Tool
     document.getElementById('console-tool').value = 'drivers';
     document.getElementById('console-target').value = '';
+    showToolsGroup('terminal', false);
     runConsoleTool();
   });
 
@@ -4231,8 +4253,9 @@ async function runConsoleTool() {
 }
 
 /** Compat-Wrapper — früher console-output, jetzt unified terminal-output. */
-function consoleWrite(header, _body) {
-  termWrite(`[${header}]`, null);
+function consoleWrite(header, body) {
+  showToolsGroup('terminal', false); // Ausgabe landet im Netzwerk-Terminal (#94)
+  termWrite(`[${header}]`, body || null);
 }
 function consoleAppend(text) {
   termAppend(text);

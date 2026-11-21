@@ -2898,3 +2898,79 @@ body.platform-mac .titlebar {
 .wiki-subtabs { padding: 10px 20px 0; margin-bottom: 0; }
 .wiki-articles { flex: 1; min-height: 0; }
 #wiki-view-ref { flex: 1; min-height: 0; overflow: auto; }
+
+/* ============================================================
+   Design-Angleichung an Werkzeugkasten/Wiki/Links (#94)
+   ============================================================ */
+/* Seitenleisten (System, Netzwerk, Software) im Stil von .wz-side */
+.section-sidebar {
+  width: 230px;
+  min-width: 230px;
+  background: var(--color-bg);
+  padding: 4px 6px 14px 8px;
+}
+.sidebar-search-row { background: var(--color-bg); border-bottom: 0; padding: 10px 6px 8px; }
+.sidebar-search { padding: 7px 10px; font-size: 13px; border-radius: 8px; background: var(--color-bg); }
+.sidebar-search:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent); }
+.sidebar-row { padding: 0; }
+.sidebar-link {
+  padding: 7px 8px;
+  font-size: 13px;
+  color: var(--color-text);
+  border-radius: 7px;
+}
+.sidebar-link:hover { background: var(--color-surface-2); color: var(--color-text); }
+.sidebar-link.sidebar-active { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+.sidebar-mini-scan { border-radius: 7px; }
+.sidebar-mini-scan:hover { background: var(--color-surface-2); }
+.sidebar-sep { margin: 8px 6px; }
+.sidebar-scan-btn { border-radius: 8px; padding: 7px 10px; font-size: 13px; }
+
+/* Inhaltsbereiche und Sektionen: ruhigere Kopfzeilen, größere Radien */
+.tab-content-area { padding: 16px 22px 60px 20px; }
+.card, .info-section { border-radius: 14px; }
+.section-title {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 650;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-text);
+  background: transparent;
+}
+.tools-group { border-radius: 14px; }
+
+/* Tools-Tab: Seitenleiste + eine Gruppe (#94) */
+.tools-wz { flex: 1; min-width: 0; }
+.tools-wz .wz-side { background: var(--color-bg); }
+.tools-search {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+.tools-search:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent); }
+.tools-nav-ic { width: 20px; flex: none !important; text-align: center; }
+.tools-nav-empty { padding: 8px; color: var(--color-text-muted); font-size: 13px; }
+#tools-pane { display: block; padding: 18px 22px 60px 4px; gap: 0; }
+#tools-pane .tools-group { background: none; border: 0; padding: 0; }
+#tools-pane .tools-group-off { display: none; }
+#tools-pane .tools-group-title {
+  font: 700 22px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  text-transform: none;
+  letter-spacing: -.01em;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+.tools-group-desc { margin: 0 0 18px; color: var(--color-text-muted); font-size: 14px; }
+#tools-pane .tools-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+#tools-pane .tool-btn { background: var(--color-surface); border-radius: 12px; padding: 18px 14px; }
+#tools-pane .tool-btn:hover { background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)); color: var(--color-text); border-color: color-mix(in srgb, var(--color-primary) 45%, transparent); }
+
+/* Handbuch füllt den Tab wie das Wiki */
+#handbuch-root.werkzeug-root { display: block; }

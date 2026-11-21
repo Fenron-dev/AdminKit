@@ -545,10 +545,15 @@
 
         <!-- ── TOOLS ── -->
         <section class="tab-panel" id="tab-tools">
-          <div class="tools-layout">
+          <div class="wz-layout tools-wz">
+          <aside class="wz-side">
+            <input type="search" class="tools-search" id="tools-search" placeholder="Tool suchen…" autocomplete="off">
+            <nav id="tools-nav"></nav>
+          </aside>
+          <div class="wz-pane tools-layout" id="tools-pane">
 
             <!-- ── Schnellaktionen ── -->
-            <div class="tools-group">
+            <div class="tools-group" data-tg="quick" data-tg-title="Schnellaktionen" data-tg-icon="⚡" data-tg-cat="Schnellhilfe" data-tg-desc="Häufige Reparaturen mit einem Klick – vor jeder Änderung kommt eine Rückfrage.">
               <h3 class="tools-group-title">Schnellaktionen</h3>
               <div class="tools-grid">
                 <button class="tool-btn tool-btn-action" id="qa-internet-fix">
@@ -578,7 +583,7 @@
               </div>
             </div>
 
-            <div class="tools-group">
+            <div class="tools-group" data-tg="diag" data-tg-title="Diagnose-Werkzeuge" data-tg-icon="🔍" data-tg-cat="Schnellhilfe" data-tg-desc="Scan, Zwischenablage, Vault-Sicherung und Systemauskünfte.">
               <h3 class="tools-group-title">Diagnose-Werkzeuge</h3>
               <div class="tools-grid">
                 <button class="tool-btn" id="tool-full-scan">
@@ -613,7 +618,7 @@
             </div>
 
             <!-- macOS System-Apps Shortcuts -->
-            <div class="tools-group" id="tools-system-apps">
+            <div class="tools-group" id="tools-system-apps" data-tg="sysapps" data-tg-title="macOS System-Apps" data-tg-icon="🍎" data-tg-cat="System" data-tg-platform="darwin" data-tg-desc="Eingebaute Dienstprogramme von macOS direkt öffnen.">
               <h3 class="tools-group-title">macOS System-Apps</h3>
               <div class="tools-grid">
                 <button class="tool-btn tool-btn-sysapp" data-app="Activity Monitor" data-path="/System/Applications/Utilities/Activity Monitor.app">
@@ -650,13 +655,13 @@
             </div>
 
             <!-- Vordefinierte Workflows -->
-            <div class="tools-group">
+            <div class="tools-group" data-tg="workflows" data-tg-title="Workflows" data-tg-icon="🧭" data-tg-cat="Schnellhilfe" data-tg-desc="Mehrere Schritte als geführter Ablauf.">
               <h3 class="tools-group-title">Vordefinierte Workflows</h3>
               <div id="workflows-grid" class="workflows-grid"></div>
             </div>
 
             <!-- Periodic Maintenance (macOS) -->
-            <div class="tools-group" id="tools-maintenance">
+            <div class="tools-group" id="tools-maintenance" data-tg="maintenance" data-tg-title="Wartung (periodic)" data-tg-icon="🗓" data-tg-cat="System" data-tg-platform="darwin">
               <h3 class="tools-group-title">macOS Wartung (Periodic Maintenance)</h3>
               <div id="periodic-status" class="periodic-status">
                 <span class="periodic-item"><strong>Daily:</strong> <span id="periodic-daily-date">–</span></span>
@@ -686,14 +691,14 @@
             </div>
 
             <!-- Homebrew Updates → Software-Tab -->
-            <div class="tools-group" id="tools-homebrew">
+            <div class="tools-group" id="tools-homebrew" data-tg="updates" data-tg-title="Software-Updates" data-tg-icon="⬆" data-tg-cat="System">
               <h3 class="tools-group-title">Software-Updates</h3>
               <p class="settings-hint">Updates, Suche und Installation (Homebrew / winget) findest du jetzt im Software-Tab.</p>
               <button class="btn btn-secondary btn-sm" id="btn-goto-pkg-updates">⬆ Zur Paketverwaltung</button>
             </div>
 
             <!-- SSH-Verwaltung (macOS) -->
-            <div class="tools-group" id="tools-ssh">
+            <div class="tools-group" id="tools-ssh" data-tg="ssh" data-tg-title="Remote Login (SSH)" data-tg-icon="🔐" data-tg-cat="System" data-tg-platform="darwin">
               <h3 class="tools-group-title">Remote Login (SSH)</h3>
               <div class="ssh-status-row">
                 <span id="ssh-status-badge" class="status-badge badge-unknown">⚪ Unbekannt</span>
@@ -705,7 +710,7 @@
             </div>
 
             <!-- Disk-Nutzung nach Ordner -->
-            <div class="tools-group tools-group-full" id="tools-disk-usage">
+            <div class="tools-group tools-group-full" id="tools-disk-usage" data-tg="disk" data-tg-title="Disk-Nutzung" data-tg-icon="💽" data-tg-cat="System" data-tg-desc="Welche Ordner belegen den meisten Platz?">
               <h3 class="tools-group-title">Disk-Nutzung nach Ordner</h3>
               <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
                 <button class="btn btn-secondary btn-sm" id="btn-disk-usage-scan">🔍 Analysieren</button>
@@ -717,7 +722,7 @@
             </div>
 
             <!-- VirusTotal Datei-Scanner -->
-            <div class="tools-group">
+            <div class="tools-group" data-tg="vt" data-tg-title="VirusTotal" data-tg-icon="🛡" data-tg-cat="Analyse">
               <h3 class="tools-group-title">VirusTotal Datei-Scanner</h3>
               <div class="vt-file-scanner">
                 <div
@@ -738,7 +743,7 @@
             </div>
 
             <!-- Diagnose-Bericht für Claude Code / Codex -->
-            <div class="tools-group tools-group-full" id="diag-report-group">
+            <div class="tools-group tools-group-full" id="diag-report-group" data-tg="report" data-tg-title="Diagnose-Bericht" data-tg-icon="🔬" data-tg-cat="Analyse">
               <h3 class="tools-group-title">Diagnose-Bericht für Claude Code / Codex</h3>
               <p class="settings-hint" style="margin-bottom:10px">
                 Systemereignisse eines Zeitraums auswerten und als strukturierten Bericht für Claude Code / Codex aufbereiten —
@@ -785,7 +790,7 @@
             </div>
 
             <!-- Netzwerk-Terminal (Werkzeuge + freie Eingabe in einem) -->
-            <div class="tools-group tools-group-full">
+            <div class="tools-group tools-group-full" data-tg="terminal" data-tg-title="Netzwerk-Terminal" data-tg-icon="💻" data-tg-cat="Analyse" data-tg-desc="Netzwerk-Befehle mit Erklärung – oder eigene Befehle eingeben.">
               <h3 class="tools-group-title">Netzwerk-Terminal</h3>
               <div class="console-tools">
 
@@ -840,7 +845,8 @@
 
               </div>
             </div>
-          </div>
+          </div><!-- /tools-pane -->
+          </div><!-- /wz-layout -->
         </section>
 
         <!-- ── Werkzeugkasten (#88–#92): gerätunabhängige Werkzeuge aus dem Ideler-Portal ── -->
@@ -881,7 +887,8 @@
 
         <!-- ── Help-Tab ─────────────────────────────────────────────────── -->
         <section class="tab-panel" id="tab-help">
-          <div class="tab-panel-simple">
+          <!-- Kapitel werden beim ersten Öffnen von werkzeug/handbuch.js im Wiki-Stil dargestellt (#94) -->
+          <div class="tab-panel-simple" id="handbuch-root">
             <div class="help-content">
               <h2>AdminKit – Hilfe &amp; Handbuch</h2>
               <p class="help-intro">Vollständige Erklärung aller Bereiche, Tabs und Funktionen von AdminKit.</p>
@@ -1360,15 +1367,40 @@
               </div>
 
               <!-- Tastaturkürzel & Feedback -->
-              <div class="help-section">
+              <div class="help-section" id="help-pakete">
+                <h3>Paketverwaltung (winget / Homebrew)</h3>
+                <p>Im Software-Tab installierst, aktualisierst und entfernst du Programme über den Paketmanager der Plattform – unter Windows winget, auf dem Mac Homebrew.</p>
+                <ul>
+                  <li><strong>Installiert</strong> — alle Programme plus die Pakete, die der Paketmanager kennt (entfernen, pinnen, Infos). Funktioniert offline.</li>
+                  <li><strong>Updates</strong> — prüft nur auf Klick und online, einzelne oder alle Pakete aktualisieren.</li>
+                  <li><strong>Suchen</strong> — Suche im offiziellen Katalog; vor jeder Installation wird der genaue Befehl angezeigt.</li>
+                  <li><strong>Favoriten</strong> — eure Standardprogramme mit Paket-ID je Plattform, Tags, Notizen und Profilen (mehrere Programme nacheinander installieren). Mit „Nur für … verfügbare anzeigen“ blendest du Favoriten aus, die es nur für die andere Plattform gibt.</li>
+                </ul>
+                <p>Die Favoriten liegen im Vault unter <code>packages/favorites.yaml</code> und gelten damit für das ganze Team.</p>
+              </div>
+
+              <div class="help-section" id="help-werkzeug">
+                <h3>Werkzeugkasten, Tools, Links &amp; Wiki</h3>
+                <ul>
+                  <li><strong>Tools</strong> — gerätebezogene Aktionen (Schnellreparaturen, Diagnose, Wartung, Terminal). Links die Gruppen, rechts das gewählte Werkzeug; das Suchfeld findet auch einzelne Knöpfe.</li>
+                  <li><strong>Werkzeugkasten</strong> — geräteunabhängige Helfer: Passwörter, WLAN-QR, Ratgeber, DNS- &amp; Mail-Check, Prüfsummen u. v. m.</li>
+                  <li><strong>Links</strong> — Team-Links aus dem Vault; mit dem Stern angeheftete Links erscheinen auf dem Dashboard.</li>
+                  <li><strong>Wiki</strong> — Team-Artikel als Markdown im Vault (<code>wiki/</code>), plus Nachschlagewerk für Befehle, Codes und Fehler.</li>
+                </ul>
+                <p>Wiki, Links und dieses Handbuch lassen sich oben rechts zwischen <strong>Karten</strong> und <strong>Liste</strong> umschalten. Die Wahl wird im Vault gespeichert.</p>
+              </div>
+
+              <div class="help-section" id="help-tastatur">
                 <h3>Tastaturkürzel</h3>
                 <table class="help-table">
                   <tr><th>Kürzel</th><th>Aktion</th></tr>
+                  <tr><td>Cmd/Strg + K</td><td>Befehlspalette: Tabs, Werkzeuge, Links und Wiki-Artikel suchen</td></tr>
+                  <tr><td>Cmd/Strg + S</td><td>Wiki-Artikel im Editor speichern</td></tr>
                   <tr><td>Escape</td><td>Aktives Modal schließen</td></tr>
                 </table>
               </div>
 
-              <div class="help-section">
+              <div class="help-section" id="help-feedback">
                 <h3>Feedback &amp; Fehler</h3>
                 <p>Bugs und Feature-Wünsche bitte als GitHub-Issue melden: <strong>github.com/Fenron-dev/AdminKit</strong></p>
               </div>

@@ -546,3 +546,38 @@
 @media (max-width:860px){.wz .ed-prev{display:none}}
 @media (max-width:860px){.wz .ed-split.show-prev textarea{display:none}}
 @media (max-width:860px){.wz .ed-split.show-prev .ed-prev{display:block}}
+
+/* ── Karten-/Listenansicht, Handbuch (#94) ─────────────────────────────── */
+.wz .view-toggle{padding:3px;gap:2px;flex-wrap:nowrap}
+.wz .view-toggle button{display:grid;place-items:center;padding:6px 8px}
+.wz .view-toggle .i{width:16px;height:16px}
+.wz .art-card:hover{background:color-mix(in srgb, var(--color-primary) 6%, var(--color-surface))}
+.wz .prose code{color:var(--text)}
+.wz .art-list{display:grid;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--color-surface)}
+.wz .art-row{display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr) 130px 260px;gap:16px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);text-decoration:none;transition:background .12s}
+.wz .art-row:last-child{border-bottom:0}
+.wz .art-row:hover{background:color-mix(in srgb, var(--color-primary) 6%, transparent)}
+.wz .art-row-t{font-weight:600;font-size:14.5px;color:var(--text)}
+.wz .art-row-x{color:var(--muted);font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wz .art-row-m{color:var(--dim);font-size:12.5px;white-space:nowrap}
+.wz .art-row .cat{justify-self:end;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.wz .art-list.no-meta .art-row{grid-template-columns:minmax(0,280px) minmax(0,1fr) 190px}
+.wz .art-row-m{text-align:right}
+@media (max-width:900px){.wz .art-row{grid-template-columns:1fr auto}.wz .art-row-x,.wz .art-row-m{display:none}}
+/* Links als Liste: eine Spalte, Text in einer Zeile, Aktionen nebeneinander */
+.wz .lk-list.as-list{grid-template-columns:1fr;gap:0;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.wz .lk-list.as-list .lk-row{border:0;border-bottom:1px solid var(--line);border-radius:0}
+.wz .lk-list.as-list .lk-row:last-child{border-bottom:0}
+.wz .lk-list.as-list .lk-row:hover{background:color-mix(in srgb, var(--color-primary) 5%, var(--surface))}
+.wz .lk-list.as-list .lk-main{padding:8px 14px;align-items:center}
+.wz .lk-list.as-list .lk-ic{width:28px;height:28px;border-radius:8px}
+.wz .lk-list.as-list .lk-txt{flex-direction:row;align-items:baseline;gap:14px;min-width:0;flex:1}
+.wz .lk-list.as-list .lk-txt b{flex:none;min-width:180px}
+.wz .lk-list.as-list .lk-txt span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wz .lk-list.as-list .lk-acts{flex-direction:row;align-items:center;border-left:0}
+/* Handbuch */
+.wz .hb-prose{max-width:80ch}
+.wz .hb-prose .table table{margin:0}
+.wz .hb-prose kbd{font:600 12px/1 var(--f-mono)}
+.wz .hb-nav{display:flex;justify-content:space-between;gap:12px;margin-top:36px;padding-top:20px;border-top:1px solid var(--line)}
+.wz .hb-nav .btn{max-width:48%;overflow:hidden;text-overflow:ellipsis}

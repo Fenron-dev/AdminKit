@@ -13,6 +13,7 @@ var view = null;          // FavoritesView aus Go
 var loaded = false;
 var filterTag = '';
 var filterText = '';
+var onlyPlatform = true; // nur auf dieser Plattform installierbare Favoriten zeigen (#94)
 var editing = null;       // Index des bearbeiteten Favoriten (-1 = neu)
 var editingProfile = null;
 var selectedFav = new Set();
@@ -23,6 +24,7 @@ function esc(s) { return deps.escapeHtml(s == null ? '' : String(s)); }
 function favs() { return (view && view.data && view.data.favorites) || []; }
 function profiles() { return (view && view.data && view.data.profiles) || []; }
 function mgr() { return (view && view.manager) || (deps.getPlatform() === 'darwin' ? 'brew' : 'winget'); }
+function platformName() { return mgr() === 'winget' ? 'Windows' : 'macOS'; }
 
 // Paket-ID + Quelle für die aktuelle Plattform
 function idFor(f) {
@@ -97,13 +99,14 @@ async function save(msg) {
 
 function allTags() {
   var seen = {};
-  favs().forEach(function (f) { (f.tags || []).forEach(function (t) { seen[t] = (seen[t] || 0) + 1; }); });
+  favs().forEach(function (f) { if (onlyPlatform && !idFor(f)) return; (f.tags || []).forEach(function (t) { seen[t] = (seen[t] || 0) + 1; }); });
   return Object.keys(seen).sort(function (a, b) { return a.localeCompare(b, 'de'); });
 }
 
 function visibleFavs() {
   var q = filterText.toLowerCase();
   return favs().map(function (f, i) { return { f: f, i: i }; }).filter(function (x) {
+    if (onlyPlatform && !idFor(x.f)) return false;
     if (filterTag && !(x.f.tags || []).includes(filterTag)) return false;
     if (!q) return true;
     var note = x.f.notiz || (view.default_notes || {})[x.f.name] || '';
@@ -123,6 +126,9 @@ function render() {
     '<button class="btn btn-secondary btn-sm" data-fav="export-winget" title="Für „winget import“">⬆ winget-Datei</button>' +
     '<button class="btn btn-secondary btn-sm" data-fav="export-brewfile" title="Für „brew bundle“">⬆ Brewfile</button>' +
     '</div>';
+  var foreign = favs().filter(function (f) { return !idFor(f); }).length;
+  html += '<div class="pkg-toolbar fav-platform-row"><label class="pkg-check"><input type="checkbox" data-fav-only-platform' + (onlyPlatform ? ' checked' : '') + '> Nur für ' + platformName() + ' verfügbare anzeigen</label>' +
+    (foreign ? '<span class="settings-hint">' + foreign + ' Favorit' + (foreign === 1 ? '' : 'en') + ' nur für andere Plattformen' + (onlyPlatform ? ' – ausgeblendet' : '') + '</span>' : '') + '</div>';
   html += '<div class="pkg-tags fav-tagbar"><span class="pkg-tag' + (filterTag ? '' : ' active') + '" data-fav-tag="">Alle</span>' +
     tags.map(function (t) { return '<span class="pkg-tag' + (filterTag === t ? ' active' : '') + '" data-fav-tag="' + esc(t) + '">' + esc(t) + '</span>'; }).join('') + '</div>';
 
@@ -262,6 +268,7 @@ function onInput(e) {
 }
 
 function onChange(e) {
+  if (e.target.matches('[data-fav-only-platform]')) { onlyPlatform = e.target.checked; if (filterTag && allTags().indexOf(filterTag) < 0) filterTag = ''; render(); return; }
   var cb = e.target.closest('[data-fav-sel]');
   if (!cb) return;
   var i = parseInt(cb.dataset.favSel, 10);

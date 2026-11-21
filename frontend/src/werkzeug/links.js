@@ -6,6 +6,7 @@ import { GetLinks, SaveLinks } from '../../wailsjs/go/main/App';
 import { getContext } from './platform.adminkit.js';
 import { ICONS, ic } from './icons.js';
 import { esc } from './ui.js';
+import { viewToggleHTML, getView, setView } from './viewmode.js';
 
 let ctx = null, deps = null, data = null, root = null;
 let bereich = 'all', filter = '', editing = null; // editing: Link-ID oder '' (neu)
@@ -48,7 +49,7 @@ function render() {
     <section class="wz-pane">
       <div class="lk-head"><div><h3 id="lkTitle"></h3><p class="muted" id="lkDesc"></p></div>
         <div class="row"><input type="search" class="input" id="lkFilter" placeholder="Links filtern (alle Bereiche)…" value="${esc(filter)}" autocomplete="off">
-        <button class="btn" type="button" data-lk="new">${ic('plus')}Link</button></div></div>
+        ${viewToggleHTML(getView(ctx, 'links'))}<button class="btn" type="button" data-lk="new">${ic('plus')}Link</button></div></div>
       <div id="lkEdit"></div><div id="lkList" class="lk-list"></div>
     </section></div>`;
   renderNav(); renderList();
@@ -70,6 +71,7 @@ function renderList() {
   root.querySelector('#lkDesc').textContent = bereich === 'pinned' ? 'Angeheftete Links erscheinen zusätzlich auf dem Dashboard.' : (b?.beschreibung || 'Öffnen im Standardbrowser. Anheften mit dem Stern.');
   const list = linksIn(filter ? 'all' : bereich);
   const p = pins();
+  root.querySelector('#lkList').classList.toggle('as-list', getView(ctx, 'links') === 'list');
   root.querySelector('#lkList').innerHTML = list.length ? list.map(l => `
     <div class="lk-row">
       <button class="lk-main" type="button" data-open="${esc(l.id)}" title="${esc(l.url)}">
@@ -135,6 +137,7 @@ async function saveEditor(fd) {
 
 async function onClick(e) {
   const t = e.target;
+  const v = t.closest('.view-toggle [data-view]'); if (v) { setView(ctx, 'links', v.dataset.view, root); renderList(); return; }
   const b = t.closest('[data-bereich]'); if (b) { bereich = b.dataset.bereich; editing = null; filter = ''; render(); return; }
   const o = t.closest('[data-open]'); if (o) { const l = data.links.find(x => x.id === o.dataset.open); if (l) ctx.open(l.url); return; }
   const pn = t.closest('[data-pin]'); if (pn) { togglePin(pn.dataset.pin); return; }
