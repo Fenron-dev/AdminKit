@@ -5359,6 +5359,23 @@ function closeArchiveModal() {
 
 // ─── Einstellungen ────────────────────────────────────────────────────────────
 
+// Einzelschalter der Online-Funktionen sind nur aktiv, wenn der Hauptschalter an ist.
+function syncOnlineSubSwitches() {
+  var master = !!document.getElementById('setting-online-enabled')?.checked;
+  ['setting-online-packages', 'setting-online-dns', 'setting-online-links', 'setting-online-github'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.disabled = !master;
+  });
+}
+
+// Prüft, ob ein Online-Bereich laut config.yaml erlaubt ist
+// ('packages' | 'dns' | 'link_services' | 'github_stats').
+function onlineAllowed(area) {
+  var on = state.config?.online;
+  if (!on) return true; // Config noch nicht geladen → Go prüft ohnehin selbst
+  return !!on.enabled && !!on[area];
+}
+
 function initSettings() {
   const overlay = document.getElementById('settings-modal-overlay');
 
@@ -5369,6 +5386,7 @@ function initSettings() {
     if (e.target.id === 'settings-modal-overlay') closeSettings();
   });
   document.getElementById('settings-save')?.addEventListener('click', saveSettings);
+  document.getElementById('setting-online-enabled')?.addEventListener('change', syncOnlineSubSwitches);
 
   // API-Key Sichtbarkeits-Toggle
   document.querySelectorAll('.api-key-toggle').forEach(btn => {
@@ -5424,6 +5442,24 @@ function openSettings() {
       cfg.defaults?.include_wifi_passwords ?? false;
     document.getElementById('setting-auto-vt-scan').checked =
       cfg.defaults?.auto_vt_scan ?? false;
+    // Online-Schalter, Paketverwaltung, Abrechnung
+    var on = cfg.online || {};
+    var setChk = function(id, v) { var el = document.getElementById(id); if (el) el.checked = !!v; };
+    setChk('setting-online-enabled',  on.enabled);
+    setChk('setting-online-packages', on.packages);
+    setChk('setting-online-dns',      on.dns);
+    setChk('setting-online-links',    on.link_services);
+    setChk('setting-online-github',   on.github_stats);
+    syncOnlineSubSwitches();
+    var pk = cfg.packages || {};
+    setChk('setting-pkg-silent', pk.silent);
+    setChk('setting-pkg-greedy', pk.greedy_casks);
+    var scopeEl = document.getElementById('setting-pkg-scope');
+    if (scopeEl) scopeEl.value = pk.default_scope ?? 'machine';
+    var aeEl = document.getElementById('setting-ae-minutes');
+    if (aeEl) aeEl.value = cfg.billing?.ae_minutes || 10;
+    var rdEl = document.getElementById('setting-ae-rounding');
+    if (rdEl) rdEl.value = cfg.billing?.rounding || 'up';
     // API-Keys (nie im Klartext vorausfüllen — nur *** wenn gesetzt)
     const setKeyField = (id, val) => {
       const el = document.getElementById(id);
@@ -5435,6 +5471,8 @@ function openSettings() {
     setKeyField('setting-anthropic-key', cfg.api_keys?.anthropic);
     setKeyField('setting-groq-key',      cfg.api_keys?.groq);
     setKeyField('setting-openrouter-key', cfg.api_keys?.openrouter);
+    setKeyField('setting-github-key',     cfg.api_keys?.github);
+    setKeyField('setting-urlscan-key',    cfg.api_keys?.urlscan);
     // Schnellaktionen-Sichtbarkeit
     const disabledQA = cfg.defaults?.disabled_quick_actions || [];
     ['internet_fix', 'printer_fix', 'quick_clean', 'dns_flush'].forEach(id => {
@@ -5831,6 +5869,27 @@ async function saveSettings() {
   cfg.api_keys.anthropic   = readKeyField('setting-anthropic-key', cfg.api_keys.anthropic);
   cfg.api_keys.groq        = readKeyField('setting-groq-key',      cfg.api_keys.groq);
   cfg.api_keys.openrouter  = readKeyField('setting-openrouter-key', cfg.api_keys.openrouter);
+  cfg.api_keys.github      = readKeyField('setting-github-key',     cfg.api_keys.github);
+  cfg.api_keys.urlscan     = readKeyField('setting-urlscan-key',    cfg.api_keys.urlscan);
+
+  // Online-Schalter, Paketverwaltung, Abrechnung
+  var chk = function(id) { return !!document.getElementById(id)?.checked; };
+  cfg.online = {
+    enabled:       chk('setting-online-enabled'),
+    packages:      chk('setting-online-packages'),
+    dns:           chk('setting-online-dns'),
+    link_services: chk('setting-online-links'),
+    github_stats:  chk('setting-online-github'),
+  };
+  cfg.packages = Object.assign({}, cfg.packages || {}, {
+    silent:        chk('setting-pkg-silent'),
+    greedy_casks:  chk('setting-pkg-greedy'),
+    default_scope: document.getElementById('setting-pkg-scope')?.value ?? 'machine',
+  });
+  cfg.billing = {
+    ae_minutes: parseInt(document.getElementById('setting-ae-minutes')?.value, 10) || 10,
+    rounding:   document.getElementById('setting-ae-rounding')?.value || 'up',
+  };
 
   // Modell-Felder
   cfg.ai_models.openai      = document.getElementById('setting-model-openai')?.value.trim()      || '';

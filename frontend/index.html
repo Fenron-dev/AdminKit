@@ -1370,6 +1370,66 @@
           </div>
 
           <div class="settings-section">
+            <h3 class="settings-section-title">Online-Funktionen</h3>
+            <p class="settings-hint" style="margin-bottom:8px">Online-Aktionen starten nie automatisch, nur auf Klick. Übertragen werden nur Paketnamen, Domains bzw. geprüfte Links – keine Gerätedaten. Für Quarantäne- oder Air-Gap-Sticks den Hauptschalter ausschalten.</p>
+            <div class="settings-row settings-row-check">
+              <input type="checkbox" id="setting-online-enabled">
+              <label for="setting-online-enabled"><strong>Online-Funktionen erlauben</strong> (Hauptschalter)</label>
+            </div>
+            <div class="settings-row settings-row-check settings-indent">
+              <input type="checkbox" id="setting-online-packages">
+              <label for="setting-online-packages">Paketverwaltung (winget / Homebrew: Updates, Suche, Installation)</label>
+            </div>
+            <div class="settings-row settings-row-check settings-indent">
+              <input type="checkbox" id="setting-online-dns">
+              <label for="setting-online-dns">DNS- &amp; Mail-Check, SMTP-Test</label>
+            </div>
+            <div class="settings-row settings-row-check settings-indent">
+              <input type="checkbox" id="setting-online-links">
+              <label for="setting-online-links">Link-Dienste (Vorschau, Domain-Alter, urlscan)</label>
+            </div>
+            <div class="settings-row settings-row-check settings-indent">
+              <input type="checkbox" id="setting-online-github">
+              <label for="setting-online-github">GitHub-Statistiken zu Paketen</label>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Paketverwaltung</h3>
+            <div class="settings-row settings-row-check">
+              <input type="checkbox" id="setting-pkg-silent">
+              <label for="setting-pkg-silent">Installer ohne Fenster ausführen (--silent)</label>
+            </div>
+            <div class="settings-row">
+              <label for="setting-pkg-scope">Installieren für (winget)</label>
+              <select id="setting-pkg-scope">
+                <option value="machine">Alle Benutzer (--scope machine)</option>
+                <option value="user">Nur aktuellen Benutzer (--scope user)</option>
+                <option value="">Installer entscheiden lassen</option>
+              </select>
+            </div>
+            <div class="settings-row settings-row-check">
+              <input type="checkbox" id="setting-pkg-greedy">
+              <label for="setting-pkg-greedy">Homebrew: auch selbstaktualisierende Apps prüfen (--greedy)</label>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Abrechnung</h3>
+            <div class="settings-row">
+              <label for="setting-ae-minutes">Minuten pro AE</label>
+              <input type="number" id="setting-ae-minutes" min="1" max="60" style="width:80px">
+            </div>
+            <div class="settings-row">
+              <label for="setting-ae-rounding">Rundung</label>
+              <select id="setting-ae-rounding">
+                <option value="up">Angefangene AE zählt voll</option>
+                <option value="nearest">Kaufmännisch runden</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-section">
             <h3 class="settings-section-title">Automatisierung</h3>
             <div class="settings-row settings-row-check">
               <input type="checkbox" id="setting-auto-vt-scan">
@@ -1435,6 +1495,20 @@
               <div class="api-key-row">
                 <input type="password" id="setting-openrouter-key" placeholder="sk-or-..." autocomplete="off">
                 <button class="btn btn-secondary btn-sm api-key-toggle" data-target="setting-openrouter-key">👁</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <label for="setting-github-key">GitHub (optional)</label>
+              <div class="api-key-row">
+                <input type="password" id="setting-github-key" placeholder="Token, erhöht das API-Limit für Paket-Statistiken" autocomplete="off">
+                <button class="btn btn-secondary btn-sm api-key-toggle" data-target="setting-github-key">👁</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <label for="setting-urlscan-key">urlscan.io (optional)</label>
+              <div class="api-key-row">
+                <input type="password" id="setting-urlscan-key" placeholder="API-Key für den Link-Prüfer" autocomplete="off">
+                <button class="btn btn-secondary btn-sm api-key-toggle" data-target="setting-urlscan-key">👁</button>
               </div>
             </div>
             <p class="settings-hint" style="grid-column:1/-1;margin-top:6px">

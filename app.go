@@ -221,6 +221,13 @@ func (a *App) SaveConfig(cfg *config.Config) error {
 	if a.vault == nil {
 		return fmt.Errorf("keine Vault initialisiert")
 	}
+	// Felder, die das Frontend nie sieht (json:"-"), aus der laufenden
+	// Konfiguration übernehmen – sonst gehen Sync-Tokens beim Speichern verloren.
+	if a.cfg != nil {
+		cfg.Sync.AccessToken = a.cfg.Sync.AccessToken
+		cfg.Sync.RefreshToken = a.cfg.Sync.RefreshToken
+	}
+	cfg.Normalize()
 	a.cfg = cfg
 	if err := config.Save(cfg, a.vault.RootPath); err != nil {
 		logging.Errorf("Config", "Speichern fehlgeschlagen: %v", err)

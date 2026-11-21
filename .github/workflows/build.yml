@@ -4,8 +4,11 @@ on:
   push:
     branches: [main]
     tags:    ['v*']
+    # Reine Doku-/Konzept-Änderungen lösen keinen Build aus (spart CI-Minuten)
+    paths-ignore: ['**.md', 'Konzepte/**', '.gitignore', 'LICENSE']
   pull_request:
     branches: [main]
+    paths-ignore: ['**.md', 'Konzepte/**', '.gitignore', 'LICENSE']
 
 # Verhindert parallele Runs auf demselben Branch (spart Minuten)
 concurrency:

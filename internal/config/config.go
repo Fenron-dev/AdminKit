@@ -24,6 +24,62 @@ type Config struct {
 	APIKeys   APIKeys  `yaml:"api_keys,omitempty"   json:"api_keys,omitempty"`
 	AIModels  AIModels `yaml:"ai_models,omitempty"  json:"ai_models,omitempty"`
 	Sync      Sync     `yaml:"sync,omitempty"       json:"sync,omitempty"`
+	Online    Online   `yaml:"online"               json:"online"`
+	Packages  Packages `yaml:"packages"             json:"packages"`
+	Billing   Billing  `yaml:"billing"              json:"billing"`
+}
+
+// Online ist der gemeinsame Schalter für alle Funktionen, die ins Internet gehen
+// (Paketverwaltung, DNS-/Mail-Check, Link-Dienste). Enabled=false schaltet alles
+// ab, z. B. für Quarantäne- oder Air-Gap-Sticks. Online-Aktionen starten nie
+// automatisch, sondern nur auf Klick.
+type Online struct {
+	Enabled      bool `yaml:"enabled"       json:"enabled"`
+	Packages     bool `yaml:"packages"      json:"packages"`
+	DNS          bool `yaml:"dns"           json:"dns"`
+	LinkServices bool `yaml:"link_services" json:"link_services"`
+	GitHubStats  bool `yaml:"github_stats"  json:"github_stats"`
+}
+
+// Allowed meldet, ob ein bestimmter Online-Bereich aktiv ist
+// ("packages", "dns", "link_services", "github_stats").
+func (o Online) Allowed(area string) bool {
+	if !o.Enabled {
+		return false
+	}
+	switch area {
+	case "packages":
+		return o.Packages
+	case "dns":
+		return o.DNS
+	case "link_services":
+		return o.LinkServices
+	case "github_stats":
+		return o.GitHubStats
+	}
+	return false
+}
+
+// Packages konfiguriert die Paketverwaltung (winget / Homebrew).
+type Packages struct {
+	// Sources: winget-Quellen, Standard nur "winget" (optional "msstore").
+	Sources []string `yaml:"sources"         json:"sources"`
+	// Silent: Installer ohne Fenster (--silent).
+	Silent bool `yaml:"silent"          json:"silent"`
+	// DefaultScope: "machine", "user" oder "" (Installer entscheidet).
+	DefaultScope string `yaml:"default_scope"   json:"default_scope"`
+	// GreedyCasks: Homebrew --greedy (auch selbstaktualisierende Apps).
+	GreedyCasks bool `yaml:"greedy_casks"    json:"greedy_casks"`
+	// InfoCacheDays: Gültigkeit des Paket-Info-Caches im Vault.
+	InfoCacheDays int `yaml:"info_cache_days" json:"info_cache_days"`
+}
+
+// Billing konfiguriert die Abrechnung in Arbeitseinheiten (AE).
+type Billing struct {
+	// AEMinutes: Minuten pro Arbeitseinheit (Standard 10).
+	AEMinutes int `yaml:"ae_minutes" json:"ae_minutes"`
+	// Rounding: "up" (angefangene AE zählt) oder "nearest".
+	Rounding string `yaml:"rounding"   json:"rounding"`
 }
 
 // SyncRole beschreibt die Rolle dieser AdminKit-Instanz im Sync-Verbund.
@@ -81,6 +137,10 @@ type APIKeys struct {
 	Anthropic  string `yaml:"anthropic,omitempty"   json:"anthropic,omitempty"`
 	Groq       string `yaml:"groq,omitempty"        json:"groq,omitempty"`
 	OpenRouter string `yaml:"openrouter,omitempty"  json:"openrouter,omitempty"`
+	// GitHub: optionales Token, erhöht das API-Limit für Paket-Statistiken.
+	GitHub string `yaml:"github,omitempty"      json:"github,omitempty"`
+	// URLScan: optionaler API-Key für urlscan.io (Link-Prüfer).
+	URLScan string `yaml:"urlscan,omitempty"     json:"urlscan,omitempty"`
 }
 
 // AIModels speichert das bevorzugte Modell pro Anbieter.
@@ -154,6 +214,23 @@ func DefaultConfig() *Config {
 			Location:  "vault",
 			MaxSizeMB: 10,
 		},
+		Online: Online{
+			Enabled:      true,
+			Packages:     true,
+			DNS:          true,
+			LinkServices: true,
+			GitHubStats:  true,
+		},
+		Packages: Packages{
+			Sources:       []string{"winget"},
+			Silent:        true,
+			DefaultScope:  "machine",
+			InfoCacheDays: 30,
+		},
+		Billing: Billing{
+			AEMinutes: 10,
+			Rounding:  "up",
+		},
 	}
 }
 
@@ -174,8 +251,29 @@ func Load(vaultPath string) (*Config, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
-
+	cfg.Normalize()
 	return cfg, nil
+}
+
+// Normalize ersetzt ungültige oder fehlende Werte durch Standardwerte.
+func (c *Config) Normalize() {
+	if c.Billing.AEMinutes <= 0 {
+		c.Billing.AEMinutes = 10
+	}
+	if c.Billing.Rounding != "nearest" {
+		c.Billing.Rounding = "up"
+	}
+	if c.Packages.InfoCacheDays <= 0 {
+		c.Packages.InfoCacheDays = 30
+	}
+	if len(c.Packages.Sources) == 0 {
+		c.Packages.Sources = []string{"winget"}
+	}
+	switch c.Packages.DefaultScope {
+	case "", "machine", "user":
+	default:
+		c.Packages.DefaultScope = "machine"
+	}
 }
 
 // Save schreibt die Konfiguration als config.yaml in das angegebene Verzeichnis.
@@ -189,5 +287,12 @@ func Save(cfg *Config, vaultPath string) error {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(vaultPath, DefaultConfigFilename), data, 0644)
+	// 0600: config.yaml enthält API-Keys und Sync-Tokens (Finding S2).
+	path := filepath.Join(vaultPath, DefaultConfigFilename)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return err
+	}
+	// WriteFile ändert die Rechte bestehender Dateien nicht – alte 0644 nachziehen.
+	_ = os.Chmod(path, 0600) // auf FAT/exFAT-Sticks wirkungslos, kein Fehler
+	return nil
 }

@@ -988,6 +988,8 @@ thead th.sort-desc::after { content: ' ↓'; font-size: 10px; color: var(--color
 }
 .settings-row-check input[type="checkbox"] { cursor: pointer; }
 .settings-row-check label { font-weight: 400; cursor: pointer; }
+.settings-indent { padding-left: 22px; }
+.settings-row-check input[type="checkbox"]:disabled + label { opacity: .5; cursor: default; }
 
 /* Dashboard-Karten anklickbar */
 .card-nav {
