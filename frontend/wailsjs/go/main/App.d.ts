@@ -70,3 +70,6 @@ export function UpgradePackages(refs: any[], opts: any): Promise<any[]>;
 export function UninstallPackage(ref: any, opts: any): Promise<any>;
 export function SetPackagePinned(ref: any, pinned: boolean): Promise<any>;
 export function CancelPackageOperation(): Promise<void>;
+
+// Paketverwaltung P3: Infos
+export function GetPackageInfo(ref: any, known: string[]): Promise<any>;

@@ -421,3 +421,8 @@ export function SetPackagePinned(arg1, arg2) {
 export function CancelPackageOperation() {
     return window['go']['main']['App']['CancelPackageOperation']();
 }
+
+// ── Paketverwaltung P3: Infos ──
+export function GetPackageInfo(arg1, arg2) {
+    return window['go']['main']['App']['GetPackageInfo'](arg1, arg2);
+}

@@ -11,9 +11,9 @@
 import {
   GetPackageManagerStatus, GetInstalledPackages, GetOutdatedPackages,
   SearchPackages, GetPackageCommand, InstallPackages, UpgradePackages,
-  UninstallPackage, SetPackagePinned, CancelPackageOperation,
+  UninstallPackage, SetPackagePinned, CancelPackageOperation, GetPackageInfo,
 } from '../wailsjs/go/main/App';
-import { EventsOn } from '../wailsjs/runtime/runtime';
+import { EventsOn, BrowserOpenURL } from '../wailsjs/runtime/runtime';
 
 var deps = null;          // Helfer aus main.js (showConfirm, addAction, …)
 var pkgStatus = null;     // Ergebnis von GetPackageManagerStatus
@@ -71,6 +71,14 @@ export function initPackages(d) {
   ['pkg-updates-list', 'pkg-search-list', 'pkg-installed-list'].forEach(function (id) {
     $(id)?.addEventListener('click', onTableClick);
     $(id)?.addEventListener('change', onTableChange);
+  });
+
+  // Links in Info-Bereichen im Standardbrowser öffnen (nicht in der App)
+  $('tab-software')?.addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-open-url]');
+    if (!a) return;
+    e.preventDefault();
+    openURL(a.dataset.openUrl);
   });
 
   EventsOn('packages:output', appendOutput);
@@ -269,11 +277,13 @@ function renderUpdates() {
     }
     return '<tr>' +
       '<td class="cb-col"><input type="checkbox" data-sel-idx="' + i + '"' + (selected.has(p.id) ? ' checked' : '') + (blocked ? ' disabled' : '') + '></td>' +
-      '<td><div class="pkg-name">' + esc(p.name) + '</div><div class="pkg-id">' + esc(p.id) + ' · ' + esc(sourceLabel(p.source)) + '</div></td>' +
+      '<td><div class="pkg-name">' + esc(p.name) + '</div><div class="pkg-id">' + esc(p.id) + ' · ' + esc(sourceLabel(p.source)) + '</div>' +
+        '<div class="pkg-info hidden" id="pkg-info-updates-' + i + '"></div></td>' +
       '<td class="mono">' + esc(p.version || '?') + '</td>' +
       '<td class="mono">→ ' + esc(p.available || '?') + '</td>' +
       '<td>' + note.join(' ') + '</td>' +
       '<td class="pkg-actions">' +
+        infoButton('updates', i) +
         '<button class="btn btn-primary btn-xs" data-pkg-action="upgrade" data-list="updates" data-idx="' + i + '"' + (blocked ? ' disabled data-always-disabled="1"' : '') + ' title="Aktualisieren">⬆</button>' +
         pinBtn +
         '<button class="btn btn-secondary btn-xs" data-pkg-action="copy-upgrade" data-list="updates" data-idx="' + i + '" title="Befehl kopieren">⧉</button>' +
@@ -397,7 +407,7 @@ function renderSearch() {
         '<td class="mono">' + esc(p.version || '') + '</td>' +
         '<td>' + esc(sourceLabel(p.source)) + '</td>' +
         '<td class="pkg-actions">' +
-          (deps.renderInfoButton ? deps.renderInfoButton('search', i) : '') +
+          infoButton('search', i) +
           (deps.renderFavButton ? deps.renderFavButton(p) : '') +
           '<button class="btn btn-primary btn-xs" data-pkg-action="install" data-list="search" data-idx="' + i + '"' + (p.truncated ? ' disabled data-always-disabled="1"' : '') + '>Installieren</button>' +
           '<button class="btn btn-secondary btn-xs" data-pkg-action="copy-install" data-list="search" data-idx="' + i + '" title="Befehl kopieren">⧉</button>' +
@@ -460,7 +470,7 @@ function renderInstalled() {
         '<td class="mono">' + esc(p.version) + (p.available ? ' <span class="pkg-tag">→ ' + esc(p.available) + '</span>' : '') + '</td>' +
         '<td>' + esc(sourceLabel(p.source)) + '</td>' +
         '<td class="pkg-actions">' +
-          (deps.renderInfoButton ? deps.renderInfoButton('installed', i) : '') +
+          infoButton('installed', i) +
           pin +
           '<button class="btn btn-danger btn-xs" data-pkg-action="uninstall" data-list="installed" data-idx="' + i + '">Entfernen</button>' +
         '</td></tr>';
@@ -527,7 +537,7 @@ async function onTableClick(e) {
       try { copyText(await GetPackageCommand('install', refOf(it.p), pkgOptions())); } catch (err) { deps.showToast(String(err)); }
       break;
     case 'info':
-      if (deps.toggleInfo) deps.toggleInfo(it.p, $('pkg-info-' + it.listName + '-' + it.idx));
+      toggleInfo(it.p, $('pkg-info-' + it.listName + '-' + it.idx), it.listName === 'search' ? searchResults : it.listName === 'updates' ? outdated : installed);
       break;
   }
 }
@@ -544,3 +554,93 @@ function onTableChange(e) {
 export function isPackageBusy() { return busy; }
 export function getPackageStatus() { return pkgStatus; }
 export function ensureStatus() { if (!statusLoaded) { statusLoaded = true; return loadStatus(); } return Promise.resolve(); }
+
+// ─── Infos & Einordnung (#86) ────────────────────────────────────────────────
+
+var DAY = 86400000;
+
+export function openURL(u) {
+  if (!/^https?:\/\//i.test(u || '')) return;
+  try { BrowserOpenURL(u); } catch (_) { window.open(u, '_blank', 'noopener'); }
+}
+
+function infoButton(list, i) {
+  return '<button class="btn btn-secondary btn-xs" data-pkg-action="info" data-list="' + list + '" data-idx="' + i + '" title="Was ist das? Welche Variante?">ℹ Infos</button>';
+}
+
+function linkHTML(u, text) {
+  if (!u || !/^https?:\/\//i.test(u)) return esc(text || '');
+  var label = text || u.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return '<a href="#" data-open-url="' + esc(u) + '">' + esc(label) + '</a>';
+}
+
+function relTime(t) {
+  var d = Date.now() - Date.parse(t);
+  if (!isFinite(d)) return '–';
+  var days = Math.round(d / DAY);
+  if (days < 1) return 'heute';
+  if (days < 31) return 'vor ' + days + ' Tag' + (days === 1 ? '' : 'en');
+  var months = Math.round(days / 30);
+  if (months < 24) return 'vor ' + months + ' Monat' + (months === 1 ? '' : 'en');
+  return 'vor ' + Math.round(days / 365) + ' Jahren';
+}
+
+function hintBox(level, title, text) {
+  return '<div class="pkg-hint ' + (level === 'warn' ? 'warn' : '') + '"><strong>' + (level === 'warn' ? '⚠ ' : 'ℹ ') + esc(title) + '</strong><br>' + esc(text) + '</div>';
+}
+
+// Ausklappbarer Info-Bereich unter einer Tabellenzeile
+export async function toggleInfo(p, box, siblings) {
+  if (!box) return;
+  if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = '<div class="pkg-note">⏳ Infos werden geladen…</div>';
+  var known = (siblings || []).map(function (x) { return x.id; });
+  try {
+    var info = await GetPackageInfo(refOf(p), known);
+    box.innerHTML = infoHTML(info);
+  } catch (e) {
+    box.innerHTML = '<div class="pkg-hint warn">Infos konnten nicht geladen werden: ' + esc(e) +
+      (deps.onlineAllowed('packages') ? '' : '<br>Die Online-Funktionen sind abgeschaltet – es gibt nur Infos, die schon einmal geladen wurden.') + '</div>';
+  }
+}
+
+export function infoHTML(info) {
+  var h = '';
+  var note = info.note;
+  if (note) {
+    h += hintBox(note.level, note.own ? 'Eure Notiz' : 'Einordnung', note.text);
+    if (note.own && note.default) h += hintBox('info', 'Vorgabe', note.default);
+  }
+  (info.hints || []).forEach(function (x) { h += hintBox(x.level, x.title, x.text); });
+  if (info.description) h += '<p class="pkg-desc">' + esc(info.description) + '</p>';
+  if (info.long_description && info.long_description !== info.description) {
+    h += '<details class="pkg-details"><summary>Ausführliche Beschreibung' + (info.desc_lang === 'de' ? '' : ' (meist Englisch)') + '</summary><p>' +
+      esc(info.long_description).replace(/\n/g, '<br>') + '</p></details>';
+  }
+  var kv = [];
+  kv.push(['Hersteller', info.publisher_url ? linkHTML(info.publisher_url, info.publisher || info.publisher_url) : esc(info.publisher || '–')]);
+  if (info.homepage) kv.push(['Website', linkHTML(info.homepage)]);
+  kv.push(['Lizenz', info.license_url ? linkHTML(info.license_url, info.license || 'Lizenz') : esc(info.license || '–')]);
+  if ((info.installer_types || []).length) {
+    kv.push(['Installation', esc(info.installer_types.join(', ')) + ((info.scopes || []).length ? ', ' + esc(info.scopes.join(' oder ')) : '')]);
+  }
+  if ((info.archs || []).length) kv.push(['Architektur', esc(info.archs.join(', '))]);
+  if (info.needs_admin) kv.push(['Adminrechte', 'ja, fragt bei der Installation nach']);
+  if (info.auto_updates) kv.push(['Updates', 'aktualisiert sich selbst']);
+  if (info.github) {
+    kv.push(['Quellcode', linkHTML(info.github.url, 'GitHub') + ', ' + Number(info.github.stars || 0).toLocaleString('de-DE') + ' Sterne, zuletzt aktiv ' +
+      esc(relTime(info.github.pushed_at)) + (info.github.archived ? ', <b class="pkg-warn-text">archiviert</b>' : '')]);
+  }
+  h += '<dl class="pkg-kv">' + kv.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join('') + '</dl>';
+  if (info.install_notes) h += '<div class="pkg-note">Hinweis des Pakets: ' + esc(info.install_notes) + '</div>';
+  if ((info.tags || []).length) {
+    h += '<div class="pkg-tags">' + info.tags.slice(0, 12).map(function (t) { return '<span class="pkg-tag">' + esc(t) + '</span>'; }).join('') + '</div>';
+  }
+  var foot = [];
+  if (info.manifest_url) foot.push(linkHTML(info.manifest_url, 'Paketdateien auf GitHub'));
+  if (info.from_cache && info.fetched_at) foot.push('gespeicherte Infos vom ' + new Date(info.fetched_at).toLocaleDateString('de-DE'));
+  if (info.partial) foot.push('nur Basisinfos (winget show)');
+  if (foot.length) h += '<div class="pkg-note">' + foot.join(' · ') + '</div>';
+  return h;
+}

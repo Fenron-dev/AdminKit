@@ -1,0 +1,67 @@
+# Standard-Einordnungen für Pakete (aus dem Ideler-Portal übernommen).
+# Ergänzen oder überschreiben: Datei vault/packages/notes.yaml im gleichen Format anlegen.
+# match: winget-ID und/oder Homebrew-Name (brew = Formel, brew_cask = Mac-App)
+# level: info (Standard) oder warn · suggest_pin: Pin vorschlagen (zentral verwaltete Software)
+version: 1
+notes:
+  - match: { winget: Google.Chrome, brew_cask: google-chrome }
+    text: "Webbrowser von Google. Hält sich nach der Installation selbst aktuell."
+  - match: { winget: Mozilla.Firefox.de }
+    text: "Webbrowser von Mozilla in deutscher Sprache. Das Paket „Mozilla.Firefox“ ohne Sprachkürzel installiert die englische Version."
+  - match: { winget: 7zip.7zip }
+    text: "Packprogramm für ZIP, 7z, RAR und viele weitere Archive. Kostenlos, auch für Firmen."
+  - match: { winget: VideoLAN.VLC, brew_cask: vlc }
+    text: "Spielt fast alle Video- und Audioformate ab, ohne zusätzliche Codecs."
+  - match: { winget: Adobe.Acrobat.Reader.64-bit, brew_cask: adobe-acrobat-reader }
+    text: "Kostenloser PDF-Betrachter von Adobe, 64-Bit-Version. Wird oft für Formulare und digitale Signaturen gebraucht. Die 32-Bit-Variante nur bei alten Zusatzprogrammen nehmen."
+  - match: { winget: geeksoftwareGmbH.PDF24Creator }
+    text: "PDF-Werkzeugkasten aus Deutschland: PDF erstellen über einen virtuellen Drucker, zusammenfügen, verkleinern, Texterkennung. Kostenlos, auch gewerblich."
+  - match: { winget: TheDocumentFoundation.LibreOffice, brew_cask: libreoffice }
+    text: "Kostenloses Office-Paket mit Textverarbeitung, Tabellen und Präsentationen. Öffnet und speichert Word-, Excel- und PowerPoint-Dateien."
+  - match: { winget: Notepad++.Notepad++ }
+    text: "Texteditor für Konfigurationsdateien, Logs und Skripte, mit farbiger Hervorhebung."
+  - match: { winget: voidtools.Everything }
+    text: "Findet Dateien nach Namen in Sekundenbruchteilen, viel schneller als die Windows-Suche."
+  - match: { winget: Microsoft.PowerToys }
+    text: "Zusatzwerkzeuge von Microsoft, z. B. Fenster-Layouts, Bilder verkleinern, Text aus einem Bildschirmausschnitt kopieren und die Hosts-Datei bearbeiten."
+  - match: { winget: WinSCP.WinSCP }
+    text: "Überträgt Dateien per SFTP, FTP oder SCP auf Server und NAS."
+  - match: { winget: PuTTY.PuTTY }
+    text: "SSH- und Telnet-Programm, z. B. für Switches, Router und Linux-Server. Unter Windows 10/11 geht SSH auch direkt in PowerShell mit „ssh benutzer@host“."
+  - match: { winget: CrystalDewWorld.CrystalDiskInfo }
+    text: "Zeigt den Gesundheitszustand (SMART) von Festplatten und SSDs. Erste Anlaufstelle bei Verdacht auf einen Plattenschaden. Die „Edition“-Pakete sind dasselbe Programm mit anderem Design."
+  - match: { winget: REALiX.HWiNFO }
+    text: "Zeigt detaillierte Hardware-Infos und Live-Sensoren wie Temperaturen, Spannungen und Lüfter. Für gewerbliche Nutzung Lizenzbedingungen beachten."
+  - match: { winget: CPUID.CPU-Z }
+    text: "Zeigt Prozessor, Mainboard und Arbeitsspeicher genau an, z. B. um passenden RAM zum Nachrüsten zu finden."
+  - match: { winget: AntibodySoftware.WizTree }
+    text: "Zeigt sehr schnell, welche Ordner und Dateien den Speicher belegen. Privat kostenlos, für Firmen kostenpflichtig."
+  - match: { winget: ESET.AVRemover }
+    text: "Kein Virenschutz, sondern ein Aufräumwerkzeug: Es entfernt Reste anderer Virenschutzprogramme, damit es keine Konflikte gibt. Typisch vor der Installation von ESET auf einem Gerät, auf dem vorher ein anderer Virenscanner lief."
+  - match: { winget: ESET.Security, brew_cask: eset-cyber-security }
+    text: "Der ESET-Installer für Privatkunden. Welche Ausbaustufe aktiv wird, entscheidet die eingegebene Lizenz."
+  - match: { winget: ESET.EndpointAntivirus }
+    suggest_pin: true
+    text: "Business-Produkt. Wird normalerweise zentral über die ESET-PROTECT-Konsole verteilt und verwaltet, nicht einzeln per winget."
+  - match: { winget: ESET.EndpointSecurity }
+    suggest_pin: true
+    text: "Business-Produkt mit zusätzlicher Firewall. Wird normalerweise zentral über die ESET-PROTECT-Konsole verteilt und verwaltet."
+  - match: { winget: TeamViewer.TeamViewer, brew_cask: teamviewer }
+    text: "Vollversion: verbindet sich mit anderen Geräten und kann selbst Verbindungen annehmen."
+  - match: { winget: TeamViewer.TeamViewer.QuickSupport, brew_cask: teamviewer-quicksupport }
+    text: "Kleines Kundenmodul für spontane Hilfe: Der Kunde startet es und nennt ID und Kennwort."
+  - match: { winget: TeamViewer.TeamViewer.Host, brew_cask: teamviewer-host }
+    text: "Für dauerhaften, unbeaufsichtigten Zugriff auf ein Gerät, etwa einen Server oder Kassen-PC."
+  - match: { winget: Microsoft.Sysinternals.Suite }
+    text: "Sammlung der Microsoft-Profiwerkzeuge in einem Paket, darunter Process Explorer, Autoruns und Process Monitor."
+  - match: { winget: Microsoft.VCRedist.2015+.x64 }
+    text: "Laufzeitbibliothek, die viele Programme voraussetzen. Auf 64-Bit-Windows meist zusätzlich die x86-Variante installieren, weil viele 32-Bit-Programme sie brauchen."
+  - match: { winget: AnyDesk.AnyDesk, brew_cask: anydesk }
+    level: warn
+    text: "Fernwartungsprogramm. Wird häufig von Betrügern bei falschen Support-Anrufen missbraucht. Nur auf eigenen oder betreuten Geräten installieren."
+  - match: { brew: smartmontools }
+    text: "Kommandozeilenwerkzeug für den SMART-Status von Festplatten und SSDs (smartctl). Wird von AdminKit für die Plattendiagnose genutzt."
+  - match: { brew: mas }
+    text: "Steuert den Mac App Store über die Kommandozeile: Apps auflisten, installieren und aktualisieren."
+  - match: { brew_cask: the-unarchiver }
+    text: "Entpackt RAR, 7z und viele weitere Archive auf dem Mac. Kostenlos."

@@ -264,3 +264,32 @@ func (a *App) runPkgBatch(refs []PackageRef, fn func(context.Context, PackageRef
 	}
 	return results, nil
 }
+
+// GetPackageInfo liefert Beschreibung, Einordnung und Hinweise zu einem Paket.
+// known: weitere IDs (z. B. aus der Suche) für Varianten-Hinweise.
+// Ohne Online-Freigabe kommen die Infos nur aus dem Cache bzw. (Mac) aus brew.
+func (a *App) GetPackageInfo(ref PackageRef, known []string) (*packages.Info, error) {
+	ctx, cancel := context.WithTimeout(a.ctx, 90*time.Second)
+	defer cancel()
+	opt := packages.InfoOptions{Known: known, CacheDays: 30}
+	if a.cfg != nil {
+		opt.Online = a.cfg.Online.Allowed("packages")
+		opt.GitHubStats = a.cfg.Online.Allowed("github_stats")
+		opt.GitHubToken = a.cfg.APIKeys.GitHub
+		opt.CacheDays = a.cfg.Packages.InfoCacheDays
+	}
+	if a.vault != nil {
+		opt.CacheDir = a.vault.DataPath("packages", "cache")
+		notes, err := packages.LoadNotes(a.vault.RootPath)
+		if err != nil {
+			logging.Warnf("Pakete", "notes.yaml: %v", err)
+		}
+		opt.Notes = notes
+	}
+	p := packages.Package{ID: ref.ID, Name: ref.Name, Source: ref.Source, Version: ref.Version, Available: ref.Available}
+	info, err := packages.GetInfo(ctx, a.pkgMgr(), p, opt)
+	if err != nil {
+		logging.Warnf("Pakete", "Infos zu %s: %v", ref.ID, err)
+	}
+	return info, err
+}
