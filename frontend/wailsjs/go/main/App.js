@@ -485,3 +485,26 @@ export function OpenTextFileDialog(arg1, arg2) {
 export function SaveDataURL(arg1, arg2) {
     return window['go']['main']['App']['SaveDataURL'](arg1, arg2);
 }
+
+// ── Werkzeugkasten W3: Netz & Sicherheit ──
+export function DNSQuery(arg1, arg2, arg3) {
+    return window['go']['main']['App']['DNSQuery'](arg1, arg2, arg3);
+}
+export function GetResolverChoices() {
+    return window['go']['main']['App']['GetResolverChoices']();
+}
+export function SMTPProbe(arg1, arg2) {
+    return window['go']['main']['App']['SMTPProbe'](arg1, arg2);
+}
+export function RDAPLookup(arg1) {
+    return window['go']['main']['App']['RDAPLookup'](arg1);
+}
+export function LinkPreview(arg1) {
+    return window['go']['main']['App']['LinkPreview'](arg1);
+}
+export function URLScanSearch(arg1) {
+    return window['go']['main']['App']['URLScanSearch'](arg1);
+}
+export function SaveSessionNote(arg1, arg2, arg3, arg4) {
+    return window['go']['main']['App']['SaveSessionNote'](arg1, arg2, arg3, arg4);
+}

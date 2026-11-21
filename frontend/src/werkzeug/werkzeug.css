@@ -498,3 +498,8 @@
 .wz .lk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .wz .lk-bereiche { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .wz .lk-del { margin-left: auto; color: var(--color-error); }
+
+/* DNS-Check (AdminKit) */
+.wz .dns-res { align-items: flex-end; }
+.wz .dns-res .field { min-width: 240px; flex: 1; }
+.wz .dns-t tr.diff td { background: color-mix(in srgb, var(--color-warning) 12%, transparent); }

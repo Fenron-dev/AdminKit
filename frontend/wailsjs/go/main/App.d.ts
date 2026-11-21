@@ -98,3 +98,12 @@ export function RecordWork(title: string, detail: string): Promise<void>;
 export function GetSessionTiming(): Promise<any>;
 export function OpenTextFileDialog(title: string, pattern: string): Promise<any>;
 export function SaveDataURL(defaultName: string, dataURL: string): Promise<string>;
+
+// Werkzeugkasten W3: Netz & Sicherheit
+export function DNSQuery(name: string, rrtype: string, server: string): Promise<any>;
+export function GetResolverChoices(): Promise<any[]>;
+export function SMTPProbe(host: string, port: number): Promise<any>;
+export function RDAPLookup(domain: string): Promise<any>;
+export function LinkPreview(url: string): Promise<any>;
+export function URLScanSearch(domain: string): Promise<any[]>;
+export function SaveSessionNote(folder: string, name: string, markdown: string, workTitle: string): Promise<string>;

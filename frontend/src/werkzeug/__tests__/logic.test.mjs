@@ -122,3 +122,43 @@ test('Mail-Diagnose: Beispiele aus dem Portal', async () => {
   const h = m.parseHdr('Subject: Hallo\r\n  Welt\r\nFrom: A <a@b.de>');
   assert.equal(h[0].v, 'Hallo Welt'); assert.equal(m.addrOf(h[1].v), 'a@b.de');
 });
+
+test('Link-Prüfer: Sonderfälle aus dem Konzept', async () => {
+  const { linkCheck, stripUrl } = await import('../tools/link.js');
+  const lvl = u => linkCheck(u).lvl;
+  assert.equal(lvl('https://paypal.com.google.de/x'), 'err');
+  assert.equal(lvl('https://paypal.com.konto-sicherheit.xyz/login?id=1'), 'err');
+  assert.equal(lvl('https://contoso.sharepoint.com/sites/x'), 'warn');
+  assert.equal(lvl('https://sparkasse-bremen.de/'), 'warn');
+  assert.equal(lvl('https://xn--pypal-4ve.com/'), 'err');
+  assert.equal(lvl('https://www.paypal.com/de'), 'ok');
+  assert.equal(linkCheck('javascript:alert(1)').bad, true);
+  assert.equal(linkCheck('https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fpaypal.com.evil.xyz%2F').final, 'https://paypal.com.evil.xyz/');
+  assert.equal(stripUrl('https://a.de/p?token=geheim#x'), 'https://a.de/p');
+});
+
+test('DNS-Check: Mail-Auswertung mit festen Antworten', async () => {
+  const m = await import('../tools/dns.js');
+  const zone = {
+    'kunde.de|MX': [{ type: 15, data: '10 mx.kunde.de.' }],
+    'kunde.de|TXT': [{ type: 16, data: '"v=spf1 mx include:spf.hoster.de ~all"' }],
+    'spf.hoster.de|TXT': [{ type: 16, data: '"v=spf1 ip4:1.2.3.0/24 -all"' }],
+    '_dmarc.kunde.de|TXT': [{ type: 16, data: '"v=DMARC1; p=none"' }],
+    'default._domainkey.kunde.de|TXT': [{ type: 16, data: '"v=DKIM1; k=rsa; p=' + 'A'.repeat(392) + '"' }],
+    'mx.kunde.de|A': [{ type: 1, data: '1.2.3.4' }],
+    '4.3.2.1.in-addr.arpa|PTR': [{ type: 12, data: 'mx.kunde.de.' }],
+  };
+  m.setContext({ net: { dns: async (n, t) => ({ Status: 0, Answer: (zone[n + '|' + t] || []).map(a => ({ name: n, TTL: 300, ...a })) }) } });
+  const r = await m.mailCheck('kunde.de', '');
+  assert.equal(r.mxs[0].h, 'mx.kunde.de');
+  const text = r.R.join(' ');
+  assert.match(text, /Mailserver \(MX\)/);
+  assert.match(text, /SPF vorhanden/); assert.match(text, /2 von maximal 10/);
+  assert.match(text, /Richtlinie „none“/);
+  assert.match(text, /DKIM gefunden: default/); assert.match(text, /2048 Bit/);
+  assert.match(text, /Rückwärtsauflösung \(PTR\)/);
+  assert.equal(r.score.err, 0);
+  assert.equal(m.txtVal('"v=spf1 " "-all"'), 'v=spf1 -all');
+  assert.equal(m.cleanDomain('Max@Kunde.DE'), 'kunde.de');
+  assert.equal(m.revName('1.2.3.4'), '4.3.2.1.in-addr.arpa');
+});

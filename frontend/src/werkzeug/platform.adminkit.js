@@ -1,7 +1,7 @@
 // Plattform-Schicht für AdminKit: alles, was zwischen Browser-Portal und App
 // verschieden ist, läuft über dieses ctx-Objekt. Werkzeuge prüfen Fähigkeiten
 // (z. B. `if (ctx.net?.dns)`), nicht die Plattform.
-import { GetToolStates, SaveToolState, ExportDocument, RecordWork, GetSessionTiming, OpenTextFileDialog, SaveDataURL, PickFileForHash, HashFile, CancelHash } from '../../wailsjs/go/main/App';
+import { DNSQuery, GetResolverChoices, SMTPProbe, RDAPLookup, LinkPreview, URLScanSearch, SaveSessionNote, GetToolStates, SaveToolState, ExportDocument, RecordWork, GetSessionTiming, OpenTextFileDialog, SaveDataURL, PickFileForHash, HashFile, CancelHash } from '../../wailsjs/go/main/App';
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 
 // Ein gemeinsamer Kontext für Werkzeugkasten, Links und Befehlspalette
@@ -80,6 +80,17 @@ export async function createContext(deps) {
     takePrefill(id) { const v = this._prefill[id]; delete this._prefill[id]; return v; },
     net: {
       get online() { return deps.onlineAllowed('dns') || deps.onlineAllowed('link_services'); },
+      allowed: area => deps.onlineAllowed(area),
+      dns: (name, type, server) => DNSQuery(name, type, server || 'system'),
+      resolvers: () => GetResolverChoices(),
+      smtp: (host, port) => SMTPProbe(host, port),
+      rdap: domain => RDAPLookup(domain),
+      preview: url => LinkPreview(url),
+      urlscan: domain => URLScanSearch(domain),
+      async saveNote(folder, name, md, workTitle) {
+        try { return await SaveSessionNote(folder, name, md, workTitle || ''); }
+        catch (e) { deps.showToast(String(e)); return null; }
+      },
     },
   };
   return ctx;

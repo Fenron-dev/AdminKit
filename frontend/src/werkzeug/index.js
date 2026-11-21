@@ -14,9 +14,11 @@ import guide from './tools/guide.js';
 import wifi from './tools/wifi.js';
 import mail from './tools/mail.js';
 import hash from './tools/hash.js';
+import dns from './tools/dns.js';
+import link from './tools/link.js';
 
 export const GROUPS = ['Passwörter & Telefon', 'Für Kunden', 'Reparatur & Laden', 'Netzwerk & Mail', 'Nachschlagen & Prüfen'];
-export const TOOLS = [pw, spell, wifi, guide, imei, ae, mail, net, units, hash, b64];
+export const TOOLS = [pw, spell, wifi, guide, imei, ae, dns, mail, link, net, units, hash, b64];
 
 export function registerTool(t) { if (!TOOLS.some(x => x.id === t.id)) TOOLS.push(t); }
 

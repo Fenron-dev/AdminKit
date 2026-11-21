@@ -7,14 +7,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"adminkit/internal/hashing"
 	"adminkit/internal/logging"
+	"adminkit/internal/netcheck"
 	"adminkit/internal/werkzeug"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -251,4 +254,139 @@ func (a *App) SaveDataURL(defaultName, dataURL string) (string, error) {
 		return "", err
 	}
 	return p, os.WriteFile(p, data, 0644)
+}
+
+// ── Netz & Sicherheit (#90) ─────────────────────────────────────────────────
+
+func (a *App) requireOnline(area string) error {
+	if a.cfg != nil && !a.cfg.Online.Allowed(area) {
+		names := map[string]string{"dns": "DNS- & Mail-Check", "link_services": "Link-Dienste"}
+		return fmt.Errorf("%s ist in den Einstellungen (Online-Funktionen) abgeschaltet", names[area])
+	}
+	return nil
+}
+
+// DNSQuery fragt einen DNS-Eintrag ab. server: "" / "system" oder IP-Adresse.
+// Antwort im DoH-JSON-Format (wie Google/Cloudflare).
+func (a *App) DNSQuery(name, rrtype, server string) (*netcheck.DoHResponse, error) {
+	if err := a.requireOnline("dns"); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 15*time.Second)
+	defer cancel()
+	return netcheck.Query(ctx, name, rrtype, server)
+}
+
+// ResolverChoice ist ein auswählbarer DNS-Server.
+type ResolverChoice struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+// GetResolverChoices liefert System-Resolver, Router/Kunden-DNS (aus dem
+// letzten Netzwerk-Scan) und öffentliche Resolver.
+func (a *App) GetResolverChoices() []ResolverChoice {
+	out := []ResolverChoice{{"System (wie dieses Gerät)", "system"}}
+	seen := map[string]bool{}
+	if a.lastNetworkScan != nil {
+		for _, ad := range a.lastNetworkScan.Adapters {
+			if !ad.IsConnected {
+				continue
+			}
+			for _, d := range ad.DNSServers {
+				if net.ParseIP(d) != nil && !seen[d] {
+					seen[d] = true
+					out = append(out, ResolverChoice{"Kunden-DNS " + d + " (" + ad.Name + ")", d})
+				}
+			}
+			if g := ad.Gateway; net.ParseIP(g) != nil && !seen[g] {
+				seen[g] = true
+				out = append(out, ResolverChoice{"Router " + g, g})
+			}
+		}
+	}
+	return append(out,
+		ResolverChoice{"Cloudflare 1.1.1.1", "1.1.1.1"},
+		ResolverChoice{"Google 8.8.8.8", "8.8.8.8"},
+		ResolverChoice{"Quad9 9.9.9.9", "9.9.9.9"})
+}
+
+// SMTPProbe testet die Verbindung zu einem Mailserver (Banner, STARTTLS,
+// Zertifikat). Es wird keine Mail gesendet.
+func (a *App) SMTPProbe(host string, port int) (*netcheck.SMTPResult, error) {
+	if err := a.requireOnline("dns"); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
+	defer cancel()
+	r := netcheck.SMTPProbe(ctx, host, port)
+	logging.Infof("Werkzeug", "SMTP-Test %s:%d → verbunden=%v tls=%v", host, port, r.Connected, r.TLS)
+	return r, nil
+}
+
+// RDAPLookup ermittelt Registrierung und Alter einer Domain.
+func (a *App) RDAPLookup(domain string) (*netcheck.RDAPResult, error) {
+	if err := a.requireOnline("link_services"); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 20*time.Second)
+	defer cancel()
+	cache := ""
+	if a.vault != nil {
+		cache = a.vault.DataPath("werkzeug", "cache")
+	}
+	return netcheck.RDAPLookup(ctx, domain, cache)
+}
+
+// LinkPreview holt Titel, Beschreibung und Endadresse über microlink.io –
+// AdminKit selbst ruft den Link nicht auf.
+func (a *App) LinkPreview(rawURL string) (*netcheck.Preview, error) {
+	if err := a.requireOnline("link_services"); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 25*time.Second)
+	defer cancel()
+	return netcheck.LinkPreview(ctx, rawURL)
+}
+
+// URLScanSearch sucht frühere Scans einer Domain bei urlscan.io (API-Key nötig).
+func (a *App) URLScanSearch(domain string) ([]netcheck.URLScanHit, error) {
+	if err := a.requireOnline("link_services"); err != nil {
+		return nil, err
+	}
+	key := ""
+	if a.cfg != nil {
+		key = a.cfg.APIKeys.URLScan
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 20*time.Second)
+	defer cancel()
+	return netcheck.URLScanSearch(ctx, domain, key)
+}
+
+// SaveSessionNote legt ein Markdown-Protokoll in der Session ab
+// (z. B. network/maildomain_<domain>.md) und vermerkt es im Bericht.
+func (a *App) SaveSessionNote(folder, name, markdown, workTitle string) (string, error) {
+	if a.lastSessionPath == "" {
+		return "", fmt.Errorf("keine aktive Session – bitte zuerst eine Session anlegen")
+	}
+	switch folder {
+	case "network", "security", "software", "werkzeug":
+	default:
+		return "", fmt.Errorf("unbekannter Ordner %q", folder)
+	}
+	safe := strings.Trim(regexp.MustCompile(`[^A-Za-z0-9._-]+`).ReplaceAllString(name, "_"), "._")
+	if safe == "" || len(markdown) > 1<<20 {
+		return "", fmt.Errorf("ungültiger Name oder Inhalt zu groß")
+	}
+	p := filepath.Join(a.lastSessionPath, folder, safe+".md")
+	if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(p, []byte(markdown), 0644); err != nil {
+		return "", err
+	}
+	if workTitle != "" {
+		_ = werkzeug.AppendWork(a.lastSessionPath, werkzeug.WorkItem{Time: time.Now(), Title: workTitle, Detail: name, File: filepath.Base(p)})
+	}
+	return p, nil
 }
