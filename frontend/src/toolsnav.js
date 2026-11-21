@@ -9,6 +9,10 @@ var CATS = ['Schnellhilfe', 'System', 'Analyse'];
 var current = null;
 var filter = '';
 var store = null; // Werkzeug-Zustand aus dem Vault (optional)
+var shownListeners = [];
+
+/** Rückruf, wenn eine Gruppe angezeigt wird (z. B. Module erst dann laden). */
+export function onToolsGroupShown(fn) { shownListeners.push(fn); if (current) fn(current); }
 
 function isMac() { return /Mac/.test(navigator.platform || '') || /Mac OS/.test(navigator.userAgent || ''); }
 
@@ -54,6 +58,7 @@ export function showToolsGroup(id, remember) {
   var pane = document.getElementById('tools-pane');
   if (pane) pane.scrollTop = 0;
   if (remember !== false && store) store.set('toolsGroup', current);
+  shownListeners.forEach(function (fn) { try { fn(current); } catch (e) { console.warn(e); } });
 }
 
 export function initToolsNav() {

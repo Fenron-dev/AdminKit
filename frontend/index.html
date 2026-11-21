@@ -711,15 +711,9 @@
             </div>
 
             <!-- Disk-Nutzung nach Ordner -->
-            <div class="tools-group tools-group-full" id="tools-disk-usage" data-tg="disk" data-tg-title="Disk-Nutzung" data-tg-icon="💽" data-tg-cat="System" data-tg-desc="Welche Ordner belegen den meisten Platz?">
-              <h3 class="tools-group-title">Disk-Nutzung nach Ordner</h3>
-              <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-                <button class="btn btn-secondary btn-sm" id="btn-disk-usage-scan">🔍 Analysieren</button>
-                <span class="status-badge badge-unknown hidden" id="disk-usage-status"></span>
-              </div>
-              <div id="disk-usage-result">
-                <div class="info-placeholder">„Analysieren" klicken um Verzeichnisgrößen zu messen…</div>
-              </div>
+            <div class="tools-group tools-group-full" id="tools-disk-usage" data-tg="disk" data-tg-title="Disk-Analyzer" data-tg-icon="💽" data-tg-cat="System" data-tg-desc="Was belegt den Speicher? Ordnerbaum, Kachelansicht und größte Dateien – Systembereiche werden markiert.">
+              <h3 class="tools-group-title">Disk-Analyzer</h3>
+              <div id="disk-analyzer-root"><div class="info-placeholder">Disk-Analyzer wird geladen…</div></div>
             </div>
 
             <!-- VirusTotal Datei-Scanner -->
@@ -1414,6 +1408,25 @@
                 </table>
               </div>
 
+              <div class="help-section" id="help-disk">
+                <h3>Disk-Analyzer</h3>
+                <p>Tools → <strong>Disk-Analyzer</strong> zeigt, was den Speicher belegt – wie WizTree oder DaisyDisk, direkt in AdminKit (Windows und macOS).</p>
+                <ol>
+                  <li>Benutzerordner, Laufwerk oder „Anderen Ordner wählen…“ auswählen und <strong>Analysieren</strong> klicken. Die Analyse liest nur Größen und verändert nichts; sie lässt sich jederzeit abbrechen.</li>
+                  <li>Links die Ordnerliste (Klick öffnet einen Ordner, ← geht eine Ebene höher), rechts die Kachelansicht – je größer die Kachel, desto mehr Platz.</li>
+                  <li>Unten <strong>Größte Ordner</strong> (wo sich Speicher ballt) und <strong>Größte Dateien</strong>.</li>
+                </ol>
+                <table class="help-table">
+                  <tr><th>Farbe</th><th>Bedeutung</th></tr>
+                  <tr><td>Grau – System</td><td>Betriebssystem; gesperrt, nicht löschbar</td></tr>
+                  <tr><td>Blau – Programme</td><td>installierte Programme und deren Daten – besser regulär deinstallieren</td></tr>
+                  <tr><td>Orange – Cache / Temp</td><td>Caches, Temp-Ordner, Logs – meist gefahrlos aufzuräumen</td></tr>
+                  <tr><td>Grün – Benutzerdaten</td><td>Dokumente, Downloads, Bilder … – nur nach Rücksprache mit dem Kunden</td></tr>
+                </table>
+                <p><strong>In den Papierkorb</strong> (🗑 beim Überfahren) verschiebt nach Rückfrage – wiederherstellbar, Platz wird erst beim Leeren des Papierkorbs frei. Systembereiche, der Benutzerordner selbst und Hauptordner (Downloads, Programme, Library …) sind gesperrt 🔒. Das Ergebnis erscheint im HTML-Bericht unter „Speicherbelegung“ (ohne Systembereiche).</p>
+                <p><strong>Tipp:</strong> Für das komplette Systemlaufwerk AdminKit unter Windows als Administrator starten; unter macOS ggf. „Festplattenvollzugriff“ erteilen – sonst fehlen geschützte Ordner (die Anzahl steht in der Statuszeile).</p>
+              </div>
+
               <div class="help-section" id="help-tastatur">
                 <h3>Tastaturkürzel</h3>
                 <table class="help-table">
@@ -1689,7 +1702,11 @@
             </div>
           </div>
 
-          <div class="settings-section">
+          <div class="settings-section hidden" id="sync-disabled-note">
+            <h3 class="settings-section-title">Synchronisierung / Fleet (#74)</h3>
+            <p class="settings-hint" style="display:block;margin:0">Vorübergehend deaktiviert: Die LAN-Synchronisierung wird erst nach der Sicherheits-Härtung (verschlüsselte Verbindung) wieder freigegeben. Es wird kein Netzwerk-Port geöffnet.</p>
+          </div>
+          <div class="settings-section" id="sync-settings-section">
             <h3 class="settings-section-title">Synchronisierung / Fleet (#74)</h3>
             <p class="settings-hint" style="margin-bottom:8px">
               Sessions zwischen Techniker-Geräten im LAN zusammenführen. Läuft nur, wenn du den Hub explizit aktivierst.

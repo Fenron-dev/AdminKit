@@ -10,7 +10,7 @@ import { viewToggleHTML, getView, setView } from './viewmode.js';
 // Kategorie je Kapitel-ID; unbekannte landen unter „Weiteres“.
 const CATS = [
   ['Einstieg', ['quickstart', 'farben', 'dashboard', 'tastatur', 'feedback']],
-  ['System & Netzwerk', ['system', 'autostart', 'dienste', 'ereignisse', 'prozesse', 'netzwerk', 'usb', 'benutzer', 'profile']],
+  ['System & Netzwerk', ['system', 'autostart', 'dienste', 'ereignisse', 'prozesse', 'netzwerk', 'usb', 'benutzer', 'profile', 'disk']],
   ['Software & Werkzeuge', ['software', 'pakete', 'browser', 'werkzeug', 'dokumente']],
   ['Sicherheit & KI', ['vt', 'ki', 'ollama']],
   ['Daten & Export', ['export', 'vault']],

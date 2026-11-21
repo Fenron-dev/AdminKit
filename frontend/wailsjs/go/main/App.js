@@ -320,9 +320,6 @@ export function GetOSLocale() {
 }
 
 // ── Disk-Nutzung nach Ordner ──
-export function GetDiskUsageByFolder() {
-    return window['go']['main']['App']['GetDiskUsageByFolder']();
-}
 
 // ── Zertifikats-Check ──
 export function ScanCertificates() {
@@ -575,4 +572,48 @@ export function GetWikiCategories() {
 
 export function SaveWikiCategories(arg1) {
     return window['go']['main']['App']['SaveWikiCategories'](arg1);
+}
+
+export function IsSyncAvailable() {
+    return window['go']['main']['App']['IsSyncAvailable']();
+}
+
+export function GetDiskScanRoots() {
+    return window['go']['main']['App']['GetDiskScanRoots']();
+}
+
+export function PickDiskScanFolder() {
+    return window['go']['main']['App']['PickDiskScanFolder']();
+}
+
+export function StartDiskScan(arg1) {
+    return window['go']['main']['App']['StartDiskScan'](arg1);
+}
+
+export function CancelDiskScan() {
+    return window['go']['main']['App']['CancelDiskScan']();
+}
+
+export function GetDiskScanStatus() {
+    return window['go']['main']['App']['GetDiskScanStatus']();
+}
+
+export function GetDiskNodeChildren(arg1, arg2) {
+    return window['go']['main']['App']['GetDiskNodeChildren'](arg1, arg2);
+}
+
+export function GetDiskTopFiles(arg1, arg2) {
+    return window['go']['main']['App']['GetDiskTopFiles'](arg1, arg2);
+}
+
+export function GetDiskHotspots(arg1) {
+    return window['go']['main']['App']['GetDiskHotspots'](arg1);
+}
+
+export function DiskMoveToTrash(arg1) {
+    return window['go']['main']['App']['DiskMoveToTrash'](arg1);
+}
+
+export function DiskReportSummary() {
+    return window['go']['main']['App']['DiskReportSummary']();
 }

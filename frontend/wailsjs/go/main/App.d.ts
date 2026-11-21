@@ -139,3 +139,25 @@ export function GetDocumentInfo(): Promise<any>;
 export function GetWikiCategories(): Promise<Array<string>>;
 
 export function SaveWikiCategories(cats: Array<string>): Promise<void>;
+
+export function IsSyncAvailable(): Promise<boolean>;
+
+export function GetDiskScanRoots(): Promise<Array<any>>;
+
+export function PickDiskScanFolder(): Promise<string>;
+
+export function StartDiskScan(root: string): Promise<void>;
+
+export function CancelDiskScan(): Promise<void>;
+
+export function GetDiskScanStatus(): Promise<any>;
+
+export function GetDiskNodeChildren(path: string, hideSystem: boolean): Promise<any>;
+
+export function GetDiskTopFiles(limit: number, hideSystem: boolean): Promise<Array<any>>;
+
+export function GetDiskHotspots(limit: number): Promise<Array<any>>;
+
+export function DiskMoveToTrash(path: string): Promise<void>;
+
+export function DiskReportSummary(): Promise<string>;

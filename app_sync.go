@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +20,17 @@ import (
 	"adminkit/internal/hub"
 	syncpkg "adminkit/internal/sync"
 )
+
+// syncAvailable schaltet die LAN-Synchronisierung (#74) ab, bis sie gehärtet ist:
+// Der Hub spricht bisher Klartext-HTTP (Finding S1). Solange false, lässt sich
+// weder ein Hub starten noch koppeln/pushen – es wird kein Port geöffnet.
+// Wieder einschalten erst nach WP4 (HTTPS + Zertifikats-Pinning), siehe #100.
+const syncAvailable = false
+
+var errSyncDisabled = errors.New("Synchronisierung ist vorübergehend deaktiviert (wird erst nach der Sicherheits-Härtung freigegeben)")
+
+// IsSyncAvailable meldet dem Frontend, ob die Synchronisierung nutzbar ist.
+func (a *App) IsSyncAvailable() bool { return syncAvailable }
 
 // hubRootPath ist das Vault-Verzeichnis des eingebetteten Hubs.
 func (a *App) hubRootPath() string {
@@ -102,6 +114,10 @@ func (a *App) DeleteClient(id string) error {
 
 // StartHub startet den eingebetteten LAN-Hub und setzt die Rolle auf "hub".
 func (a *App) StartHub() error {
+	if !syncAvailable {
+		return errSyncDisabled
+	}
+
 	if a.vault == nil {
 		return fmt.Errorf("keine Vault initialisiert")
 	}
@@ -157,6 +173,10 @@ func (a *App) GetHubStatus() hub.Status {
 
 // GetHubPairingCode erzeugt einen neuen 6-stelligen Pairing-PIN am Hub.
 func (a *App) GetHubPairingCode() (string, error) {
+	if !syncAvailable {
+		return "", errSyncDisabled
+	}
+
 	if a.hubServer == nil {
 		return "", fmt.Errorf("hub läuft nicht")
 	}
@@ -168,6 +188,10 @@ func (a *App) GetHubPairingCode() (string, error) {
 
 // DiscoverHubs sucht per mDNS nach Hubs im LAN (blockiert bis zu 3 Sekunden).
 func (a *App) DiscoverHubs() ([]syncpkg.HubInfo, error) {
+	if !syncAvailable {
+		return nil, errSyncDisabled
+	}
+
 	ctx, cancel := context.WithTimeout(a.ctx, 4*time.Second)
 	defer cancel()
 	return syncpkg.Discover(ctx, 3*time.Second)
@@ -176,6 +200,10 @@ func (a *App) DiscoverHubs() ([]syncpkg.HubInfo, error) {
 // PairWithHub koppelt dieses Gerät per PIN an den Hub unter baseURL und
 // speichert Tokens sowie Host für spätere automatische Wiederverbindung.
 func (a *App) PairWithHub(baseURL, pin string) error {
+	if !syncAvailable {
+		return errSyncDisabled
+	}
+
 	if a.vault == nil {
 		return fmt.Errorf("keine Vault initialisiert")
 	}
@@ -212,6 +240,10 @@ func (a *App) newSyncClient(baseURL string) *syncpkg.Client {
 
 // ensureSyncClient stellt sicher, dass ein Client für den gespeicherten Hub existiert.
 func (a *App) ensureSyncClient() (*syncpkg.Client, error) {
+	if !syncAvailable {
+		return nil, errSyncDisabled
+	}
+
 	if a.syncClient != nil {
 		return a.syncClient, nil
 	}
@@ -224,6 +256,10 @@ func (a *App) ensureSyncClient() (*syncpkg.Client, error) {
 
 // PushSessionToHub lädt eine lokale Session (Metadaten + Snapshots) zum Hub hoch.
 func (a *App) PushSessionToHub(sessionPath string) error {
+	if !syncAvailable {
+		return errSyncDisabled
+	}
+
 	client, err := a.ensureSyncClient()
 	if err != nil {
 		return err
@@ -302,6 +338,10 @@ func (a *App) ExportFleetReport() (string, error) {
 // SyncRole gibt die aktuelle Rolle zurück (offline/hub/client) – für die
 // Tab-Sichtbarkeit im Frontend.
 func (a *App) SyncRole() string {
+	if !syncAvailable {
+		return string(config.SyncRoleOffline)
+	}
+
 	if a.hubServer != nil {
 		return string(config.SyncRoleHub)
 	}

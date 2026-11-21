@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"gopkg.in/yaml.v3"
 )
@@ -247,6 +248,7 @@ func Load(vaultPath string) (*Config, error) {
 		}
 		return nil, err
 	}
+	restrictPerms(cfgPath)
 
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err
@@ -288,11 +290,31 @@ func Save(cfg *Config, vaultPath string) error {
 	}
 
 	// 0600: config.yaml enthält API-Keys und Sync-Tokens (Finding S2).
+	// Atomar über eine Temp-Datei, damit ein Absturz keine halbe Datei hinterlässt.
 	path := filepath.Join(vaultPath, DefaultConfigFilename)
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
 		return err
 	}
-	// WriteFile ändert die Rechte bestehender Dateien nicht – alte 0644 nachziehen.
-	_ = os.Chmod(path, 0600) // auf FAT/exFAT-Sticks wirkungslos, kein Fehler
+	_ = os.Chmod(tmp, 0600) // falls eine alte .tmp mit weiteren Rechten herumlag
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	restrictPerms(path)
 	return nil
+}
+
+// restrictPerms setzt config.yaml auf 0600 (nur Besitzer), falls sie weiter
+// offen ist – auch für Altbestände, die vor dem Fix mit 0644 geschrieben wurden.
+// Windows: Unix-Rechte gibt es dort nicht; ACLs werden bewusst NICHT geändert,
+// weil der Vault oft auf einem USB-Stick liegt und an fremden PCs lesbar
+// bleiben muss. Auf FAT/exFAT ist chmod wirkungslos – kein Fehler.
+func restrictPerms(path string) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	if fi, err := os.Stat(path); err == nil && fi.Mode().Perm()&0o077 != 0 {
+		_ = os.Chmod(path, 0o600)
+	}
 }

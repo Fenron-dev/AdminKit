@@ -8,7 +8,7 @@ import './style.css';
 import QRCode from 'qrcode';
 import { initPackages } from './packages.js';
 import { initFavorites } from './favorites.js';
-import { initToolsNav, showToolsGroup, attachToolsState } from './toolsnav.js';
+import { initToolsNav, showToolsGroup, attachToolsState, onToolsGroupShown } from './toolsnav.js';
 import { initPalette, registerPaletteProvider, open as openPalette } from './palette.js';
 import {
   GetAppVersion, GetVaultPath, GetConfig, NewSession,
@@ -59,11 +59,10 @@ import {
   RunPeriodicMaintenance,
   GetSSHStatus,
   SetSSHEnabled,
-  GetDiskUsageByFolder,
   ScanCertificates,
   GetOSLocale,
   GetClients, SaveClient,
-  StartHub, StopHub, GetHubStatus, GetHubPairingCode,
+  StartHub, StopHub, GetHubStatus, GetHubPairingCode, IsSyncAvailable,
   DiscoverHubs, PairWithHub, PushSessionToHub,
   ExportSessionBundle, ImportSessionBundle,
   NewCustomerSession,
@@ -1016,53 +1015,17 @@ function initSSHManagement() {
   refreshSSH();
 }
 
-// ─── Disk-Nutzung nach Ordner ─────────────────────────────────────────────────
-
+// ─── Disk-Analyzer (#97–#99) ──────────────────────────────────────────────────
+// Eigenes Modul, wird erst geladen, wenn die Tools-Gruppe „Disk-Analyzer“ aufgeht.
+var _diskLoaded = false;
 function initDiskUsage() {
-  const btn    = document.getElementById('btn-disk-usage-scan');
-  const result = document.getElementById('disk-usage-result');
-  const status = document.getElementById('disk-usage-status');
-
-  btn?.addEventListener('click', async () => {
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Analysiere…'; }
-    if (result) result.innerHTML = '<div class="info-placeholder">Verzeichnisgrößen werden gemessen…</div>';
-    try {
-      const entries = await GetDiskUsageByFolder();
-      renderDiskUsage(entries, result);
-      if (status) {
-        status.className = 'status-badge badge-ok';
-        status.textContent = `${entries.length} Verzeichnisse`;
-        status.classList.remove('hidden');
-      }
-    } catch (e) {
-      if (result) result.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(e))}</div>`;
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '🔍 Analysieren'; }
-    }
+  onToolsGroupShown(function(id) {
+    if (id !== 'disk' || _diskLoaded) return;
+    _diskLoaded = true;
+    var el = document.getElementById('disk-analyzer-root');
+    import('./werkzeug/disk-analyzer.js').then(function(m) { return m.initDiskAnalyzer(el, _pkgDeps); })
+      .catch(function(e) { _diskLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Disk-Analyzer konnte nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
   });
-}
-
-function renderDiskUsage(entries, container) {
-  if (!container) return;
-  if (!entries || entries.length === 0) {
-    container.innerHTML = '<div class="info-placeholder">Keine Daten gefunden.</div>';
-    return;
-  }
-  const maxBytes = entries[0].bytes;
-  container.innerHTML = entries.map(e => {
-    const barPct = maxBytes > 0 ? Math.round(e.bytes / maxBytes * 100) : 0;
-    const barClass = barPct > 80 ? 'fill-critical' : barPct > 50 ? 'fill-warning' : 'fill-ok';
-    return `<div class="disk-folder-item">
-      <div class="disk-folder-header">
-        <span class="disk-folder-label">${escapeHtml(e.label)}</span>
-        <span class="disk-folder-size">${escapeHtml(e.human)}</span>
-      </div>
-      <div class="hw-volume-bar-bg">
-        <div class="hw-volume-bar-fill ${barClass}" style="width:${barPct}%"></div>
-      </div>
-      <div class="disk-folder-path mono-cell">${escapeHtml(e.path)}</div>
-    </div>`;
-  }).join('');
 }
 
 // ─── Zertifikats-Check ────────────────────────────────────────────────────────
@@ -5634,6 +5597,11 @@ function closeSettings() {
 // ─── Synchronisierung / Fleet (#74) ───────────────────────────────────────────
 
 function initSyncSettings() {
+  // Synchronisierung vorübergehend abgeschaltet (Sicherheits-Härtung ausstehend)
+  IsSyncAvailable().then(function(ok) {
+    document.getElementById('sync-settings-section')?.classList.toggle('hidden', !ok);
+    document.getElementById('sync-disabled-note')?.classList.toggle('hidden', !!ok);
+  }).catch(function() { /* ältere Bindings: Bereich bleibt sichtbar */ });
   // Hub starten (öffnet einen Netzwerk-Port → Bestätigung)
   document.getElementById('btn-hub-start')?.addEventListener('click', async () => {
     const ok = await showConfirm({
