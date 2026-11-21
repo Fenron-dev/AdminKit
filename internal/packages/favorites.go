@@ -358,7 +358,9 @@ func (f *Favorites) ExportWingetJSON(now time.Time) ([]byte, error) {
 			pkgs = append(pkgs, pkg{fav.Winget})
 		}
 	}
-	sort.Slice(pkgs, func(i, j int) bool { return strings.ToLower(pkgs[i].PackageIdentifier) < strings.ToLower(pkgs[j].PackageIdentifier) })
+	sort.Slice(pkgs, func(i, j int) bool {
+		return strings.ToLower(pkgs[i].PackageIdentifier) < strings.ToLower(pkgs[j].PackageIdentifier)
+	})
 	out := map[string]any{
 		"$schema":      "https://aka.ms/winget-packages.schema.2.0.json",
 		"CreationDate": now.Format("2006-01-02T15:04:05.000-07:00"),
