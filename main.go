@@ -53,6 +53,12 @@ func main() {
 			Assets: assets,
 		},
 
+		// Native Datei-Drops liefern echte Pfade (VirusTotal-Zone, #96).
+		// WebView-Drops bleiben aktiv (Bilder im Wiki-Editor).
+		DragAndDrop: &options.DragAndDrop{
+			EnableFileDrop: true,
+		},
+
 		OnStartup:  app.Startup,
 		OnShutdown: app.Shutdown,
 

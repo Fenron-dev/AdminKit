@@ -3,8 +3,8 @@
 package events
 
 import (
+	"adminkit/internal/execx"
 	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -58,7 +58,7 @@ Get-WinEvent -LogName '%s' -ErrorAction SilentlyContinue |
   Select-Object TimeCreated,Level,ProviderName,Id,Message |
   ConvertTo-Csv -NoTypeInformation`, logName, whereClause)
 
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	out, err := execx.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil {
 		return nil, []ScanError{{Module: logName, Message: fmt.Sprintf("Get-WinEvent: %v", err)}}
 	}

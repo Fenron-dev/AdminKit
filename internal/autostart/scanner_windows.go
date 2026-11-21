@@ -3,9 +3,9 @@
 package autostart
 
 import (
+	"adminkit/internal/execx"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -162,7 +162,7 @@ func scanScheduledTasks() ([]Entry, []ScanError) {
 	var entries []Entry
 	var errs []ScanError
 
-	out, err := exec.Command("schtasks", "/query", "/fo", "CSV", "/v").Output()
+	out, err := execx.Command("schtasks", "/query", "/fo", "CSV", "/v").Output()
 	if err != nil {
 		return nil, []ScanError{{Module: "schtasks", Message: fmt.Sprintf("schtasks fehlgeschlagen: %v", err)}}
 	}
@@ -248,7 +248,7 @@ func scanAutoServices() ([]Entry, []ScanError) {
 
 	// PowerShell: alle Dienste mit StartType=Auto die nicht von Microsoft sind
 	script := `Get-WmiObject Win32_Service | Where-Object { $_.StartMode -eq 'Auto' } | Select-Object Name,DisplayName,PathName,State | ConvertTo-Csv -NoTypeInformation`
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	out, err := execx.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil {
 		return nil, []ScanError{{Module: "services-autostart", Message: err.Error()}}
 	}

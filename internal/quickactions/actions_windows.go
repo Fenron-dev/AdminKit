@@ -3,7 +3,7 @@
 package quickactions
 
 import (
-	"os/exec"
+	"adminkit/internal/execx"
 	"strings"
 )
 
@@ -15,7 +15,7 @@ func GetCleanupSizes() map[string]string {
 		{"trash", `powershell -NoProfile -Command "try { (New-Object -ComObject Shell.Application).NameSpace(0xA).Items() | Measure-Object -Sum Size | ForEach-Object { '{0:N1} MB' -f ($_.Sum/1MB) } } catch { '–' }"`},
 	}
 	for _, c := range cmds {
-		out, err := exec.Command("cmd", "/C", c.shell).Output()
+		out, err := execx.Command("cmd", "/C", c.shell).Output()
 		if err == nil && len(strings.TrimSpace(string(out))) > 0 {
 			sizes[c.key] = strings.TrimSpace(string(out))
 		} else {
@@ -78,14 +78,17 @@ func runInternetFix() Result {
 	sb := strings.Builder{}
 	sb.WriteString("=== Internet-Fix ===\n\n")
 
-	steps := []struct{ label, cmd string; args []string }{
-		{"DNS-Cache leeren",         "ipconfig", []string{"/flushdns"}},
-		{"Winsock zurücksetzen",     "netsh",    []string{"winsock", "reset"}},
-		{"IP-Konfiguration freigeben","ipconfig", []string{"/release"}},
-		{"IP-Konfiguration erneuern","ipconfig", []string{"/renew"}},
+	steps := []struct {
+		label, cmd string
+		args       []string
+	}{
+		{"DNS-Cache leeren", "ipconfig", []string{"/flushdns"}},
+		{"Winsock zurücksetzen", "netsh", []string{"winsock", "reset"}},
+		{"IP-Konfiguration freigeben", "ipconfig", []string{"/release"}},
+		{"IP-Konfiguration erneuern", "ipconfig", []string{"/renew"}},
 	}
 	for _, s := range steps {
-		out, err := exec.Command(s.cmd, s.args...).CombinedOutput()
+		out, err := execx.Command(s.cmd, s.args...).CombinedOutput()
 		sb.WriteString(s.label + ":\n")
 		if err != nil {
 			sb.WriteString("  FEHLER: " + err.Error() + "\n")
@@ -101,13 +104,16 @@ func runPrinterFix() Result {
 	sb := strings.Builder{}
 	sb.WriteString("=== Drucker-Fix ===\n\n")
 
-	steps := []struct{ label, cmd string; args []string }{
-		{"Druckdienst stoppen",      "net", []string{"stop", "spooler", "/y"}},
-		{"Druckwarteschlange leeren","cmd", []string{"/c", `del /Q /F /S "%SYSTEMROOT%\System32\spool\PRINTERS\*.*"`}},
-		{"Druckdienst starten",      "net", []string{"start", "spooler"}},
+	steps := []struct {
+		label, cmd string
+		args       []string
+	}{
+		{"Druckdienst stoppen", "net", []string{"stop", "spooler", "/y"}},
+		{"Druckwarteschlange leeren", "cmd", []string{"/c", `del /Q /F /S "%SYSTEMROOT%\System32\spool\PRINTERS\*.*"`}},
+		{"Druckdienst starten", "net", []string{"start", "spooler"}},
 	}
 	for _, s := range steps {
-		out, err := exec.Command(s.cmd, s.args...).CombinedOutput()
+		out, err := execx.Command(s.cmd, s.args...).CombinedOutput()
 		sb.WriteString(s.label + ":\n")
 		if err != nil {
 			sb.WriteString("  FEHLER: " + err.Error() + "\n")
@@ -123,13 +129,16 @@ func runQuickClean() Result {
 	sb := strings.Builder{}
 	sb.WriteString("=== Schnellbereinigung ===\n\n")
 
-	steps := []struct{ label, cmd string; args []string }{
+	steps := []struct {
+		label, cmd string
+		args       []string
+	}{
 		{"Temp-Dateien (%TEMP%)", "cmd", []string{"/c", `del /q /f /s %TEMP%\* 2>&1`}},
-		{"Windows Update Cache",  "cmd", []string{"/c", `del /q /f /s %WINDIR%\SoftwareDistribution\Download\* 2>&1`}},
-		{"Papierkorb leeren",     "cmd", []string{"/c", "rd /s /q %SystemDrive%\\$Recycle.Bin 2>&1"}},
+		{"Windows Update Cache", "cmd", []string{"/c", `del /q /f /s %WINDIR%\SoftwareDistribution\Download\* 2>&1`}},
+		{"Papierkorb leeren", "cmd", []string{"/c", "rd /s /q %SystemDrive%\\$Recycle.Bin 2>&1"}},
 	}
 	for _, s := range steps {
-		out, err := exec.Command(s.cmd, s.args...).CombinedOutput()
+		out, err := execx.Command(s.cmd, s.args...).CombinedOutput()
 		sb.WriteString(s.label + ":\n")
 		if err != nil {
 			sb.WriteString("  FEHLER: " + err.Error() + "\n")
@@ -142,7 +151,7 @@ func runQuickClean() Result {
 }
 
 func runCmd(id, label string, name string, args ...string) Result {
-	out, err := exec.Command(name, args...).CombinedOutput()
+	out, err := execx.Command(name, args...).CombinedOutput()
 	if err != nil {
 		return Result{Action: id, Output: label + ":\nFEHLER: " + err.Error() + "\n" + string(out), Success: false}
 	}

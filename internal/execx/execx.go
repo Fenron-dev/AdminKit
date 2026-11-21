@@ -223,3 +223,19 @@ func lastLine(s string) string {
 	}
 	return s
 }
+
+// Command entspricht exec.Command, versteckt unter Windows aber das
+// Konsolenfenster (CREATE_NO_WINDOW). Für ältere Aufrufer, die *exec.Cmd
+// selbst steuern (#96).
+func Command(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	hideWindow(cmd)
+	return cmd
+}
+
+// CommandContext entspricht exec.CommandContext mit verstecktem Fenster.
+func CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	hideWindow(cmd)
+	return cmd
+}

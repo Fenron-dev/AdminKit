@@ -3,9 +3,9 @@
 package software
 
 import (
+	"adminkit/internal/execx"
 	"fmt"
 	"math"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -216,11 +216,11 @@ func scanDotNetFramework(errs *[]ScanError) []Runtime {
 		}
 
 		runtimes = append(runtimes, Runtime{
-			Name:        ".NET Framework " + v.name,
-			Version:     actualVersion,
-			Type:        RuntimeDotNetFx,
+			Name:         ".NET Framework " + v.name,
+			Version:      actualVersion,
+			Type:         RuntimeDotNetFx,
 			Architecture: "64-bit",
-			IsInstalled: true,
+			IsInstalled:  true,
 		})
 		break // Nur die höchste installierte Version eintragen
 	}
@@ -230,7 +230,7 @@ func scanDotNetFramework(errs *[]ScanError) []Runtime {
 
 func scanDotNetCore(errs *[]ScanError) []Runtime {
 	var runtimes []Runtime
-	out, err := exec.Command("dotnet", "--list-runtimes").Output()
+	out, err := execx.Command("dotnet", "--list-runtimes").Output()
 	if err != nil {
 		return runtimes // dotnet nicht installiert
 	}
@@ -330,7 +330,7 @@ func scanJava(errs *[]ScanError) []Runtime {
 }
 
 func scanPython(errs *[]ScanError) []Runtime {
-	out, err := exec.Command("python", "--version").CombinedOutput()
+	out, err := execx.Command("python", "--version").CombinedOutput()
 	if err != nil {
 		return nil
 	}
@@ -339,7 +339,7 @@ func scanPython(errs *[]ScanError) []Runtime {
 }
 
 func scanNodeJS(errs *[]ScanError) []Runtime {
-	out, err := exec.Command("node", "--version").Output()
+	out, err := execx.Command("node", "--version").Output()
 	if err != nil {
 		return nil
 	}
@@ -349,7 +349,7 @@ func scanNodeJS(errs *[]ScanError) []Runtime {
 
 // ─── Browser ─────────────────────────────────────────────────────────────────
 
-func scanBrowsers()([]Browser, []ScanError) {
+func scanBrowsers() ([]Browser, []ScanError) {
 	var browsers []Browser
 	var errs []ScanError
 

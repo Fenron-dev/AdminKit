@@ -4,7 +4,19 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
+
+// seedCounts liefert die Größe des mitgelieferten Startbestands.
+func seedCounts(t *testing.T) (bereiche, links, rev int) {
+	t.Helper()
+	var s seedLinks
+	if err := yaml.Unmarshal(defaultLinksYAML, &s); err != nil {
+		t.Fatal(err)
+	}
+	return len(s.Bereiche), len(s.Links), s.Revision
+}
 
 func TestLinksSeedAndMerge(t *testing.T) {
 	dir := t.TempDir()
@@ -12,7 +24,8 @@ func TestLinksSeedAndMerge(t *testing.T) {
 	if err != nil || !changed {
 		t.Fatalf("Startbestand: changed=%v err=%v", changed, err)
 	}
-	if len(l.Bereiche) != 10 || len(l.Links) != 45 || l.Revision < 1 {
+	nb, nl, rev := seedCounts(t)
+	if len(l.Bereiche) != nb || len(l.Links) != nl || l.Revision != rev || nb < 10 || nl < 45 {
 		t.Fatalf("Startbestand unvollständig: %d Bereiche, %d Links, rev %d", len(l.Bereiche), len(l.Links), l.Revision)
 	}
 	if _, err := os.Stat(LinksPath(dir)); err != nil {
@@ -50,7 +63,8 @@ func TestLinksNewSeedEntriesAreAdded(t *testing.T) {
 	os.MkdirAll(dir+"/links", 0755)
 	os.WriteFile(LinksPath(dir), []byte("version: 1\nrevision: 0\nbereiche:\n  - {id: it, name: IT}\nlinks:\n  - {id: seafile, name: Cloud, url: 'https://x.example/', bereiche: [it]}\n"), 0644)
 	l, changed, err := LoadLinks(dir)
-	if err != nil || !changed || len(l.Links) != 45 || len(l.Bereiche) != 10 {
+	nb, nl, _ := seedCounts(t)
+	if err != nil || !changed || len(l.Links) != nl || len(l.Bereiche) != nb {
 		t.Fatalf("Abgleich: changed=%v err=%v links=%d bereiche=%d", changed, err, len(l.Links), len(l.Bereiche))
 	}
 	if l.Links[0].Name != "Cloud" || l.Bereiche[0].Name != "IT" {

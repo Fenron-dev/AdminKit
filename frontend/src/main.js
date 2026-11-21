@@ -4376,22 +4376,25 @@ function initToolsExtended() {
       dropZone.classList.add('drag-over');
     });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    // Native Wails-Drops liefern den echten Pfad (#96). Nur Drops auf Elemente
+    // mit --wails-drop-target: drop (die Zone) lösen den Callback aus.
+    var nativeDrop = false;
+    if (window.runtime?.OnFileDrop) {
+      try {
+        window.runtime.OnFileDrop(function(_x, _y, paths) {
+          dropZone.classList.remove('drag-over');
+          if (paths && paths.length) scanFileWithVT(paths[0]);
+        }, true);
+        nativeDrop = true;
+      } catch (_) { nativeDrop = false; }
+    }
     dropZone.addEventListener('drop', async e => {
       e.preventDefault();
       dropZone.classList.remove('drag-over');
-      const files = e.dataTransfer?.files;
-      if (files?.length > 0) {
-        // In Wails WebView haben wir leider nur den Dateinamen, nicht den Pfad.
-        // Falls der Pfad verfügbar ist (macOS WebKit gibt ihn manchmal), nutzen wir ihn.
-        const file = files[0];
-        const path = file.path || ''; // Electron-/Wails-Erweiterung
-        if (path) {
-          scanFileWithVT(path);
-        } else {
-          // Fallback: Hash des Datei-Inhalts berechnen (browser-seitig)
-          scanFileContentWithVT(file);
-        }
-      }
+      if (nativeDrop) return; // Pfad kommt über OnFileDrop
+      const file = e.dataTransfer?.files?.[0];
+      // Fallback ohne nativen Drop: Hash des Inhalts im Browser berechnen
+      if (file) scanFileContentWithVT(file);
     });
   }
 
@@ -4447,10 +4450,8 @@ async function scanFileWithVT(filePath) {
   try {
     const hash = await HashFileForVT(filePath);
     if (!vtKey) {
-      // Ohne API-Key: Browser öffnen
-      showVTFileResult('info', `${name}\nSHA256: ${hash}\nÖffne virustotal.com im Browser…`);
-      OpenVTInBrowser(hash);
-      addAction('VT Browser-Check gestartet: ' + hash.slice(0, 12) + '…', 'info');
+      // Ohne API-Key: Hash zeigen, Browser nur auf Klick (#96)
+      showVTNoKeyResult(name, hash);
       return;
     }
     // Mit API-Key: Hash-Lookup
@@ -4510,11 +4511,37 @@ async function scanFileContentWithVT(file) {
     const buffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
     const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-    showVTFileResult('info', `${file.name}\nSHA256: ${hash}\nÖffne virustotal.com…`);
-    OpenVTInBrowser(hash);
+    showVTNoKeyResult(file.name, hash);
   } catch (err) {
     showVTFileResult('error', 'Fehler: ' + err);
   }
+}
+
+// Ohne API-Key kann AdminKit nicht abfragen, ob VirusTotal die Datei kennt.
+// Unbekannte Hashes zeigen dort „Item not found“ – das erklären wir vorher.
+function showVTNoKeyResult(name, hash) {
+  const el = document.getElementById('vt-file-result');
+  if (!el) return;
+  el.classList.remove('hidden');
+  el.className = 'vt-file-result vt-file-info';
+  el.innerHTML = `<div class="vt-nokey">
+      <div><strong>${escapeHtml(name)}</strong></div>
+      <div class="vt-hash">SHA256: <code>${escapeHtml(hash)}</code></div>
+      <p>Ohne API-Key kann AdminKit nicht selbst nachfragen. Zeigt VirusTotal <strong>„Item not found“</strong>, wurde diese Datei dort noch nie hochgeladen –
+        das ist <em>kein</em> Befund, aber auch keine Entwarnung. Dann kannst du sie auf der Upload-Seite selbst einreichen (sie ist danach für VT-Kunden einsehbar – keine vertraulichen Kundendateien!).</p>
+      <div class="vt-actions">
+        <button class="btn btn-primary btn-sm" data-vt="lookup">🔎 Bei VirusTotal nachsehen</button>
+        <button class="btn btn-secondary btn-sm" data-vt="upload">⬆ Zur Upload-Seite</button>
+        <button class="btn btn-secondary btn-sm" data-vt="copy">📋 Hash kopieren</button>
+      </div>
+      <p class="vt-tip">Tipp: Mit einem kostenlosen API-Key (Einstellungen → API-Keys) prüft AdminKit direkt und bietet bei unbekannten Dateien den Upload an.</p>
+    </div>`;
+  el.querySelector('[data-vt="lookup"]').onclick = () => { OpenVTInBrowser(hash); addAction('VT Browser-Check: ' + hash.slice(0, 12) + '…', 'info'); };
+  el.querySelector('[data-vt="upload"]').onclick = () => { window.runtime?.BrowserOpenURL?.('https://www.virustotal.com/gui/home/upload'); };
+  el.querySelector('[data-vt="copy"]').onclick = async () => {
+    try { await navigator.clipboard.writeText(hash); } catch (_) { await window.runtime?.ClipboardSetText?.(hash); }
+    showToast('Hash kopiert');
+  };
 }
 
 function showVTFileResult(type, text) {

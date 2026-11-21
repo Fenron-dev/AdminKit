@@ -3,7 +3,7 @@
 package usbhistory
 
 import (
-	"os/exec"
+	"adminkit/internal/execx"
 	"strings"
 )
 
@@ -12,7 +12,7 @@ func Scan() (*ScanResult, error) {
 	result := &ScanResult{}
 
 	// Get-PnpDevice listet Plug-and-Play-Geräte inkl. USB auf
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command",
+	out, err := execx.Command("powershell", "-NoProfile", "-NonInteractive", "-Command",
 		"Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -like 'USB\\*' } | "+
 			"Select-Object FriendlyName,Manufacturer,InstanceId,Status | "+
 			"ConvertTo-Csv -NoTypeInformation").Output()

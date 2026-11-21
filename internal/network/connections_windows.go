@@ -3,9 +3,9 @@
 package network
 
 import (
+	"adminkit/internal/execx"
 	"bufio"
 	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -20,7 +20,7 @@ type win32Process struct {
 // scanConnections liest aktive Verbindungen via netstat -ano auf Windows.
 // Prozessnamen werden per WMI nachgeschlagen.
 func scanConnections() ([]NetworkConnection, error) {
-	out, err := exec.Command("netstat", "-ano").Output()
+	out, err := execx.Command("netstat", "-ano").Output()
 	if err != nil && len(out) == 0 {
 		return nil, err
 	}

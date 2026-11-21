@@ -3,10 +3,10 @@
 package system
 
 import (
+	"adminkit/internal/execx"
 	"fmt"
 	"math"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -232,7 +232,6 @@ func scanBattery() *BatteryInfo {
 	}
 }
 
-
 // ─── Betriebssystem ───────────────────────────────────────────────────────────
 
 type wmiOS struct {
@@ -294,7 +293,7 @@ func queryLicenseStatus() string {
 	}
 
 	// Fallback: slmgr.vbs (langsam, aber sprachübergreifend parsen)
-	out, err := exec.Command("cscript", "//NoLogo", `C:\Windows\System32\slmgr.vbs`, "/dli").Output()
+	out, err := execx.Command("cscript", "//NoLogo", `C:\Windows\System32\slmgr.vbs`, "/dli").Output()
 	if err != nil {
 		return "Unknown"
 	}
@@ -360,7 +359,7 @@ func scanSmart() ([]DiskSmart, []ScanError) {
 // Schlägt ohne Admin-Rechte fehl — wird dann als Warnung geloggt, kein Absturz.
 func enrichSmartWithWMI(disks []DiskSmart, errs *[]ScanError) []DiskSmart {
 	type wmiSmartData struct {
-		InstanceName string
+		InstanceName   string
 		VendorSpecific []byte
 	}
 
@@ -386,14 +385,14 @@ func enrichSmartWithWMI(disks []DiskSmart, errs *[]ScanError) []DiskSmart {
 			// Bekannte Attribute herausziehen
 			for _, attr := range disks[i].Attributes {
 				switch attr.ID {
-				case 5:   // Reallocated Sectors
+				case 5: // Reallocated Sectors
 					disks[i].ReallocatedSectors = attr.RawValue
 					if attr.RawValue > 0 {
 						disks[i].Status = SmartWarning
 					}
 				case 190, 194: // Temperature
 					disks[i].TemperatureC = int(attr.RawValue & 0xFF)
-				case 9:   // Power-On Hours
+				case 9: // Power-On Hours
 					disks[i].PowerOnHours = attr.RawValue
 				case 231, 177: // SSD Life Left
 					disks[i].LifeLeftPercent = int(attr.RawValue)
@@ -488,10 +487,10 @@ func fetchAdminGroupMembers(errs *[]ScanError) map[string]bool {
 	admins := make(map[string]bool)
 
 	// Primär: net localgroup (sprachunabhängig via Gruppenname, kein Admin nötig)
-	out, err := exec.Command("net", "localgroup", "Administrators").Output()
+	out, err := execx.Command("net", "localgroup", "Administrators").Output()
 	if err != nil {
 		// Fallback auf deutsche Gruppenbezeichnung
-		out, err = exec.Command("net", "localgroup", "Administratoren").Output()
+		out, err = execx.Command("net", "localgroup", "Administratoren").Output()
 	}
 	if err == nil {
 		lines := strings.Split(string(out), "\n")
@@ -575,7 +574,7 @@ func scanLocalShares(errs *[]ScanError) []LocalShare {
 }
 
 func scanRDP(info *SecurityInfo, errs *[]ScanError) {
-	out, err := exec.Command("reg", "query",
+	out, err := execx.Command("reg", "query",
 		`HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server`,
 		"/v", "fDenyTSConnections").Output()
 	if err != nil {
@@ -586,7 +585,7 @@ func scanRDP(info *SecurityInfo, errs *[]ScanError) {
 
 	if info.RDPEnabled {
 		// NLA (Network Level Authentication) prüfen
-		nlaOut, err := exec.Command("reg", "query",
+		nlaOut, err := execx.Command("reg", "query",
 			`HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp`,
 			"/v", "UserAuthentication").Output()
 		if err == nil {
@@ -594,7 +593,7 @@ func scanRDP(info *SecurityInfo, errs *[]ScanError) {
 		}
 		// Standard-RDP-Port
 		info.RDPPort = 3389
-		portOut, err := exec.Command("reg", "query",
+		portOut, err := execx.Command("reg", "query",
 			`HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp`,
 			"/v", "PortNumber").Output()
 		if err == nil {
@@ -618,7 +617,7 @@ func scanBitLocker(errs *[]ScanError) []BitLockerVolume {
 	var volumes []BitLockerVolume
 
 	// manage-bde ist auf allen Windows-Versionen mit BitLocker verfügbar
-	out, err := exec.Command("manage-bde", "-status").Output()
+	out, err := execx.Command("manage-bde", "-status").Output()
 	if err != nil {
 		*errs = append(*errs, ScanError{"security.bitlocker", fmt.Sprintf("manage-bde fehlgeschlagen: %v", err)})
 		return volumes
@@ -700,7 +699,7 @@ func scanDefender(info *SecurityInfo, errs *[]ScanError) {
 
 // queryDefenderSignatureDate liest das Signatur-Datum aus der Registry.
 func queryDefenderSignatureDate() time.Time {
-	out, err := exec.Command("reg", "query",
+	out, err := execx.Command("reg", "query",
 		`HKLM\SOFTWARE\Microsoft\Windows Defender\Signature Updates`,
 		"/v", "SignaturesLastUpdated").Output()
 	if err != nil {
@@ -719,7 +718,7 @@ func queryDefenderSignatureDate() time.Time {
 }
 
 func checkFirewall(errs *[]ScanError) bool {
-	out, err := exec.Command("netsh", "advfirewall", "show", "allprofiles", "state").Output()
+	out, err := execx.Command("netsh", "advfirewall", "show", "allprofiles", "state").Output()
 	if err != nil {
 		*errs = append(*errs, ScanError{"security.firewall", err.Error()})
 		return false

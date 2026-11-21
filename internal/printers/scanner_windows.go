@@ -3,8 +3,8 @@
 package printers
 
 import (
+	"adminkit/internal/execx"
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -34,7 +34,7 @@ foreach ($p in $printers) {
     Write-Output ("NAME=" + $p.Name + "|DRIVER=" + $p.DriverName + "|PORT=" + $p.PortName + "|STATUS=" + $p.PrinterStatus + "|DEFAULT=" + $p.Default + "|SHARED=" + $p.Shared + "|SHARENAME=" + $p.ShareName + "|LOCATION=" + $p.Location + "|IP=" + $ip)
 }
 `
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	out, err := execx.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil {
 		return nil, fmt.Errorf("powershell: %w", err)
 	}

@@ -3,6 +3,7 @@
 package tools
 
 import (
+	"adminkit/internal/execx"
 	"archive/zip"
 	"bytes"
 	"context"
@@ -233,9 +234,9 @@ func RunRaw(command string) (string, error) {
 
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "cmd", "/c", command)
+		cmd = execx.CommandContext(ctx, "cmd", "/c", command)
 	} else {
-		cmd = exec.CommandContext(ctx, "sh", "-c", command)
+		cmd = execx.CommandContext(ctx, "sh", "-c", command)
 	}
 	var buf bytes.Buffer
 	cmd.Stdout = &buf

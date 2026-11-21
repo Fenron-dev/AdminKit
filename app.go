@@ -1,6 +1,7 @@
 package main
 
 import (
+	"adminkit/internal/execx"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -8,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"strconv"
@@ -199,7 +199,7 @@ func (a *App) GetPlatform() string {
 func (a *App) GetOSLocale() string {
 	if goruntime.GOOS == "darwin" {
 		// macOS: primäre Sprache aus den globalen Preferences
-		out, err := exec.Command("defaults", "read", ".GlobalPreferences", "AppleLocale").Output()
+		out, err := execx.Command("defaults", "read", ".GlobalPreferences", "AppleLocale").Output()
 		if err == nil {
 			locale := strings.TrimSpace(string(out))
 			// z.B. "de_DE", "en_US", "fr_FR" → nur erstes Segment
@@ -215,7 +215,7 @@ func (a *App) GetOSLocale() string {
 		}
 	}
 	if goruntime.GOOS == "windows" {
-		out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		out, err := execx.Command("powershell", "-NoProfile", "-Command",
 			"(Get-Culture).TwoLetterISOLanguageName").Output()
 		if err == nil {
 			return strings.ToLower(strings.TrimSpace(string(out)))
@@ -1370,7 +1370,7 @@ func (a *App) EjectUSBDevice(bsdName string) error {
 		return fmt.Errorf("kein BSD-Name angegeben")
 	}
 	logging.Infof("USB", "Auswerfen: %s", bsdName)
-	out, err := exec.Command("diskutil", "eject", bsdName).CombinedOutput()
+	out, err := execx.Command("diskutil", "eject", bsdName).CombinedOutput()
 	if err != nil {
 		msg := strings.TrimSpace(string(out))
 		logging.Warnf("USB", "Auswerfen fehlgeschlagen (%s): %v — %s", bsdName, err, msg)
@@ -1400,7 +1400,7 @@ func (a *App) ToggleAutostartEntry(plistPath string, enable bool) error {
 	}
 	action := map[bool]string{true: "bootstrap", false: "bootout"}[enable]
 	logging.Infof("Autostart", "%s (%s): %s", action, domain, plistPath)
-	out, err := exec.Command("launchctl", modernArgs...).CombinedOutput()
+	out, err := execx.Command("launchctl", modernArgs...).CombinedOutput()
 	if err == nil {
 		logging.Infof("Autostart", "%s erfolgreich: %s", action, plistPath)
 		return nil
@@ -1420,7 +1420,7 @@ func (a *App) ToggleAutostartEntry(plistPath string, enable bool) error {
 		legacyAction = "load"
 		legacyArgs = []string{"load", "-w", plistPath}
 	}
-	legacyOut, legacyErr := exec.Command("launchctl", legacyArgs...).CombinedOutput()
+	legacyOut, legacyErr := execx.Command("launchctl", legacyArgs...).CombinedOutput()
 	if legacyErr != nil {
 		legacyMsg := strings.TrimSpace(string(legacyOut))
 		logging.Warnf("Autostart", "legacy %s fehlgeschlagen (%s): %v — %s", legacyAction, plistPath, legacyErr, legacyMsg)
@@ -1461,7 +1461,7 @@ func (a *App) RunPeriodicMaintenance(level string) (string, error) {
 		return "", fmt.Errorf("ungültiger Level: %s", level)
 	}
 	logging.Infof("Maintenance", "periodic %s gestartet", level)
-	out, err := exec.Command("osascript", "-e",
+	out, err := execx.Command("osascript", "-e",
 		fmt.Sprintf(`do shell script "periodic %s" with administrator privileges`, level)).
 		CombinedOutput()
 	if err != nil {
@@ -1491,14 +1491,14 @@ type SSHStatus struct {
 func (a *App) GetSSHStatus() (*SSHStatus, error) {
 	status := &SSHStatus{}
 
-	out, err := exec.Command("systemsetup", "-getremotelogin").Output()
+	out, err := execx.Command("systemsetup", "-getremotelogin").Output()
 	if err != nil {
 		return nil, fmt.Errorf("systemsetup: %v", err)
 	}
 	status.Enabled = strings.Contains(strings.ToLower(string(out)), "on")
 
 	// Aktive SSH-Sessions aus 'who' (Zeilen mit "(.*)" = Remote)
-	whoOut, whoErr := exec.Command("who").Output()
+	whoOut, whoErr := execx.Command("who").Output()
 	if whoErr == nil {
 		for _, line := range strings.Split(strings.TrimSpace(string(whoOut)), "\n") {
 			line = strings.TrimSpace(line)
@@ -1518,7 +1518,7 @@ func (a *App) SetSSHEnabled(enable bool) error {
 		state = "on"
 	}
 	logging.Infof("SSH", "Remote Login → %s", state)
-	out, err := exec.Command("osascript", "-e",
+	out, err := execx.Command("osascript", "-e",
 		fmt.Sprintf(`do shell script "systemsetup -setremotelogin %s" with administrator privileges`, state)).
 		CombinedOutput()
 	if err != nil {
@@ -1570,7 +1570,7 @@ func (a *App) GetDiskUsageByFolder() ([]DiskFolderEntry, error) {
 		if _, err := os.Stat(t.path); err != nil {
 			continue
 		}
-		out, err := exec.Command("du", "-sk", t.path).Output()
+		out, err := execx.Command("du", "-sk", t.path).Output()
 		if err != nil {
 			continue
 		}
@@ -1649,7 +1649,7 @@ func (a *App) ScanCertificates() ([]CertInfo, error) {
 			continue
 		}
 		// Zertifikate als PEM exportieren
-		pemOut, err := exec.Command("security", "find-certificate", "-a", "-p", kc.path).Output()
+		pemOut, err := execx.Command("security", "find-certificate", "-a", "-p", kc.path).Output()
 		if err != nil || len(pemOut) == 0 {
 			continue
 		}
@@ -1664,7 +1664,7 @@ func (a *App) ScanCertificates() ([]CertInfo, error) {
 			block := pem[start : end+len("-----END CERTIFICATE-----")]
 			pem = pem[end+len("-----END CERTIFICATE-----"):]
 
-			cmd := exec.Command("openssl", "x509", "-noout", "-subject", "-issuer", "-dates")
+			cmd := execx.Command("openssl", "x509", "-noout", "-subject", "-issuer", "-dates")
 			cmd.Stdin = strings.NewReader(block)
 			opOut, opErr := cmd.Output()
 			if opErr != nil {

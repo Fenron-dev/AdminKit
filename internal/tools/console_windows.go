@@ -3,9 +3,9 @@
 package tools
 
 import (
+	"adminkit/internal/execx"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 )
@@ -61,7 +61,7 @@ func RunCommand(tool, target string) (string, error) {
 
 // GetClipboard liest den aktuellen Text aus der Windows-Zwischenablage.
 func GetClipboard() (string, error) {
-	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive",
+	out, err := execx.Command("powershell.exe", "-NoProfile", "-NonInteractive",
 		"-command", "Get-Clipboard").Output()
 	if err != nil {
 		return "", fmt.Errorf("Zwischenablage konnte nicht gelesen werden: %w", err)
@@ -72,7 +72,7 @@ func GetClipboard() (string, error) {
 // GetUptime gibt die Zeit seit dem letzten Systemstart als formatierten String zurück.
 func GetUptime() (string, error) {
 	// Win32_OperatingSystem.LastBootUpTime via PowerShell (schneller als WMI-Go-Binding hier)
-	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-command",
+	out, err := execx.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-command",
 		`(Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime | `+
 			`Select-Object -ExpandProperty TotalSeconds`).Output()
 	if err != nil {
@@ -86,7 +86,7 @@ func GetUptime() (string, error) {
 // ─── Interne Implementierungen ────────────────────────────────────────────────
 
 func runIfconfig() (string, error) {
-	out, err := exec.Command("ipconfig", "/all").CombinedOutput()
+	out, err := execx.Command("ipconfig", "/all").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("ipconfig fehlgeschlagen: %w", err)
 	}
@@ -94,7 +94,7 @@ func runIfconfig() (string, error) {
 }
 
 func runRoute() (string, error) {
-	out, err := exec.Command("route", "print").CombinedOutput()
+	out, err := execx.Command("route", "print").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("route print fehlgeschlagen: %w", err)
 	}
@@ -102,7 +102,7 @@ func runRoute() (string, error) {
 }
 
 func runDNSFlush() (string, error) {
-	out, err := exec.Command("ipconfig", "/flushdns").CombinedOutput()
+	out, err := execx.Command("ipconfig", "/flushdns").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("DNS-Cache konnte nicht geleert werden: %w", err)
 	}
@@ -119,7 +119,7 @@ func runHosts() (string, error) {
 }
 
 func runFirewall() (string, error) {
-	out, err := exec.Command("netsh", "advfirewall", "show", "allprofiles", "state").CombinedOutput()
+	out, err := execx.Command("netsh", "advfirewall", "show", "allprofiles", "state").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("Firewall-Status konnte nicht abgerufen werden: %w", err)
 	}
@@ -128,7 +128,7 @@ func runFirewall() (string, error) {
 
 func runOpenPorts() (string, error) {
 	// netstat -ano zeigt PID; -b für Prozessnamen braucht Admin
-	out, err := exec.Command("netstat", "-ano").CombinedOutput()
+	out, err := execx.Command("netstat", "-ano").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("netstat fehlgeschlagen: %w", err)
 	}
@@ -149,7 +149,7 @@ func runPing(target string) (string, error) {
 		return "", fmt.Errorf("kein Ziel angegeben")
 	}
 	// -n 4: 4 Pakete, -w 2000: 2s Timeout pro Paket
-	out, err := exec.Command("ping", "-n", "4", "-w", "2000", target).CombinedOutput()
+	out, err := execx.Command("ping", "-n", "4", "-w", "2000", target).CombinedOutput()
 	if err != nil && len(out) == 0 {
 		return "", fmt.Errorf("ping fehlgeschlagen: %w", err)
 	}
@@ -161,7 +161,7 @@ func runTracert(target string) (string, error) {
 		return "", fmt.Errorf("kein Ziel angegeben")
 	}
 	// -d: keine DNS-Auflösung pro Hop (schneller), -h 20: max. 20 Hops, -w 2000: 2s Timeout
-	out, err := exec.Command("tracert", "-d", "-h", "20", "-w", "2000", target).CombinedOutput()
+	out, err := execx.Command("tracert", "-d", "-h", "20", "-w", "2000", target).CombinedOutput()
 	if err != nil && len(out) == 0 {
 		return "", fmt.Errorf("tracert fehlgeschlagen: %w", err)
 	}
@@ -173,11 +173,11 @@ func runDNS(target string) (string, error) {
 		return "", fmt.Errorf("kein Hostname angegeben")
 	}
 	// Resolve-DnsName gibt strukturiertere Ausgabe als nslookup
-	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-command",
+	out, err := execx.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-command",
 		fmt.Sprintf("Resolve-DnsName '%s' -ErrorAction SilentlyContinue | Format-List", target)).CombinedOutput()
 	if err != nil || len(strings.TrimSpace(string(out))) == 0 {
 		// Fallback auf nslookup
-		out, err = exec.Command("nslookup", target).CombinedOutput()
+		out, err = execx.Command("nslookup", target).CombinedOutput()
 		if err != nil && len(out) == 0 {
 			return "", fmt.Errorf("DNS-Lookup fehlgeschlagen: %w", err)
 		}
@@ -187,7 +187,7 @@ func runDNS(target string) (string, error) {
 
 func runNetstat() (string, error) {
 	// -a: alle Verbindungen, -n: numerisch, -o: ProzessID
-	out, err := exec.Command("netstat", "-ano").CombinedOutput()
+	out, err := execx.Command("netstat", "-ano").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("netstat fehlgeschlagen: %w", err)
 	}
@@ -195,7 +195,7 @@ func runNetstat() (string, error) {
 }
 
 func runARP() (string, error) {
-	out, err := exec.Command("arp", "-a").CombinedOutput()
+	out, err := execx.Command("arp", "-a").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("arp fehlgeschlagen: %w", err)
 	}
@@ -204,7 +204,7 @@ func runARP() (string, error) {
 
 func runDrivers() (string, error) {
 	// driverquery /fo csv gibt CSV-Format, leichter zu parsen
-	out, err := exec.Command("driverquery", "/fo", "list", "/v").CombinedOutput()
+	out, err := execx.Command("driverquery", "/fo", "list", "/v").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("driverquery fehlgeschlagen: %w", err)
 	}
