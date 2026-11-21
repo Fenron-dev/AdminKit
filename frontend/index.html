@@ -441,9 +441,26 @@
                 <a class="sidebar-link" data-target="section-extensions">🧩 Extensions</a>
                 <button class="sidebar-mini-scan" id="btn-scan-extensions" title="Extensions scannen">↺</button>
               </div>
+              <div class="sidebar-sep"></div>
+              <div class="sidebar-row"><a class="sidebar-link" data-swview="updates">⬆ Updates</a></div>
+              <div class="sidebar-row"><a class="sidebar-link" data-swview="search">🔍 Pakete suchen</a></div>
+              <div class="sidebar-row"><a class="sidebar-link" data-swview="favorites">⭐ Favoriten</a></div>
             </nav>
           </aside>
           <div class="tab-content-area">
+            <div class="subtab-bar" id="software-subtabs">
+              <button class="subtab-btn active" data-view="installed">📦 Installiert</button>
+              <button class="subtab-btn" data-view="updates">⬆ Updates <span class="count-badge" id="pkg-updates-count"></span></button>
+              <button class="subtab-btn" data-view="search">🔍 Suchen</button>
+              <button class="subtab-btn" data-view="favorites">⭐ Favoriten</button>
+            </div>
+
+            <div class="hidden" id="pkg-status-wrap">
+              <div class="pkg-status-bar" id="pkg-status-bar"></div>
+              <div class="hidden" id="pkg-status-hint"></div>
+            </div>
+
+            <div class="sw-view" id="sw-view-installed">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <h2 style="font-size:15px;font-weight:600">Programme <span class="count-badge" id="software-count"></span></h2>
             </div>
@@ -471,6 +488,53 @@
               <div id="extensions-info">
                 <div class="info-placeholder">„Extensions scannen" klicken um Browser-Erweiterungen zu laden…</div>
               </div>
+            </div>
+            <!-- Über den Paketmanager verwaltete Pakete -->
+            <div class="info-section" id="section-pkg-installed" style="margin-top:16px">
+              <h3 class="section-title">Über Paketmanager verwaltet <span class="count-badge" id="pkg-installed-count"></span></h3>
+              <div class="pkg-toolbar">
+                <button class="btn btn-secondary btn-sm" id="pkg-btn-load-installed">↺ Pakete laden</button>
+                <span class="settings-hint">winget- bzw. Homebrew-Pakete mit Paket-ID – entfernen, pinnen, Infos. Funktioniert offline.</span>
+              </div>
+              <div id="pkg-installed-list"></div>
+            </div>
+            </div><!-- /sw-view-installed -->
+
+            <!-- ⬆ Updates -->
+            <div class="sw-view hidden" id="sw-view-updates">
+              <div class="pkg-toolbar">
+                <button class="btn btn-secondary btn-sm" id="pkg-btn-check">↻ Updates prüfen</button>
+                <button class="btn btn-primary btn-sm hidden" id="pkg-btn-upgrade-all">⬆ Alle</button>
+                <button class="btn btn-primary btn-sm hidden" id="pkg-btn-upgrade-selected">⬆ Ausgewählte aktualisieren</button>
+                <label class="pkg-check hidden-on-win" id="pkg-greedy-wrap"><input type="checkbox" id="pkg-greedy"> Auch selbstaktualisierende Apps (--greedy)</label>
+              </div>
+              <div id="pkg-updates-list"><div class="info-placeholder">„Updates prüfen“ klicken. Die Prüfung läuft online und nur auf Klick.</div></div>
+            </div>
+
+            <!-- 🔍 Suchen -->
+            <div class="sw-view hidden" id="sw-view-search">
+              <form class="pkg-search" id="pkg-search-form">
+                <input type="search" id="pkg-search-input" placeholder="Programm suchen, z. B. firefox, 7-zip, teamviewer…" autocomplete="off">
+                <button class="btn btn-primary btn-sm" id="pkg-search-btn" type="submit">🔍 Suchen</button>
+              </form>
+              <div id="pkg-search-list"><div class="info-placeholder">Suche im offiziellen Paketkatalog (winget bzw. Homebrew). Vor jeder Installation wird der genaue Befehl angezeigt.</div></div>
+            </div>
+
+            <!-- ⭐ Favoriten -->
+            <div class="sw-view hidden" id="sw-view-favorites">
+              <div id="pkg-favorites"><div class="info-placeholder">Favoriten werden geladen…</div></div>
+            </div>
+
+            <!-- Live-Ausgabe aller Paketvorgänge -->
+            <div class="qa-output hidden" id="pkg-output">
+              <div class="qa-output-header">
+                <span id="pkg-output-title">Paketvorgang</span>
+                <span>
+                  <button class="btn btn-danger btn-xs hidden" id="pkg-output-cancel">Abbrechen</button>
+                  <button class="modal-close" id="pkg-output-close" title="Schließen">✕</button>
+                </span>
+              </div>
+              <pre class="qa-output-pre pkg-output-pre" id="pkg-output-text"></pre>
             </div>
           </div><!-- /tab-content-area -->
         </section>
@@ -617,22 +681,11 @@
               <p class="settings-hint">Führt die macOS-Systemwartung aus, die normalerweise nachts läuft. Erfordert Admin-Rechte.</p>
             </div>
 
-            <!-- Homebrew Updates (macOS) -->
+            <!-- Homebrew Updates → Software-Tab -->
             <div class="tools-group" id="tools-homebrew">
-              <h3 class="tools-group-title">Homebrew Updates</h3>
-              <div class="homebrew-controls">
-                <button class="btn btn-secondary btn-sm" id="btn-brew-check">🔍 Updates prüfen</button>
-                <button class="btn btn-primary btn-sm hidden" id="btn-brew-upgrade-all">⬆ Alle aktualisieren</button>
-              </div>
-              <div id="brew-outdated-list" class="brew-outdated-list hidden"></div>
-              <div class="qa-output hidden" id="brew-output">
-                <div class="qa-output-header">
-                  <span id="brew-output-title">Homebrew Upgrade</span>
-                  <button class="modal-close" id="brew-output-close">✕</button>
-                </div>
-                <pre class="qa-output-pre" id="brew-output-text"></pre>
-              </div>
-              <p class="settings-hint">Benötigt Homebrew (<a href="https://brew.sh" onclick="return false">brew.sh</a>). Nur auf macOS verfügbar.</p>
+              <h3 class="tools-group-title">Software-Updates</h3>
+              <p class="settings-hint">Updates, Suche und Installation (Homebrew / winget) findest du jetzt im Software-Tab.</p>
+              <button class="btn btn-secondary btn-sm" id="btn-goto-pkg-updates">⬆ Zur Paketverwaltung</button>
             </div>
 
             <!-- SSH-Verwaltung (macOS) -->

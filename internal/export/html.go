@@ -101,6 +101,9 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	// ── Anker-Navigation ─────────────────────────────────────────────────────
 	sb.WriteString("<nav class=\"report-nav\">\n")
 	sb.WriteString("  <a href=\"#sec-summary\">📊 Zusammenfassung</a>\n")
+	if len(data.WorkDone) > 0 {
+		sb.WriteString("  <a href=\"#sec-work\">🧰 Durchgeführte Arbeiten</a>\n")
+	}
 	if data.System != nil {
 		sb.WriteString("  <a href=\"#sec-system\">⚙ System</a>\n")
 		if len(data.System.Smart) > 0 {
@@ -164,6 +167,13 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	sb.WriteString("<section id=\"sec-summary\" class=\"summary-section\">\n<h2 class=\"sec-title\">📊 Scan-Zusammenfassung</h2>\n")
 	writeScanSummary(sb, data, score, riskEventCount)
 	sb.WriteString("</section>\n")
+
+	// ── Durchgeführte Arbeiten ───────────────────────────────────────────────
+	if len(data.WorkDone) > 0 {
+		sb.WriteString("<section id=\"sec-work\">\n<h2 class=\"sec-title\">🧰 Durchgeführte Arbeiten</h2>\n")
+		writeWorkDone(sb, data.WorkDone)
+		sb.WriteString("</section>\n")
+	}
 
 	// ── System ───────────────────────────────────────────────────────────────
 	if data.System != nil {
@@ -1021,8 +1031,8 @@ func writeProcessesSection(sb *strings.Builder, procs []system.RunningProcess) {
 
 func writeVTAuditSection(sb *strings.Builder, entries []VTAuditEntry) {
 	statusColors := map[string]string{
-		"malicious":  "#dc2626", "suspicious": "#ca8a04",
-		"clean":      "#16a34a", "not_found":  "#64748b",
+		"malicious": "#dc2626", "suspicious": "#ca8a04",
+		"clean": "#16a34a", "not_found": "#64748b",
 	}
 	sb.WriteString("<table class=\"data-table\">\n<thead><tr><th>Status</th><th>Name</th><th>Typ</th><th>Erkennungen</th><th>SHA256</th><th>Geprüft</th></tr></thead>\n<tbody>\n")
 	for _, e := range entries {
@@ -1365,3 +1375,32 @@ function sortSW(col){
   rows.forEach(function(r){tbody.appendChild(r);});
 }
 `
+
+// writeWorkDone gibt die durchgeführten Arbeiten als Tabellen bzw. Listen aus.
+func writeWorkDone(sb *strings.Builder, sections []WorkSection) {
+	for _, w := range sections {
+		sb.WriteString("<h3>" + h(w.Title) + "</h3>\n")
+		if len(w.Rows) > 0 {
+			sb.WriteString("<table class=\"info-table data-table\"><thead><tr>")
+			for _, c := range w.Headers {
+				sb.WriteString("<th>" + h(c) + "</th>")
+			}
+			sb.WriteString("</tr></thead><tbody>\n")
+			for _, r := range w.Rows {
+				sb.WriteString("<tr>")
+				for _, c := range r {
+					sb.WriteString("<td>" + h(c) + "</td>")
+				}
+				sb.WriteString("</tr>\n")
+			}
+			sb.WriteString("</tbody></table>\n")
+		}
+		if len(w.Lines) > 0 {
+			sb.WriteString("<ul>\n")
+			for _, l := range w.Lines {
+				sb.WriteString("<li>" + h(l) + "</li>\n")
+			}
+			sb.WriteString("</ul>\n")
+		}
+	}
+}

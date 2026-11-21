@@ -58,3 +58,15 @@ export function NewCustomerSession(customerName: string, deviceAlias: string, lo
 export function GetFleetSummary(): Promise<any>;
 export function SyncRole(): Promise<string>;
 export function ExportFleetReport(): Promise<string>;
+
+// Paketverwaltung (#84–#87)
+export function GetPackageManagerStatus(): Promise<any>;
+export function GetInstalledPackages(): Promise<any[]>;
+export function GetOutdatedPackages(opts: any): Promise<any[]>;
+export function SearchPackages(query: string): Promise<any[]>;
+export function GetPackageCommand(action: string, ref: any, opts: any): Promise<string>;
+export function InstallPackages(refs: any[], opts: any): Promise<any[]>;
+export function UpgradePackages(refs: any[], opts: any): Promise<any[]>;
+export function UninstallPackage(ref: any, opts: any): Promise<any>;
+export function SetPackagePinned(ref: any, pinned: boolean): Promise<any>;
+export function CancelPackageOperation(): Promise<void>;

@@ -305,12 +305,6 @@ export function RunPeriodicMaintenance(arg1) {
 }
 
 // ── Homebrew ──
-export function GetHomebrewOutdated() {
-    return window['go']['main']['App']['GetHomebrewOutdated']();
-}
-export function RunHomebrewUpgrade(arg1) {
-    return window['go']['main']['App']['RunHomebrewUpgrade'](arg1);
-}
 
 // ── SSH-Verwaltung ──
 export function GetSSHStatus() {
@@ -394,4 +388,36 @@ export function SyncRole() {
 }
 export function ExportFleetReport() {
     return window['go']['main']['App']['ExportFleetReport']();
+}
+
+// ── Paketverwaltung (#84–#87) ──
+export function GetPackageManagerStatus() {
+    return window['go']['main']['App']['GetPackageManagerStatus']();
+}
+export function GetInstalledPackages() {
+    return window['go']['main']['App']['GetInstalledPackages']();
+}
+export function GetOutdatedPackages(arg1) {
+    return window['go']['main']['App']['GetOutdatedPackages'](arg1);
+}
+export function SearchPackages(arg1) {
+    return window['go']['main']['App']['SearchPackages'](arg1);
+}
+export function GetPackageCommand(arg1, arg2, arg3) {
+    return window['go']['main']['App']['GetPackageCommand'](arg1, arg2, arg3);
+}
+export function InstallPackages(arg1, arg2) {
+    return window['go']['main']['App']['InstallPackages'](arg1, arg2);
+}
+export function UpgradePackages(arg1, arg2) {
+    return window['go']['main']['App']['UpgradePackages'](arg1, arg2);
+}
+export function UninstallPackage(arg1, arg2) {
+    return window['go']['main']['App']['UninstallPackage'](arg1, arg2);
+}
+export function SetPackagePinned(arg1, arg2) {
+    return window['go']['main']['App']['SetPackagePinned'](arg1, arg2);
+}
+export function CancelPackageOperation() {
+    return window['go']['main']['App']['CancelPackageOperation']();
 }

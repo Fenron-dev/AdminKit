@@ -1,0 +1,4 @@
+Name                Id                         Version  Match         Source
+----------------------------------------------------------------------------------
+Windows 11 Privacy  N0deZ3r0.Win11Privacy      2.1.0    Tag: privacy  winget
+O&O ShutUp10++      OO-Software.ShutUp10       1.9.1436               winget

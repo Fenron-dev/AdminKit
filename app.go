@@ -76,6 +76,9 @@ type App struct {
 	// Fleet-Sync (#74): Hub-Server (Rolle hub) bzw. Sync-Client (Rolle client).
 	hubServer  *hub.Server
 	syncClient *syncpkg.Client
+
+	// Paketverwaltung (#84–#87)
+	pkg pkgState
 }
 
 // NewApp erstellt eine neue App-Instanz.
@@ -873,8 +876,9 @@ func (a *App) GetCleanupSizes() map[string]string {
 // format: "html" oder "json"
 // Gibt den absoluten Pfad der erzeugten Datei zurück.
 func (a *App) ExportSession(format string) (string, error) {
+	workDone := a.collectWorkDone()
 	if a.lastSystemScan == nil && a.lastNetworkScan == nil &&
-		a.lastSoftwareScan == nil && a.lastAutostartScan == nil {
+		a.lastSoftwareScan == nil && a.lastAutostartScan == nil && len(workDone) == 0 {
 		return "", fmt.Errorf("kein Scan durchgeführt – bitte zuerst scannen")
 	}
 
@@ -906,6 +910,7 @@ func (a *App) ExportSession(format string) (string, error) {
 		Tasks:          a.lastTasksScan,
 		Profiles:       a.lastProfilesScan,
 		USB:            a.lastUSBScan,
+		WorkDone:       workDone,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
 		LogoBase64:     a.readLogoBase64(),
@@ -1465,85 +1470,7 @@ func (a *App) RunPeriodicMaintenance(level string) (string, error) {
 	return result, nil
 }
 
-// ─── Homebrew (macOS only) ────────────────────────────────────────────────────
-
-// HomebrewPackage beschreibt ein veraltetes Homebrew-Paket.
-type HomebrewPackage struct {
-	Name             string `json:"name"`
-	InstalledVersion string `json:"installed_version"`
-	CurrentVersion   string `json:"current_version"`
-}
-
-// findBrew gibt den Pfad zu brew zurück — sucht bekannte Installationsorte,
-// da Wails-Apps den Shell-PATH nicht erben.
-func findBrew() (string, error) {
-	for _, p := range []string{
-		"/opt/homebrew/bin/brew", // Apple Silicon
-		"/usr/local/bin/brew",    // Intel
-		"/home/linuxbrew/.linuxbrew/bin/brew",
-	} {
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
-		}
-	}
-	if p, err := exec.LookPath("brew"); err == nil {
-		return p, nil
-	}
-	return "", fmt.Errorf("Homebrew nicht installiert (brew nicht gefunden)")
-}
-
-// GetHomebrewOutdated prüft ob Homebrew installiert ist und gibt veraltete Pakete zurück.
-func (a *App) GetHomebrewOutdated() ([]HomebrewPackage, error) {
-	brewPath, err := findBrew()
-	if err != nil {
-		return nil, err
-	}
-	out, err := exec.Command(brewPath, "outdated", "--verbose").Output()
-	if err != nil {
-		return nil, fmt.Errorf("brew outdated: %v", err)
-	}
-	var pkgs []HomebrewPackage
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		// Format: "package (installed_version) < current_version"
-		// oder: "package installed_version -> current_version"
-		parts := strings.Fields(line)
-		pkg := HomebrewPackage{Name: parts[0]}
-		if len(parts) >= 4 {
-			pkg.InstalledVersion = strings.Trim(parts[1], "()")
-			pkg.CurrentVersion = parts[len(parts)-1]
-		}
-		pkgs = append(pkgs, pkg)
-	}
-	return pkgs, nil
-}
-
-// RunHomebrewUpgrade aktualisiert ausgewählte oder alle Homebrew-Pakete.
-// packages = nil oder leer → alle aktualisieren.
-func (a *App) RunHomebrewUpgrade(packages []string) (string, error) {
-	brewPath, err := findBrew()
-	if err != nil {
-		return "", err
-	}
-	args := []string{"upgrade"}
-	if len(packages) > 0 {
-		args = append(args, packages...)
-		logging.Infof("Homebrew", "upgrade: %v", packages)
-	} else {
-		logging.Infof("Homebrew", "upgrade --all")
-	}
-	out, err := exec.Command(brewPath, args...).CombinedOutput()
-	result := strings.TrimSpace(string(out))
-	if err != nil {
-		logging.Warnf("Homebrew", "upgrade fehlgeschlagen: %v", err)
-		return result, fmt.Errorf("brew upgrade: %v", err)
-	}
-	logging.Infof("Homebrew", "upgrade abgeschlossen")
-	return result, nil
-}
+// Homebrew: siehe app_packages.go / internal/packages (Paketverwaltung).
 
 // ─── SSH-Verwaltung (macOS only) ─────────────────────────────────────────────
 

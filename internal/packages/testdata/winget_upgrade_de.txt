@@ -1,0 +1,7 @@
+   -                                         Name                    ID                       Version   Verfügbar Quelle
+---------------------------------------------------------------------------------
+VLC media player        VideoLAN.VLC             3.0.20    3.0.21    winget
+Mozilla Firefox (de)    Mozilla.Firefox.de       131.0     132.0     winget
+Ein Programm mit Ümlaut Beispiel.Umlaut          1.0       1.1       winget
+3 Aktualisierungen verfügbar.
+1 Paket(e) verfügen über Versionsnummern, die nicht ermittelt werden können. Verwenden Sie "--include-unknown", um alle Ergebnisse anzuzeigen.

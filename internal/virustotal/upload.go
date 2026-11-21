@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -75,7 +76,7 @@ func (c *Client) UploadFile(ctx context.Context, filePath string) (CheckResult, 
 		c.mu.Unlock()
 		result.Status = "error"
 		result.ErrorMsg = "Tageslimit erreicht (500/Tag)"
-		return result, fmt.Errorf(result.ErrorMsg)
+		return result, errors.New(result.ErrorMsg)
 	}
 	c.callsToday++
 	c.mu.Unlock()
@@ -126,12 +127,12 @@ func (c *Client) UploadFile(ctx context.Context, filePath string) (CheckResult, 
 	if err := json.Unmarshal(body, &uploadResp); err != nil {
 		result.Status = "error"
 		result.ErrorMsg = fmt.Sprintf("Upload-Antwort ungültig (HTTP %d)", resp.StatusCode)
-		return result, fmt.Errorf(result.ErrorMsg)
+		return result, errors.New(result.ErrorMsg)
 	}
 	if uploadResp.Error != nil {
 		result.Status = "error"
 		result.ErrorMsg = uploadResp.Error.Message
-		return result, fmt.Errorf(result.ErrorMsg)
+		return result, errors.New(result.ErrorMsg)
 	}
 
 	analysisID := uploadResp.Data.ID
@@ -175,7 +176,7 @@ func (c *Client) UploadFile(ctx context.Context, filePath string) (CheckResult, 
 
 	result.Status = "error"
 	result.ErrorMsg = "Analyse-Timeout (5 Minuten überschritten)"
-	return result, fmt.Errorf(result.ErrorMsg)
+	return result, errors.New(result.ErrorMsg)
 }
 
 func (c *Client) fetchAnalysis(ctx context.Context, id string) (*vtAnalysisReport, error) {

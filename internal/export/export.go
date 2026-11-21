@@ -13,10 +13,10 @@ import (
 	"adminkit/internal/events"
 	"adminkit/internal/network"
 	"adminkit/internal/printers"
+	"adminkit/internal/profiles"
 	"adminkit/internal/services"
 	"adminkit/internal/software"
 	"adminkit/internal/system"
-	"adminkit/internal/profiles"
 	"adminkit/internal/tasks"
 	"adminkit/internal/usbhistory"
 	"adminkit/internal/users"
@@ -46,20 +46,33 @@ type SessionExport struct {
 	// LogoBase64: vollständige Data-URI ("data:image/png;base64,...") oder leer.
 	LogoBase64 string
 
-	System          *system.ScanResult
-	Network         *network.ScanResult
-	Software        *software.ScanResult
-	Printers        *printers.ScanResult
-	Autostart       *autostart.ScanResult
-	Services        *services.ScanResult
-	Events          *events.ScanResult
-	BrowserExt      *browserext.ScanResult
-	Processes       []system.RunningProcess
-	VTAuditLog      []VTAuditEntry
-	Users           *users.ScanResult
-	Tasks           *tasks.ScanResult
-	Profiles        *profiles.ScanResult
-	USB             *usbhistory.ScanResult
+	System     *system.ScanResult
+	Network    *network.ScanResult
+	Software   *software.ScanResult
+	Printers   *printers.ScanResult
+	Autostart  *autostart.ScanResult
+	Services   *services.ScanResult
+	Events     *events.ScanResult
+	BrowserExt *browserext.ScanResult
+	Processes  []system.RunningProcess
+	VTAuditLog []VTAuditEntry
+	Users      *users.ScanResult
+	Tasks      *tasks.ScanResult
+	Profiles   *profiles.ScanResult
+	USB        *usbhistory.ScanResult
+
+	// WorkDone: durchgeführte Arbeiten (Paketänderungen, übergebene Ratgeber,
+	// Einsatzdauer …). Wird als eigener Abschnitt im Bericht ausgegeben.
+	WorkDone []WorkSection
+}
+
+// WorkSection ist ein Block im Abschnitt „Durchgeführte Arbeiten“.
+type WorkSection struct {
+	Title   string     `json:"title"`
+	Headers []string   `json:"headers,omitempty"`
+	Rows    [][]string `json:"rows,omitempty"`
+	// Lines: einfache Textzeilen, falls keine Tabelle nötig ist.
+	Lines []string `json:"lines,omitempty"`
 }
 
 // ExportHTML erzeugt einen selbst-enthaltenen HTML-Bericht und speichert ihn

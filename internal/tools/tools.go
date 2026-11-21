@@ -117,13 +117,13 @@ func RunPortScan(target string) (string, error) {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "Port-Scan: %s\n", host)
 	fmt.Fprintf(&sb, "Ports: %s\n", formatPortList(ports))
-	fmt.Fprintf(&sb, strings.Repeat("─", 40)+"\n")
+	sb.WriteString(strings.Repeat("─", 40) + "\n")
 
 	results := make([]PortResult, len(ports))
 	timeout := 500 * time.Millisecond
 
 	for i, port := range ports {
-		addr := fmt.Sprintf("%s:%d", host, port)
+		addr := net.JoinHostPort(host, strconv.Itoa(port))
 		conn, err := net.DialTimeout("tcp", addr, timeout)
 		if err == nil {
 			results[i] = PortResult{Port: port, Open: true}
@@ -147,7 +147,7 @@ func RunPortScan(target string) (string, error) {
 		fmt.Fprintf(&sb, "  %-6d %s%s\n", r.Port, icon, svc)
 	}
 
-	fmt.Fprintf(&sb, strings.Repeat("─", 40)+"\n")
+	sb.WriteString(strings.Repeat("─", 40) + "\n")
 	fmt.Fprintf(&sb, "%d von %d Ports offen\n", openCount, len(ports))
 	return sb.String(), nil
 }

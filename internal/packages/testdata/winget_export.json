@@ -1,0 +1,22 @@
+﻿{
+  "$schema" : "https://aka.ms/winget-packages.schema.2.0.json",
+  "CreationDate" : "2026-11-21T10:00:00.000-00:00",
+  "Sources" : [
+    {
+      "Packages" : [
+        { "PackageIdentifier" : "Google.Chrome", "Version" : "131.0.6778.86" },
+        { "PackageIdentifier" : "7zip.7zip", "Version" : "24.08" },
+        { "PackageIdentifier" : "Microsoft.VCRedist.2015+.x64", "Version" : "14.38.33135.0" },
+        { "PackageIdentifier" : "Microsoft.DotNet.DesktopRuntime.8", "Version" : "8.0.10" },
+        { "PackageIdentifier" : "Notepad++.Notepad++", "Version" : "8.6" }
+      ],
+      "SourceDetails" : {
+        "Argument" : "https://cdn.winget.microsoft.com/cache",
+        "Identifier" : "Microsoft.Winget.Source_8wekyb3d8bbwe",
+        "Name" : "winget",
+        "Type" : "Microsoft.PreIndexed.Package"
+      }
+    }
+  ],
+  "WinGetVersion" : "1.9.25200"
+}

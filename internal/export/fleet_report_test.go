@@ -28,8 +28,8 @@ func TestGenerateFleetHTML(t *testing.T) {
 		"Musterfirma GmbH",
 		"Empfang-PC",
 		"Drucker-PC",
-		"<svg",            // Sparkline für Gerät mit Trend
-		"window.print()",  // Druck/PDF-Button
+		"<svg",           // Sparkline für Gerät mit Trend
+		"window.print()", // Druck/PDF-Button
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("Fleet-HTML enthält %q nicht", want)
