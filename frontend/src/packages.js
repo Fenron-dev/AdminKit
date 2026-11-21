@@ -25,7 +25,6 @@ var selected = new Set(); // IDs in der Update-Liste
 
 function $(id) { return document.getElementById(id); }
 function esc(s) { return deps.escapeHtml(s == null ? '' : String(s)); }
-function isMac() { return deps.getPlatform() === 'darwin'; }
 function sourceLabel(src) {
   return { 'winget': 'winget', 'msstore': 'Store', 'brew': 'Formel', 'brew-cask': 'App (Cask)', 'mas': 'App Store' }[src] || (src || '–');
 }
@@ -87,7 +86,7 @@ export function initPackages(d) {
     if (t && p) t.textContent = '⏳ ' + (p.total > 1 ? '(' + p.index + '/' + p.total + ') ' : '') + (p.name || p.id || 'alle Pakete');
   });
 
-  if (!isMac()) $('pkg-greedy-wrap')?.classList.add('hidden');
+  $('pkg-greedy-wrap')?.classList.add('hidden'); // erst nach Statusprüfung (nur Homebrew)
 }
 
 // ─── Unterbereiche ───────────────────────────────────────────────────────────
@@ -168,6 +167,7 @@ function renderStatus() {
       hint.classList.add('hidden');
     }
   }
+  $('pkg-greedy-wrap')?.classList.toggle('hidden', st.manager !== 'brew');
   var disabled = !st.available || !online;
   ['pkg-btn-check', 'pkg-search-input', 'pkg-search-btn'].forEach(function (id) { var el = $(id); if (el) el.disabled = disabled; });
 }
@@ -408,14 +408,15 @@ function renderSearch() {
         '<td>' + esc(sourceLabel(p.source)) + '</td>' +
         '<td class="pkg-actions">' +
           infoButton('search', i) +
-          (deps.renderFavButton ? deps.renderFavButton(p) : '') +
+          (deps.renderFavButton ? deps.renderFavButton(p, i) : '') +
           '<button class="btn btn-primary btn-xs" data-pkg-action="install" data-list="search" data-idx="' + i + '"' + (p.truncated ? ' disabled data-always-disabled="1"' : '') + '>Installieren</button>' +
           '<button class="btn btn-secondary btn-xs" data-pkg-action="copy-install" data-list="search" data-idx="' + i + '" title="Befehl kopieren">⧉</button>' +
         '</td></tr>';
     }).join('') + '</tbody></table>';
 }
 
-export async function installPackages(pkgs, label) {
+// preview: optionaler Text vor der Paketliste (z. B. Profil-Vorschau)
+export async function installPackages(pkgs, label, preview) {
   if (busy || !pkgs.length) return null;
   var cmds = [];
   for (var i = 0; i < pkgs.length; i++) {
@@ -424,7 +425,8 @@ export async function installPackages(pkgs, label) {
   }
   var ok = await deps.showConfirm({
     title: pkgs.length === 1 ? pkgs[0].name + ' installieren?' : (label || pkgs.length + ' Pakete installieren?'),
-    what: pkgs.map(function (p) { return '• ' + p.name + ' (' + p.id + ')'; }).join('\n') + '\n\nBefehl' + (cmds.length > 1 ? 'e' : '') + ':\n' + cmds.join('\n'),
+    what: (preview ? preview + '\n\nWird installiert:\n' : '') +
+      pkgs.map(function (p) { return '• ' + p.name + ' (' + p.id + ')'; }).join('\n') + '\n\nBefehl' + (cmds.length > 1 ? 'e' : '') + ':\n' + cmds.join('\n'),
     impact: 'Das Programm wird aus der offiziellen Paketquelle heruntergeladen und installiert. Der Installer kann nach Adminrechten fragen. Fehlgeschlagene Pakete brechen den Vorgang nicht ab.',
   });
   if (!ok) return null;
@@ -535,6 +537,9 @@ async function onTableClick(e) {
       break;
     case 'copy-install':
       try { copyText(await GetPackageCommand('install', refOf(it.p), pkgOptions())); } catch (err) { deps.showToast(String(err)); }
+      break;
+    case 'fav':
+      if (deps.addFavoriteFromPackage) deps.addFavoriteFromPackage(it.p, btn);
       break;
     case 'info':
       toggleInfo(it.p, $('pkg-info-' + it.listName + '-' + it.idx), it.listName === 'search' ? searchResults : it.listName === 'updates' ? outdated : installed);

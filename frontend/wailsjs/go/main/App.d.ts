@@ -73,3 +73,10 @@ export function CancelPackageOperation(): Promise<void>;
 
 // Paketverwaltung P3: Infos
 export function GetPackageInfo(ref: any, known: string[]): Promise<any>;
+
+// Paketverwaltung P4: Favoriten
+export function GetFavorites(): Promise<any>;
+export function SaveFavorites(f: any): Promise<void>;
+export function ResolveProfile(name: string): Promise<any[]>;
+export function ImportFavorites(): Promise<any>;
+export function ExportFavorites(format: string): Promise<string>;

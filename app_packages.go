@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -292,4 +293,140 @@ func (a *App) GetPackageInfo(ref PackageRef, known []string) (*packages.Info, er
 		logging.Warnf("Pakete", "Infos zu %s: %v", ref.ID, err)
 	}
 	return info, err
+}
+
+// ── Favoriten & Profile (#87) ───────────────────────────────────────────────
+
+// FavoritesView liefert die Favoriten samt Vorgabe-Notizen für die Anzeige.
+type FavoritesView struct {
+	Data *packages.Favorites `json:"data"`
+	// DefaultNotes: Vorgabe aus notes.yaml je Favoriten-Name (für die aktuelle Plattform).
+	DefaultNotes map[string]string `json:"default_notes"`
+	Manager      string            `json:"manager"` // "winget" | "brew" | ""
+	Seeded       bool              `json:"seeded"`  // Startbestand wurde gerade angelegt
+}
+
+func (a *App) favoritesView(f *packages.Favorites, seeded bool) *FavoritesView {
+	v := &FavoritesView{Data: f, DefaultNotes: map[string]string{}, Manager: a.pkgMgr().Name(), Seeded: seeded}
+	notes, _ := packages.LoadNotes(a.vault.RootPath)
+	for _, fav := range f.Favorites {
+		id, src := fav.IDFor(v.Manager)
+		if id == "" {
+			id, src = fav.Winget, packages.SourceWinget
+		}
+		if n := notes.For(src, id); n != nil {
+			v.DefaultNotes[fav.Name] = n.Text
+		}
+	}
+	return v
+}
+
+// GetFavorites lädt vault/packages/favorites.yaml (legt beim ersten Mal den Startbestand an).
+func (a *App) GetFavorites() (*FavoritesView, error) {
+	if a.vault == nil {
+		return nil, fmt.Errorf("keine Vault initialisiert")
+	}
+	f, seeded, err := packages.LoadFavorites(a.vault.RootPath)
+	if err != nil {
+		return nil, err
+	}
+	if seeded {
+		logging.Info("Pakete", "Favoriten-Startbestand im Vault angelegt")
+	}
+	return a.favoritesView(f, seeded), nil
+}
+
+// SaveFavorites speichert die Favoriten (inkl. Profile).
+func (a *App) SaveFavorites(f *packages.Favorites) error {
+	if a.vault == nil {
+		return fmt.Errorf("keine Vault initialisiert")
+	}
+	if err := packages.SaveFavorites(a.vault.RootPath, f); err != nil {
+		return err
+	}
+	logging.Infof("Pakete", "Favoriten gespeichert (%d Einträge, %d Profile)", len(f.Favorites), len(f.Profiles))
+	return nil
+}
+
+// ResolveProfile liefert die Favoriten eines Profils (feste Liste + Tags).
+func (a *App) ResolveProfile(name string) ([]packages.Favorite, error) {
+	if a.vault == nil {
+		return nil, fmt.Errorf("keine Vault initialisiert")
+	}
+	f, _, err := packages.LoadFavorites(a.vault.RootPath)
+	if err != nil {
+		return nil, err
+	}
+	return f.ProfileFavorites(name)
+}
+
+// ImportFavorites öffnet einen Dateidialog und führt Portal-JSON, winget-Importdatei
+// oder Brewfile mit den Favoriten zusammen. Leeres Ergebnis = abgebrochen.
+func (a *App) ImportFavorites() (*packages.ImportResult, error) {
+	if a.vault == nil {
+		return nil, fmt.Errorf("keine Vault initialisiert")
+	}
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Favoriten importieren",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Favoriten (JSON, Brewfile)", Pattern: "*.json;Brewfile;*.brewfile;*.txt"},
+			{DisplayName: "Alle Dateien", Pattern: "*"},
+		},
+	})
+	if err != nil || path == "" {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > 5<<20 {
+		return nil, fmt.Errorf("Datei zu groß")
+	}
+	f, _, err := packages.LoadFavorites(a.vault.RootPath)
+	if err != nil {
+		return nil, err
+	}
+	res, err := f.Import(data)
+	if err != nil {
+		return nil, err
+	}
+	if err := packages.SaveFavorites(a.vault.RootPath, f); err != nil {
+		return nil, err
+	}
+	logging.Infof("Pakete", "Favoriten importiert (%s): %d neu, %d ergänzt", res.Format, res.Added, res.Updated)
+	return &res, nil
+}
+
+// ExportFavorites speichert die Favoriten als winget-Importdatei ("winget")
+// oder Brewfile ("brewfile"). Gibt den Pfad zurück ("" = abgebrochen).
+func (a *App) ExportFavorites(format string) (string, error) {
+	if a.vault == nil {
+		return "", fmt.Errorf("keine Vault initialisiert")
+	}
+	f, _, err := packages.LoadFavorites(a.vault.RootPath)
+	if err != nil {
+		return "", err
+	}
+	var data []byte
+	name := "adminkit-favoriten-winget.json"
+	switch format {
+	case "winget":
+		if data, err = f.ExportWingetJSON(time.Now()); err != nil {
+			return "", err
+		}
+	case "brewfile":
+		data, name = f.ExportBrewfile(), "Brewfile"
+	default:
+		return "", fmt.Errorf("unbekanntes Format %q", format)
+	}
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "Favoriten exportieren", DefaultFilename: name})
+	if err != nil || path == "" {
+		return "", err
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return "", err
+	}
+	logging.Infof("Pakete", "Favoriten exportiert: %s", path)
+	return path, nil
 }

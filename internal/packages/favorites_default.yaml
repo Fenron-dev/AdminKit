@@ -1,0 +1,30 @@
+# Mitgelieferte Favoriten (Startbestand aus dem Ideler-Portal).
+# Wird beim ersten Start nach vault/packages/favorites.yaml kopiert und dort gepflegt.
+version: 1
+favorites:
+  - { name: Google Chrome, winget: Google.Chrome, brew_cask: google-chrome, tags: [Neuer PC] }
+  - { name: Firefox (deutsch), winget: Mozilla.Firefox.de, brew_cask: firefox, tags: [Neuer PC] }
+  - { name: 7-Zip, winget: 7zip.7zip, tags: [Neuer PC] }
+  - { name: VLC media player, winget: VideoLAN.VLC, brew_cask: vlc, tags: [Neuer PC] }
+  - { name: Adobe Acrobat Reader (64-Bit), winget: Adobe.Acrobat.Reader.64-bit, brew_cask: adobe-acrobat-reader, tags: [Neuer PC] }
+  - { name: PDF24 Creator, winget: geeksoftwareGmbH.PDF24Creator, tags: [Neuer PC] }
+  - { name: LibreOffice, winget: TheDocumentFoundation.LibreOffice, brew_cask: libreoffice, tags: [Neuer PC, Büro] }
+  - { name: Notepad++, winget: Notepad++.Notepad++, tags: [Technik] }
+  - { name: Everything, winget: voidtools.Everything, tags: [Technik] }
+  - { name: PowerToys, winget: Microsoft.PowerToys, tags: [Technik] }
+  - { name: WinSCP, winget: WinSCP.WinSCP, tags: [Technik] }
+  - { name: PuTTY, winget: PuTTY.PuTTY, tags: [Technik] }
+  - { name: CrystalDiskInfo, winget: CrystalDewWorld.CrystalDiskInfo, tags: [Diagnose] }
+  - { name: HWiNFO, winget: REALiX.HWiNFO, tags: [Diagnose] }
+  - { name: CPU-Z, winget: CPUID.CPU-Z, tags: [Diagnose] }
+  - { name: WizTree, winget: AntibodySoftware.WizTree, tags: [Diagnose] }
+  - { name: Sysinternals Suite, winget: Microsoft.Sysinternals.Suite, tags: [Diagnose, Technik] }
+  - { name: ESET Security, winget: ESET.Security, brew_cask: eset-cyber-security, tags: [Sicherheit] }
+  - { name: ESET AV Remover, winget: ESET.AVRemover, tags: [Sicherheit] }
+  - { name: smartmontools, winget: smartmontools.smartmontools, brew: smartmontools, tags: [Diagnose] }
+  - { name: The Unarchiver, brew_cask: the-unarchiver, tags: [Neuer PC] }
+profiles:
+  - name: Neuer PC Büro
+    items: [Google Chrome, Firefox (deutsch), 7-Zip, Adobe Acrobat Reader (64-Bit), PDF24 Creator]
+  - name: Techniker-Werkzeuge
+    tags: [Diagnose, Technik]

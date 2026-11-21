@@ -83,11 +83,11 @@ func TestManifestMultiFile(t *testing.T) {
 func TestManifestGermanLocaleAndLatestVersion(t *testing.T) {
 	base := wingetRawBase + "m/Mozilla/Firefox/de/132.0/"
 	calls := fakeNet(t, map[string]string{
-		wingetAPIBase + "m/Mozilla/Firefox/de": `[{"name":"131.0","type":"dir"},{"name":"132.0","type":"dir"},{"name":"99.0.1","type":"dir"}]`,
-		base + "Mozilla.Firefox.de.yaml":                 "DefaultLocale: en-US\nManifestType: version\n",
-		base + "Mozilla.Firefox.de.locale.en-US.yaml":    "PackageName: Mozilla Firefox (de)\nPublisher: Mozilla\nShortDescription: Fast browser\nLicense: MPL-2.0\n",
-		base + "Mozilla.Firefox.de.locale.de-DE.yaml":    "ShortDescription: Schneller Browser\nDescription: Ausführlich auf Deutsch\n",
-		base + "Mozilla.Firefox.de.installer.yaml":       "Installers:\n- Architecture: x64\n  InstallerType: nullsoft\n  Scope: user\n  InstallerSha256: 11\n- Architecture: x64\n  InstallerType: nullsoft\n  Scope: machine\n  InstallerSha256: 22\n",
+		wingetAPIBase + "m/Mozilla/Firefox/de":        `[{"name":"131.0","type":"dir"},{"name":"132.0","type":"dir"},{"name":"99.0.1","type":"dir"}]`,
+		base + "Mozilla.Firefox.de.yaml":              "DefaultLocale: en-US\nManifestType: version\n",
+		base + "Mozilla.Firefox.de.locale.en-US.yaml": "PackageName: Mozilla Firefox (de)\nPublisher: Mozilla\nShortDescription: Fast browser\nLicense: MPL-2.0\n",
+		base + "Mozilla.Firefox.de.locale.de-DE.yaml": "ShortDescription: Schneller Browser\nDescription: Ausführlich auf Deutsch\n",
+		base + "Mozilla.Firefox.de.installer.yaml":    "Installers:\n- Architecture: x64\n  InstallerType: nullsoft\n  Scope: user\n  InstallerSha256: 11\n- Architecture: x64\n  InstallerType: nullsoft\n  Scope: machine\n  InstallerSha256: 22\n",
 	})
 	// Version „…“ (gekürzt) → API ermittelt 132.0
 	info, err := wingetManifestInfo(context.Background(), Package{ID: "Mozilla.Firefox.de", Available: "13…"})

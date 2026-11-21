@@ -7,6 +7,7 @@
 import './style.css';
 import QRCode from 'qrcode';
 import { initPackages } from './packages.js';
+import { initFavorites } from './favorites.js';
 import {
   GetAppVersion, GetVaultPath, GetConfig, NewSession,
   ScanSystem, SaveSystemScan,
@@ -130,7 +131,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initQuickActions();
   initWorkflows();
   initPeriodicMaintenance();
-  initPackages(pkgDeps());
+  var _pkgDeps = pkgDeps();
+  initPackages(_pkgDeps);
+  initFavorites(_pkgDeps);
   initSSHManagement();
   initDiskUsage();
   initCertificates();

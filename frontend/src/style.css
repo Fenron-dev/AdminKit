@@ -2818,7 +2818,7 @@ body.platform-mac .titlebar {
   border: 1px solid var(--color-border); border-radius: 6px;
   background: var(--color-bg); color: var(--color-text);
 }
-.pkg-table td { vertical-align: top; }
+.pkg-table td { vertical-align: top; color: var(--color-text); }
 .pkg-name { font-weight: 500; }
 .pkg-id { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); word-break: break-all; }
 .pkg-note { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; white-space: pre-wrap; }
@@ -2843,3 +2843,24 @@ body.platform-mac .titlebar {
 .pkg-tags { margin-top: 6px; }
 .pkg-warn-text { color: var(--color-warning); }
 .pkg-info .pkg-hint { margin-bottom: 6px; padding: 7px 10px; font-size: 12px; }
+/* Favoriten & Profile */
+.fav-search { flex: 1; min-width: 180px; padding: 6px 10px; font-size: 13px; font-family: inherit; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); color: var(--color-text); }
+.fav-tagbar { margin-bottom: 10px; }
+.fav-tagbar .pkg-tag { cursor: pointer; font-size: 12px; padding: 2px 9px; }
+.fav-unavailable td { opacity: .6; }
+.pkg-ok-tag { color: var(--color-success); }
+.fav-editor { border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); padding: 10px 12px; margin: 6px 0 10px; }
+.fav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 12px; }
+.fav-editor label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--color-text-muted); }
+.fav-editor input, .fav-editor textarea { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); color: var(--color-text); }
+.fav-notelabel { margin-top: 8px; }
+.fav-editor .pkg-toolbar { margin: 10px 0 0; }
+.fav-pick { display: flex; flex-wrap: wrap; gap: 4px 14px; max-height: 160px; overflow: auto; padding: 4px 0; }
+.fav-pick label { flex-direction: row; align-items: center; gap: 5px; color: var(--color-text); }
+.fav-profile { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); margin-bottom: 6px; }
+.fav-profiles { margin-top: 20px; }
+.fav-h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+.fav-profiles > .settings-hint { display: block; margin-bottom: 8px; }
+.pkg-info a, .pkg-hint a, .fav-profiles a { color: var(--color-primary); text-decoration: none; }
+.pkg-info a:hover { text-decoration: underline; }
+.subtab-btn .count-badge:empty { display: none; }

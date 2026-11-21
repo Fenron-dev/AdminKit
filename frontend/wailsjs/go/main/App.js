@@ -426,3 +426,20 @@ export function CancelPackageOperation() {
 export function GetPackageInfo(arg1, arg2) {
     return window['go']['main']['App']['GetPackageInfo'](arg1, arg2);
 }
+
+// ── Paketverwaltung P4: Favoriten ──
+export function GetFavorites() {
+    return window['go']['main']['App']['GetFavorites']();
+}
+export function SaveFavorites(arg1) {
+    return window['go']['main']['App']['SaveFavorites'](arg1);
+}
+export function ResolveProfile(arg1) {
+    return window['go']['main']['App']['ResolveProfile'](arg1);
+}
+export function ImportFavorites() {
+    return window['go']['main']['App']['ImportFavorites']();
+}
+export function ExportFavorites(arg1) {
+    return window['go']['main']['App']['ExportFavorites'](arg1);
+}
