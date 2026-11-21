@@ -46,3 +46,9 @@ desktop.ini
 
 # Claude Code lokale Einstellungen (enthält absolute Pfade / Permissions)
 .claude/
+
+# ── Lokale Konzept-Dokumente & Referenzen (nicht veröffentlichen) ──
+Konzepte/Referenz/
+Konzepte/AdminKit_Paketverwaltung.md
+Konzepte/AdminKit_Werkzeugkasten.md
+Konzepte/KONZEPT-ERWEITERUNG.md
