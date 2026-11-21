@@ -7,6 +7,7 @@ import (
 	"adminkit/internal/export"
 	"adminkit/internal/logging"
 	"adminkit/internal/packages"
+	"adminkit/internal/werkzeug"
 )
 
 // collectWorkDone liest die Arbeitsprotokolle der aktuellen Session.
@@ -23,6 +24,15 @@ func (a *App) collectWorkDone() []export.WorkSection {
 			Headers: []string{"Zeit", "Aktion", "Paket", "Vorher", "Nachher", "Ergebnis"},
 			Rows:    rows,
 		})
+	}
+	if items, err := werkzeug.ReadWork(a.lastSessionPath); err != nil {
+		logging.Warnf("Export", "arbeiten.json nicht lesbar: %v", err)
+	} else if len(items) > 0 {
+		ws := export.WorkSection{Title: "Werkzeugkasten", Headers: []string{"Zeit", "Arbeit", "Details"}}
+		for _, it := range items {
+			ws.Rows = append(ws.Rows, []string{it.Time.Format("15:04"), it.Title, it.Detail})
+		}
+		out = append(out, ws)
 	}
 	return out
 }

@@ -459,3 +459,29 @@ export function GetLinks() {
 export function SaveLinks(arg1) {
     return window['go']['main']['App']['SaveLinks'](arg1);
 }
+
+// ── Werkzeugkasten W2 ──
+export function PickFileForHash() {
+    return window['go']['main']['App']['PickFileForHash']();
+}
+export function HashFile(arg1) {
+    return window['go']['main']['App']['HashFile'](arg1);
+}
+export function CancelHash() {
+    return window['go']['main']['App']['CancelHash']();
+}
+export function ExportDocument(arg1, arg2, arg3, arg4, arg5, arg6) {
+    return window['go']['main']['App']['ExportDocument'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+export function RecordWork(arg1, arg2) {
+    return window['go']['main']['App']['RecordWork'](arg1, arg2);
+}
+export function GetSessionTiming() {
+    return window['go']['main']['App']['GetSessionTiming']();
+}
+export function OpenTextFileDialog(arg1, arg2) {
+    return window['go']['main']['App']['OpenTextFileDialog'](arg1, arg2);
+}
+export function SaveDataURL(arg1, arg2) {
+    return window['go']['main']['App']['SaveDataURL'](arg1, arg2);
+}

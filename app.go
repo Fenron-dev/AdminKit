@@ -81,6 +81,9 @@ type App struct {
 	pkg pkgState
 	// Werkzeugkasten (#88–#92)
 	wz wzState
+	// sessionStart/lastCustomer: für Einsatzzeit (AE) und Kundendokumente
+	sessionStart time.Time
+	lastCustomer string
 }
 
 // NewApp erstellt eine neue App-Instanz.
@@ -307,6 +310,8 @@ func (a *App) NewSession(customerName string) (string, error) {
 	}
 	a.lastSessionName = customerName
 	a.lastSessionPath = path
+	a.sessionStart = time.Now()
+	a.lastCustomer = ""
 	// Bisherige Scan-Caches zurücksetzen wenn eine neue Session beginnt
 	a.lastSystemScan = nil
 	a.lastNetworkScan = nil

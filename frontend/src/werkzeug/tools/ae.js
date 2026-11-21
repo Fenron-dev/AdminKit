@@ -16,6 +16,7 @@ export const fmtDur = m => { if (isNaN(m)) return '–'; const h = Math.floor(m 
 const eur = v => v.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 
 let rows = [{ s: '09:00', e: '09:47', p: '0' }];
+let filledFor = null; // Session, deren Einsatzzeit schon vorbelegt wurde
 
 export default {
   id: 'ae', name: 'Arbeitszeit & AE', group: 'Reparatur & Laden', icon: 'clock',
@@ -30,9 +31,20 @@ export default {
         <label class="check" style="align-self:end;padding-bottom:12px"><input type="checkbox" id="aeVat"${AE.vat ? ' checked' : ''}>19 % USt. ausweisen</label></div>
       <div class="ae-quick"><span>Schnell umrechnen:</span><input class="input" id="aeQ" inputmode="numeric" value="35" aria-label="Minuten"><span>Minuten =</span><b id="aeQo"></b></div>
       <div class="panel ae-tab" style="overflow:auto"><table><thead><tr><th>Beginn</th><th>Ende</th><th>Pause (Min.)</th><th>Dauer</th><th>AE</th><th></th></tr></thead><tbody id="aeRows"></tbody></table>
-        <div style="padding:12px 14px"><button class="btn sm" type="button" id="aeAdd">${ic('plus')}Einsatz hinzufügen</button></div></div>
+        <div style="padding:12px 14px" class="row"><button class="btn sm" type="button" id="aeAdd">${ic('plus')}Einsatz hinzufügen</button><button class="btn sm" type="button" id="aeSess" hidden>${ic('clock')}Einsatzzeit der Session übernehmen</button></div></div>
       <div class="ae-sum" id="aeSum"></div></div>`;
     const rowsEl = $('#aeRows', p);
+    let sessionActive = false;
+    // Laufende Session: Einsatzzeit (Session-Start bis jetzt) vorbelegen
+    ctx.sessionTiming().then(t => {
+      if (!t || !t.active) return;
+      sessionActive = true;
+      const b = $('#aeSess', p); if (b) b.hidden = false;
+      const hhmm = d => d.toTimeString().slice(0, 5);
+      const fill = () => { rows = [{ s: hhmm(new Date(t.start)), e: hhmm(new Date()), p: '0' }]; drawRows(); };
+      if (b) b.onclick = fill;
+      if (filledFor !== t.start) { filledFor = t.start; fill(); } else calc();
+    }).catch(() => {});
     const drawRows = () => {
       rowsEl.innerHTML = rows.map((r, i) => `<tr data-i="${i}"><td><input class="input" type="time" data-f="s" value="${esc(r.s)}" aria-label="Beginn"></td><td><input class="input" type="time" data-f="e" value="${esc(r.e)}" aria-label="Ende"></td>
         <td><input class="input" data-f="p" inputmode="numeric" value="${esc(r.p)}" style="max-width:90px" aria-label="Pause in Minuten"></td><td data-out="d"></td><td data-out="a" class="ae-n"></td>
@@ -54,8 +66,10 @@ export default {
         lines.push(`Summe: ${nf(ta)} AE × ${eur(pr)} = ${eur(net)} netto${AE.vat ? `, ${eur(net + vat)} brutto` : ''}`);
       } else lines.push(`Summe: ${fmtDur(tm)} = ${nf(ta)} AE`);
       $('#aeSum', p).innerHTML = `<div class="ae-big"><b>${nf(ta)}</b><span>AE gesamt</span></div><div class="ae-det"><span>${fmtDur(tm)}</span><span>${nf(tm / 60)} Stunden (dezimal)</span><span>1 AE = ${esc(AE.unit)} Min.</span></div>${money}
-        <button class="btn" type="button" id="aeCopy">${ic('copy')}Für die Arbeitserfassung kopieren</button>`;
+        <div class="row"><button class="btn" type="button" id="aeCopy">${ic('copy')}Für die Arbeitserfassung kopieren</button>${sessionActive ? `<button class="btn" type="button" id="aeRep">${ic('clipboard')}In den Bericht übernehmen</button>` : ''}</div>`;
       $('#aeCopy', p).onclick = () => ctx.copy(lines.join('\n'), 'Zusammenfassung kopiert');
+      const rep = $('#aeRep', p);
+      if (rep) rep.onclick = () => ctx.recordWork('Einsatzdauer', `${fmtDur(tm)} = ${nf(ta)} AE (1 AE = ${AE.unit} Min.)`);
       const q = pnum($('#aeQ', p).value); $('#aeQo', p).textContent = isNaN(q) ? '–' : `${nf(aeOf(q, AE.unit, AE.mode))} AE`;
     }
     rowsEl.addEventListener('input', e => { const f = e.target.dataset.f, i = +e.target.closest('tr').dataset.i; if (f) { rows[i][f] = e.target.value; calc(); } });

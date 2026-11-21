@@ -88,3 +88,13 @@ export function SaveToolState(key: string, value: string): Promise<void>;
 // Werkzeugkasten W4: Links
 export function GetLinks(): Promise<any>;
 export function SaveLinks(l: any): Promise<void>;
+
+// Werkzeugkasten W2
+export function PickFileForHash(): Promise<string>;
+export function HashFile(path: string): Promise<Record<string,string>>;
+export function CancelHash(): Promise<void>;
+export function ExportDocument(kind: string, title: string, bodyHTML: string, card: boolean, workTitle: string, workDetail: string): Promise<string>;
+export function RecordWork(title: string, detail: string): Promise<void>;
+export function GetSessionTiming(): Promise<any>;
+export function OpenTextFileDialog(title: string, pattern: string): Promise<any>;
+export function SaveDataURL(defaultName: string, dataURL: string): Promise<string>;

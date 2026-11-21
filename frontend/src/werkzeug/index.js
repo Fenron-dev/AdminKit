@@ -10,9 +10,13 @@ import ae from './tools/ae.js';
 import net from './tools/net.js';
 import units from './tools/units.js';
 import b64 from './tools/b64.js';
+import guide from './tools/guide.js';
+import wifi from './tools/wifi.js';
+import mail from './tools/mail.js';
+import hash from './tools/hash.js';
 
 export const GROUPS = ['Passwörter & Telefon', 'Für Kunden', 'Reparatur & Laden', 'Netzwerk & Mail', 'Nachschlagen & Prüfen'];
-export const TOOLS = [pw, spell, imei, ae, net, units, b64];
+export const TOOLS = [pw, spell, wifi, guide, imei, ae, mail, net, units, hash, b64];
 
 export function registerTool(t) { if (!TOOLS.some(x => x.id === t.id)) TOOLS.push(t); }
 
@@ -27,6 +31,8 @@ let ctx = null, root = null, current = null, cleanup = null, filter = '';
 export async function initWerkzeugTab(container, deps) {
   root = container;
   ctx = await getContext(deps);
+  ctx.hasTool = id => TOOLS.some(t => t.id === id);
+  ctx.openTool = (id, args) => { if (args) ctx._prefill[id] = args; select(id); root.querySelector('#wzPane')?.scrollTo?.(0, 0); };
   current = ctx.state.get('lastTool', 'pw');
   root.classList.add('wz');
   root.innerHTML = `<div class="wz-layout">
@@ -64,4 +70,4 @@ export function select(id) {
 }
 
 // Für Befehlspalette/Verknüpfungen aus anderen Tabs
-export function openTool(id) { if (root) select(id); }
+export function openTool(id, args) { if (root && ctx) ctx.openTool(id, args); }

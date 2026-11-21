@@ -96,3 +96,29 @@ test('Speicher & Tempo: Dauer', () => {
   assert.equal(fmtTime(s), '1 Std. 7 Min.');
   assert.equal(fmtTime(0.5), 'unter 1 Sek.');
 });
+
+test('WLAN-QR: Sonderzeichen werden maskiert', async () => {
+  const { wifiString } = await import('../tools/wifi.js').catch(() => ({}));
+  if (!wifiString) return; // qrcode-Paket nur im Vite-Build auflösbar
+  assert.equal(wifiString({ enc: 'WPA', ssid: 'Gast;WLAN', pw: 'a:b\\c"d', hidden: false }), 'WIFI:T:WPA;S:Gast\\;WLAN;P:a\\:b\\\\c\\"d;;');
+  assert.equal(wifiString({ enc: 'nopass', ssid: 'Offen', pw: 'x', hidden: true }), 'WIFI:T:nopass;S:Offen;H:true;;');
+});
+
+test('Prüfsumme: MD5 und Vergleich', async () => {
+  const { md5, normHash } = await import('../tools/hash.js').catch(() => ({}));
+  if (!md5) return;
+  assert.equal(md5(new TextEncoder().encode('abc')), '900150983cd24fb0d6963f7d28e17f72');
+  assert.equal(md5(new TextEncoder().encode('')), 'd41d8cd98f00b204e9800998ecf8427e');
+  assert.equal(normHash(' AB:CD-ef 12 '), 'abcdef12');
+});
+
+test('Mail-Diagnose: Beispiele aus dem Portal', async () => {
+  const m = await import('../tools/mail.js');
+  const b = m.analyzeMail(m.SAMPLE_BOUNCE);
+  assert.ok(b.isBounce); assert.match(b.hits[0].t, /DMARC/); assert.deepEqual(b.codes, ['5.7.26']);
+  const s = m.analyzeMail(m.SAMPLE_SPAM);
+  assert.equal(s.isSpam, true); assert.equal(s.auth.dmarc, 'fail');
+  assert.equal(m.regDom('mail.example.co.uk'), 'example.co.uk');
+  const h = m.parseHdr('Subject: Hallo\r\n  Welt\r\nFrom: A <a@b.de>');
+  assert.equal(h[0].v, 'Hallo Welt'); assert.equal(m.addrOf(h[1].v), 'a@b.de');
+});

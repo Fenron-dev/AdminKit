@@ -439,6 +439,7 @@ func (a *App) NewCustomerSession(customerName, deviceAlias, location string) (st
 	if err != nil {
 		return "", err
 	}
+	a.lastCustomer = customerName
 	host, _ := os.Hostname()
 	meta := bundle.Meta{
 		SessionName:     filepath.Base(sessionPath),

@@ -2947,7 +2947,22 @@ function initQRModal() {
   document.getElementById('modal-wifi-qr')?.addEventListener('click', e => {
     if (e.target.id === 'modal-wifi-qr') closeQRModal();
   });
+  // Druckvorlage: WLAN-Werkzeug im Werkzeugkasten mit vorbelegten Daten öffnen
+  document.getElementById('btn-qr-print')?.addEventListener('click', async () => {
+    const d = _qrCurrent;
+    closeQRModal();
+    if (!d) return;
+    const enc = d.security === 'WEP' ? 'WEP' : (d.security === 'Open' ? 'nopass' : 'WPA');
+    const prefill = { ssid: d.ssid, pw: d.password || '', enc: enc, title: 'WLAN' };
+    const p = await import('./werkzeug/platform.adminkit.js');
+    const ctx = await p.getContext(_pkgDeps);
+    if (_werkzeugLoaded) { switchTab('werkzeug'); ctx.openTool('wifi', prefill); return; }
+    ctx._prefill.wifi = prefill;
+    ctx.state.set('lastTool', 'wifi');
+    switchTab('werkzeug');
+  });
 }
+var _qrCurrent = null;
 
 async function showWiFiQR(ssid, password, security) {
   const modal = document.getElementById('modal-wifi-qr');
@@ -2956,6 +2971,7 @@ async function showWiFiQR(ssid, password, security) {
   const hint  = document.getElementById('qr-modal-hint');
   if (!modal || !body) return;
 
+  _qrCurrent = { ssid: ssid, password: password, security: security };
   title.textContent = `WiFi QR-Code: ${ssid}`;
   body.innerHTML = '<p class="info-placeholder">Generiere…</p>';
   hint.textContent = '';
@@ -2977,8 +2993,8 @@ function closeQRModal() {
 }
 
 function escapeWifiString(s) {
-  // RFC-4180-ähnliches Escaping für WiFi-QR-Strings
-  return String(s).replace(/[\\;,"]/g, c => '\\' + c);
+  // Escaping nach WIFI:-QR-Format: \ ; , : " müssen maskiert werden
+  return String(s).replace(/[\\;,:"]/g, c => '\\' + c);
 }
 
 // ─── Software-Tab ────────────────────────────────────────────────────────────
