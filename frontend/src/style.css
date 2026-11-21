@@ -2864,3 +2864,7 @@ body.platform-mac .titlebar {
 .pkg-info a, .pkg-hint a, .fav-profiles a { color: var(--color-primary); text-decoration: none; }
 .pkg-info a:hover { text-decoration: underline; }
 .subtab-btn .count-badge:empty { display: none; }
+
+/* Werkzeugkasten-Tab */
+.werkzeug-root { flex: 1; min-width: 0; height: 100%; overflow: hidden; }
+.werkzeug-root > .info-placeholder { padding: 20px; }

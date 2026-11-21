@@ -79,6 +79,8 @@ type App struct {
 
 	// Paketverwaltung (#84–#87)
 	pkg pkgState
+	// Werkzeugkasten (#88–#92)
+	wz wzState
 }
 
 // NewApp erstellt eine neue App-Instanz.

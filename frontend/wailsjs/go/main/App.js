@@ -443,3 +443,11 @@ export function ImportFavorites() {
 export function ExportFavorites(arg1) {
     return window['go']['main']['App']['ExportFavorites'](arg1);
 }
+
+// ── Werkzeugkasten W1: Zustand ──
+export function GetToolStates() {
+    return window['go']['main']['App']['GetToolStates']();
+}
+export function SaveToolState(arg1, arg2) {
+    return window['go']['main']['App']['SaveToolState'](arg1, arg2);
+}

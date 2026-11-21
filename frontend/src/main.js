@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initQuickActions();
   initWorkflows();
   initPeriodicMaintenance();
-  var _pkgDeps = pkgDeps();
+  _pkgDeps = pkgDeps();
   initPackages(_pkgDeps);
   initFavorites(_pkgDeps);
   initSSHManagement();
@@ -143,6 +143,18 @@ document.addEventListener('DOMContentLoaded', () => {
   initWikiTab();
   loadAppInfo();
 });
+
+var _pkgDeps = null;
+var _werkzeugLoaded = false;
+
+// Werkzeugkasten erst beim ersten Öffnen laden (eigener Code-Chunk)
+function ensureWerkzeug() {
+  if (_werkzeugLoaded) return;
+  _werkzeugLoaded = true;
+  var el = document.getElementById('werkzeug-root');
+  import('./werkzeug/index.js').then(function(m) { return m.initWerkzeugTab(el, _pkgDeps); })
+    .catch(function(e) { _werkzeugLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Werkzeugkasten konnte nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
+}
 
 // Helfer aus main.js, die die ausgelagerten Module (packages.js, werkzeug/) brauchen.
 function pkgDeps() {
@@ -251,6 +263,7 @@ function switchTab(tabId) {
   );
   state.activeTab = tabId;
   if (tabId === 'fleet') loadFleet();
+  if (tabId === 'werkzeug') ensureWerkzeug();
 }
 
 // ─── App-Infos ────────────────────────────────────────────────────────────────

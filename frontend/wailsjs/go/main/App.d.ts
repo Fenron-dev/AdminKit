@@ -80,3 +80,7 @@ export function SaveFavorites(f: any): Promise<void>;
 export function ResolveProfile(name: string): Promise<any[]>;
 export function ImportFavorites(): Promise<any>;
 export function ExportFavorites(format: string): Promise<string>;
+
+// Werkzeugkasten W1: Zustand
+export function GetToolStates(): Promise<Record<string, any>>;
+export function SaveToolState(key: string, value: string): Promise<void>;
