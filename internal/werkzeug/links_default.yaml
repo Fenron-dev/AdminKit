@@ -1,0 +1,61 @@
+# Mitgelieferte Team-Links (Ideler IT). Öffentlich erreichbare Seiten mit eigener Anmeldung.
+# Werden beim Start nach vault/links/links.yaml übernommen: neue Einträge kommen dazu,
+# eigene Änderungen und gelöschte Einträge bleiben erhalten. Revision bei Änderungen erhöhen.
+revision: 1
+bereiche:
+  - { id: it, name: "Ideler IT", icon: server, beschreibung: "Die tägliche Grundausstattung für alle im Team." }
+  - { id: eg, name: "Entwicklung", icon: code, beschreibung: "Repositories, Monitoring, Dokumentation und Helfer für Webprojekte." }
+  - { id: tk, name: "Technik", icon: wrench, beschreibung: "Hosting, Fernwartung, Telefonie und Hardware-Bestellung." }
+  - { id: su, name: "Support", icon: buoy, beschreibung: "Was im Kundengespräch sofort griffbereit sein muss." }
+  - { id: sec, name: "Sicherheit", icon: shield, beschreibung: "Prüfen, warnen, aufklären. Für Team und Kundschaft." }
+  - { id: sh, name: "Partnerportale", icon: store, beschreibung: "Vertriebs- und Partnerportale der Netz- und Energieanbieter." }
+  - { id: ti, name: "Testinstanzen", icon: flask, beschreibung: "Demo- und Testumgebungen zum gefahrlosen Ausprobieren." }
+  - { id: hp, name: "Homepage erstellen", kurz: "Homepage", icon: layout, beschreibung: "Bildmaterial und Ressourcen für Kundenwebseiten." }
+  - { id: ek, name: "Einkauf", icon: cart, beschreibung: "Lieferanten und Bestellportale." }
+  - { id: vb, name: "Vertrieb", icon: trend, beschreibung: "Kundenpflege und Angebote." }
+links:
+  - { id: seafile, name: "Seafile", url: "https://ideler.cloud/", icon: folder, beschreibung: "Dateien ablegen, synchronisieren und freigeben.", bereiche: [it, eg] }
+  - { id: idelertime, name: "IdelerTime", url: "https://ideler.idelertime.de/", icon: clock, beschreibung: "Zeiterfassung und Planung.", bereiche: [it] }
+  - { id: webmail, name: "Webmail", url: "https://webmail.isrv.eu/", icon: mail, beschreibung: "E-Mail im Browser, auch unterwegs.", bereiche: [it, su, tk] }
+  - { id: crm, name: "CRM", url: "https://crm.ideler.de/", icon: users, beschreibung: "Kunden, Kontakte und Vorgänge.", bereiche: [it, vb] }
+  - { id: bitwarden, name: "Bitwarden", url: "https://bitwarden.ideler.de/", icon: key, beschreibung: "Passwort-Tresor des Teams.", bereiche: [it, eg, sec] }
+  - { id: beleg, name: "IdelerBeleg", url: "https://beleg.ideler.de/", icon: receipt, beschreibung: "Belege erfassen und ablegen.", bereiche: [it] }
+  - { id: plesk, name: "Hosting Interface", url: "https://hosting01.ideler.host:8443/", icon: globe, beschreibung: "Plesk: Domains, Webspace und Postfächer.", bereiche: [it, eg, tk] }
+  - { id: transfer, name: "File Transfer", url: "https://transfer.isrv.eu/", icon: share, beschreibung: "Große Dateien per Link versenden.", bereiche: [it, eg] }
+  - { id: secret, name: "Share Secret", url: "https://secret.isrv.eu/", icon: lock, beschreibung: "Passwörter über einen geschützten Link teilen.", bereiche: [it, eg, tk, sec] }
+  - { id: prozesse, name: "Prozesse", url: "https://process.ideler.de/", icon: network, beschreibung: "Abläufe und Checklisten des Hauses.", bereiche: [it] }
+  - { id: arbeit, name: "Arbeitserfassung", url: "https://input.ideler.de/", icon: clipboard, beschreibung: "Tätigkeiten und Einsätze erfassen.", bereiche: [it] }
+  - { id: kasse, name: "Kassenübergabe", url: "https://kasse.ideler.de/", icon: banknote, beschreibung: "Kassenstand beim Schichtwechsel übergeben.", bereiche: [it] }
+  - { id: pcrep, name: "PC-Reparatur", url: "https://www.ideler-it.de/reparatur-pc/", icon: monitor, beschreibung: "Reparaturannahme für PCs und Notebooks.", bereiche: [it] }
+  - { id: handyrep, name: "Handy-Reparatur", url: "https://www.ideler-it.de/reparatur-handy/", icon: phone, beschreibung: "Reparaturannahme für Smartphones.", bereiche: [it] }
+  - { id: ebay, name: "eBay Shop", url: "https://stores.ebay.de/aetka-loxstedt", icon: bag, beschreibung: "Unser Shop auf eBay.", bereiche: [it] }
+  - { id: facebook, name: "Facebook", url: "https://www.facebook.com/tpartnerloxstedt", icon: megaphone, beschreibung: "Unsere Seite auf Facebook.", bereiche: [it] }
+  - { id: gitlab, name: "GitLab", url: "https://git.ideler.de/", icon: branch, beschreibung: "Quellcode, Merge Requests und Pipelines.", bereiche: [eg] }
+  - { id: mattermost, name: "Mattermost", url: "https://mattermost.ideler.de/", icon: chat, beschreibung: "Team-Chat der Entwicklung.", bereiche: [eg] }
+  - { id: sentry, name: "Sentry", url: "https://error.ideler.de/", icon: bug, beschreibung: "Fehlerberichte der Anwendungen.", bereiche: [eg] }
+  - { id: wpupdate, name: "WordPress Updates", url: "https://update.ideler.de/wp/", icon: refresh, beschreibung: "Update-Stand der WordPress-Seiten.", bereiche: [eg] }
+  - { id: updsrv, name: "Update-Server", url: "https://update.ideler.app/", icon: server, beschreibung: "Verteilung von App-Updates.", bereiche: [eg] }
+  - { id: pydoc, name: "Python Doku", url: "https://docs.python.org/", icon: book, beschreibung: "Offizielle Python-Dokumentation.", bereiche: [eg] }
+  - { id: djdoc, name: "Django Doku", url: "https://docs.djangoproject.com/", icon: book, beschreibung: "Offizielle Django-Dokumentation.", bereiche: [eg] }
+  - { id: bsdoc, name: "Bootstrap Doku", url: "https://getbootstrap.com/docs/", icon: book, beschreibung: "Komponenten und Utilities von Bootstrap.", bereiche: [eg] }
+  - { id: docker, name: "Docker Hub", url: "https://hub.docker.com/", icon: package, beschreibung: "Container-Images finden.", bereiche: [eg] }
+  - { id: jitsi, name: "Jitsi Meeting", url: "https://meet.golem.de/", icon: video, beschreibung: "Videokonferenz ohne Konto.", bereiche: [eg] }
+  - { id: gapi, name: "Google API Keys", url: "https://console.developers.google.com/apis/library", icon: code, beschreibung: "API-Bibliothek der Google Cloud Console.", bereiche: [eg] }
+  - { id: gsc, name: "Google Search Console", url: "https://www.google.com/webmasters/tools/home?hl=de", icon: search, beschreibung: "Sichtbarkeit von Kundenseiten in der Google-Suche.", bereiche: [eg] }
+  - { id: tlds, name: "Internet-TLDs", url: "https://en.wikipedia.org/wiki/List_of_Internet_top-level_domains", icon: globe, beschreibung: "Liste aller Top-Level-Domains.", bereiche: [eg] }
+  - { id: httpw, name: "HTTP-Statuscodes", url: "https://de.wikipedia.org/wiki/HTTP-Statuscode", icon: list, beschreibung: "Ausführliche Liste auf Wikipedia.", bereiche: [eg] }
+  - { id: pixabay, name: "Pixabay", url: "https://pixabay.com/", icon: image, beschreibung: "Freie Bilder und Videos.", bereiche: [eg, hp] }
+  - { id: adobestock, name: "Adobe Stock", url: "https://stock.adobe.com/de", icon: image, beschreibung: "Lizenzierte Stockfotos.", bereiche: [hp] }
+  - { id: pcvk, name: "PCVisit Kundenmodul", url: "https://nacl.pcvisit.com/fast_update/v1/hosted/jumplink?&langid=de-DE&func=download&productid=18&mode=release&os=osWin32&productRole=guestSetup&os=osWin32", icon: download, beschreibung: "Download für Kunden, um eine Fernwartung zu starten.", bereiche: [su] }
+  - { id: pcvisit, name: "PCVisit", url: "https://lb3.pcvisit.de/", icon: monitor, beschreibung: "Fernwartungssitzungen aufbauen und verwalten.", bereiche: [tk] }
+  - { id: justcom, name: "Justcom", url: "https://www.justcom-shop.de/", icon: cart, beschreibung: "Hardware und Zubehör bestellen.", bereiche: [tk, ek] }
+  - { id: cloudpbx, name: "CloudPBX", url: "https://bsp.t-mobile.de/portal/login.xhtml", icon: telephone, beschreibung: "Telefonanlagen der Kundschaft verwalten.", bereiche: [tk] }
+  - { id: ewevpo, name: "EWE VPO", url: "https://vpo.ewetel.de/vpo/secure/home.xhtml", icon: store, beschreibung: "Vertriebspartnerportal von EWE.", bereiche: [sh] }
+  - { id: ewesg, name: "EWE Strom & Gas", url: "https://wkk-tke.ewe.kmh.cloud/", icon: zap, beschreibung: "Strom- und Gasaufträge bei EWE.", bereiche: [sh] }
+  - { id: tvpp, name: "Telekom TVPP", url: "https://vertriebspartner.telekom.de/portal/login.jsp", icon: store, beschreibung: "Vertriebspartnerportal der Telekom.", bereiche: [sh] }
+  - { id: congstar, name: "congstar", url: "https://vertriebsportal.congstar.de/", icon: phone, beschreibung: "Vertriebsportal von congstar.", bereiche: [sh] }
+  - { id: ilc, name: "Identity Leak Checker", url: "https://sec.hpi.de/ilc/search?lang=de", icon: search, beschreibung: "Prüft, ob eine E-Mail-Adresse in Datenlecks vorkommt.", bereiche: [sec] }
+  - { id: phish, name: "Phishing-Radar", url: "https://www.verbraucherzentrale.de/wissen/digitale-welt/phishingradar/phishingradar-aktuelle-warnungen-6059", icon: alert, beschreibung: "Aktuelle Warnungen der Verbraucherzentrale.", bereiche: [sec] }
+  - { id: itneu, name: "IdelerTime Neu", url: "https://idelertest.idelertime.de/", icon: clock, beschreibung: "Testinstanz der neuen Version.", bereiche: [ti] }
+  - { id: italt, name: "IdelerTime Alt", url: "https://idelerdemo.idelertime.de/", icon: clock, beschreibung: "Demo der bisherigen Version.", bereiche: [ti] }
+  - { id: wfc, name: "WorkflowCheck", url: "https://idelerdemo.workflowcheck.com/", icon: check, beschreibung: "Demo-Instanz von WorkflowCheck.", bereiche: [ti] }

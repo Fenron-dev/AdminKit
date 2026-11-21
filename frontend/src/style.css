@@ -2868,3 +2868,27 @@ body.platform-mac .titlebar {
 /* Werkzeugkasten-Tab */
 .werkzeug-root { flex: 1; min-width: 0; height: 100%; overflow: hidden; }
 .werkzeug-root > .info-placeholder { padding: 20px; }
+
+/* Angeheftete Links (Dashboard) */
+.pinned-links-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 14px; }
+.pinned-links-label { font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-right: 4px; }
+.pinned-link { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; font-size: 13px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); cursor: pointer; font-family: inherit; }
+.pinned-link:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.pinned-link .i { width: 14px; height: 14px; }
+
+/* Befehlspalette (Strg/Cmd + K) */
+.palette-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.35); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
+.palette { width: min(640px, 92vw); max-height: 70vh; display: flex; flex-direction: column; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 12px; box-shadow: 0 24px 60px -20px rgba(0,0,0,.5); overflow: hidden; }
+.palette-input { border: 0; border-bottom: 1px solid var(--color-border); padding: 14px 16px; font-size: 15px; background: transparent; color: var(--color-text); outline: none; font-family: inherit; }
+.palette-list { overflow: auto; padding: 6px; }
+.palette-g { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); padding: 8px 10px 4px; }
+.palette-item { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.palette-item.active, .palette-item:hover { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+.palette-ic { width: 22px; text-align: center; flex: none; }
+.palette-t { display: flex; flex-direction: column; min-width: 0; }
+.palette-t b { font-size: 13.5px; font-weight: 500; }
+.palette-t span { font-size: 12px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.palette-empty { padding: 16px; color: var(--color-text-muted); font-size: 13px; }
+.palette-foot { display: flex; gap: 16px; padding: 8px 14px; border-top: 1px solid var(--color-border); font-size: 11.5px; color: var(--color-text-muted); }
+.palette-foot kbd { font-family: inherit; font-size: 11px; padding: 1px 5px; border: 1px solid var(--color-border); border-bottom-width: 2px; border-radius: 4px; margin-right: 3px; }
+.kbd-hint { font-family: inherit; font-size: 10.5px; padding: 0 4px; border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text-muted); margin-left: 2px; }

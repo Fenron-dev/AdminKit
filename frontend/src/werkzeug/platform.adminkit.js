@@ -4,6 +4,13 @@
 import { GetToolStates, SaveToolState } from '../../wailsjs/go/main/App';
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 
+// Ein gemeinsamer Kontext für Werkzeugkasten, Links und Befehlspalette
+let shared = null;
+export function getContext(deps) {
+  if (!shared) shared = createContext(deps);
+  return shared;
+}
+
 export async function createContext(deps) {
   let states = {};
   try { states = (await GetToolStates()) || {}; } catch (e) { console.warn('Werkzeug-Zustand nicht lesbar', e); }

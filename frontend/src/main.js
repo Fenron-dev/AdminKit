@@ -8,6 +8,7 @@ import './style.css';
 import QRCode from 'qrcode';
 import { initPackages } from './packages.js';
 import { initFavorites } from './favorites.js';
+import { initPalette, registerPaletteProvider, open as openPalette } from './palette.js';
 import {
   GetAppVersion, GetVaultPath, GetConfig, NewSession,
   ScanSystem, SaveSystemScan,
@@ -134,6 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
   _pkgDeps = pkgDeps();
   initPackages(_pkgDeps);
   initFavorites(_pkgDeps);
+  initPinnedLinks();
+  initPalette();
+  document.getElementById('btn-palette')?.addEventListener('click', function() { openPalette(); });
+  var kh = document.querySelector('.kbd-hint');
+  if (kh && !/Mac/.test(navigator.platform || navigator.userAgent)) kh.textContent = 'Strg K';
+  initPaletteProviders();
   initSSHManagement();
   initDiskUsage();
   initCertificates();
@@ -154,6 +161,81 @@ function ensureWerkzeug() {
   var el = document.getElementById('werkzeug-root');
   import('./werkzeug/index.js').then(function(m) { return m.initWerkzeugTab(el, _pkgDeps); })
     .catch(function(e) { _werkzeugLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Werkzeugkasten konnte nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
+}
+
+var _linksLoaded = false;
+function ensureLinks() {
+  if (_linksLoaded) return;
+  _linksLoaded = true;
+  var el = document.getElementById('links-root');
+  import('./werkzeug/links.js').then(function(m) { return m.initLinksTab(el, _pkgDeps); })
+    .catch(function(e) { _linksLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Links konnten nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
+}
+
+// Angeheftete Links auf dem Dashboard (liest nur die Vault-Datei, offline)
+function initPinnedLinks() {
+  import('./werkzeug/links.js').then(function(m) { m.renderPinnedBar(document.getElementById('pinned-links-bar'), _pkgDeps); })
+    .catch(function() { /* ohne Links kein Balken */ });
+}
+
+// Quellen der Befehlspalette (Strg/Cmd + K)
+function initPaletteProviders() {
+  var click = function(id) { return function() { document.getElementById(id)?.click(); }; };
+  // Tabs
+  registerPaletteProvider(function() {
+    return Array.from(document.querySelectorAll('.tab-btn')).filter(function(b) { return !b.classList.contains('hidden'); })
+      .map(function(b) { return { group: 'Tabs', icon: '▸', title: b.textContent.trim(), keys: 'tab ' + b.dataset.tab, run: function() { switchTab(b.dataset.tab); } }; });
+  });
+  // Aktionen
+  registerPaletteProvider(function() {
+    var A = [
+      ['🔍', 'Vollscan starten', 'scan alles komplett', 'btn-full-scan'],
+      ['📋', 'Neue Session', 'kunde session anlegen', 'btn-new-session'],
+      ['🕐', 'Session-Verlauf', 'alte session laden', 'btn-session-history'],
+      ['📄', 'HTML-Bericht exportieren', 'export bericht', 'btn-export-html'],
+      ['🖨', 'Als PDF speichern', 'export pdf bericht', 'btn-export-pdf'],
+      ['⚙', 'Einstellungen', 'settings konfiguration api keys online', 'btn-settings'],
+      ['🌐', 'Internet-Fix', 'schnellaktion netzwerk reparieren', 'qa-internet-fix'],
+      ['🖨', 'Drucker-Fix', 'schnellaktion spooler', 'qa-printer-fix'],
+      ['🧹', 'Schnellbereinigung', 'schnellaktion temp aufräumen', 'qa-quick-clean'],
+      ['🔄', 'DNS leeren', 'schnellaktion dns cache flush', 'qa-dns-flush'],
+    ];
+    return A.filter(function(a) { return document.getElementById(a[3]); })
+      .map(function(a) { return { group: 'Aktionen', icon: a[0], title: a[1], keys: a[2], run: click(a[3]) }; });
+  });
+  // Software-Bereiche
+  registerPaletteProvider(function() {
+    var go = function(v) { return function() { switchTab('software'); document.querySelector('#software-subtabs [data-view="' + v + '"]')?.click(); }; };
+    return [
+      { group: 'Software', icon: '⬆', title: 'Software-Updates prüfen', keys: 'winget brew update aktualisieren pakete', run: go('updates') },
+      { group: 'Software', icon: '🔍', title: 'Pakete suchen & installieren', keys: 'winget brew installieren programm', run: go('search') },
+      { group: 'Software', icon: '⭐', title: 'Paket-Favoriten & Profile', keys: 'favoriten profil neuer pc', run: go('favorites') },
+    ];
+  });
+  // Werkzeuge
+  registerPaletteProvider(async function() {
+    var m = await import('./werkzeug/index.js');
+    return m.TOOLS.map(function(t) {
+      return { group: 'Werkzeuge', icon: t.online ? '🌐' : '🧰', title: t.name, sub: t.group, keys: t.keys, run: async function() {
+        if (_werkzeugLoaded) { switchTab('werkzeug'); m.openTool(t.id); return; }
+        var p = await import('./werkzeug/platform.adminkit.js');
+        (await p.getContext(_pkgDeps)).state.set('lastTool', t.id);
+        switchTab('werkzeug');
+      } };
+    });
+  });
+  // Links
+  registerPaletteProvider(async function() {
+    var m = await import('./werkzeug/links.js');
+    var p = await import('./werkzeug/platform.adminkit.js');
+    var ctx = await p.getContext(_pkgDeps);
+    var data = await m.loadLinks();
+    var pins = new Set(ctx.state.get('linkPins', []));
+    return (data.links || []).map(function(l) {
+      var host = ''; try { host = new URL(l.url).host; } catch (_) {}
+      return { group: 'Links', icon: pins.has(l.id) ? '📌' : '🔗', title: l.name, sub: (l.beschreibung || '') + (host ? ' · ' + host : ''), keys: host, pinned: pins.has(l.id), run: function() { ctx.open(l.url); } };
+    });
+  });
 }
 
 // Helfer aus main.js, die die ausgelagerten Module (packages.js, werkzeug/) brauchen.
@@ -264,6 +346,7 @@ function switchTab(tabId) {
   state.activeTab = tabId;
   if (tabId === 'fleet') loadFleet();
   if (tabId === 'werkzeug') ensureWerkzeug();
+  if (tabId === 'links') ensureLinks();
 }
 
 // ─── App-Infos ────────────────────────────────────────────────────────────────

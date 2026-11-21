@@ -25,6 +25,7 @@
           <button class="icon-btn" id="btn-new-session" title="Neue Session erstellen">📋 Neue Session</button>
           <button class="icon-btn" id="btn-session-history" title="Session-Verlauf anzeigen">🕐 Verlauf</button>
           <button class="icon-btn hidden" id="btn-show-last-summary" title="Letzte Scan-Zusammenfassung anzeigen">📊 Zusammenfassung</button>
+          <button class="icon-btn" id="btn-palette" title="Suchen (Strg/Cmd + K)">🔎 <kbd class="kbd-hint">⌘K</kbd></button>
           <button class="icon-btn" id="btn-theme" title="Theme wechseln">🌙</button>
           <div class="export-wrap">
             <button class="icon-btn export-btn" id="btn-export" title="Bericht exportieren">📤 Exportieren ▾</button>
@@ -58,6 +59,7 @@
         <button class="tab-btn" data-tab="software">Software</button>
         <button class="tab-btn" data-tab="tools">Tools</button>
         <button class="tab-btn" data-tab="werkzeug">🧰 Werkzeugkasten</button>
+        <button class="tab-btn" data-tab="links">🔗 Links</button>
         <button class="tab-btn" data-tab="wiki">Wiki</button>
         <button class="tab-btn" data-tab="help">Hilfe</button>
       </nav>
@@ -75,6 +77,7 @@
 
         <!-- ── DASHBOARD ── -->
         <section class="tab-panel active" id="tab-dashboard">
+          <div class="pinned-links-bar hidden" id="pinned-links-bar"></div>
           <div class="dashboard-grid">
             <div class="card card-full-row">
               <div class="card-header">
@@ -843,6 +846,11 @@
         <!-- ── Werkzeugkasten (#88–#92): gerätunabhängige Werkzeuge aus dem Ideler-Portal ── -->
         <section class="tab-panel" id="tab-werkzeug">
           <div id="werkzeug-root" class="werkzeug-root"><div class="info-placeholder">Werkzeugkasten wird geladen…</div></div>
+        </section>
+
+        <!-- ── Links (#91): Team-Links aus vault/links/links.yaml ── -->
+        <section class="tab-panel" id="tab-links">
+          <div id="links-root" class="werkzeug-root"><div class="info-placeholder">Links werden geladen…</div></div>
         </section>
 
         <!-- ── Wiki-Tab ─────────────────────────────────────────────────── -->

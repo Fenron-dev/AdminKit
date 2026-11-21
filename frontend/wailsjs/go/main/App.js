@@ -451,3 +451,11 @@ export function GetToolStates() {
 export function SaveToolState(arg1, arg2) {
     return window['go']['main']['App']['SaveToolState'](arg1, arg2);
 }
+
+// ── Werkzeugkasten W4: Links ──
+export function GetLinks() {
+    return window['go']['main']['App']['GetLinks']();
+}
+export function SaveLinks(arg1) {
+    return window['go']['main']['App']['SaveLinks'](arg1);
+}

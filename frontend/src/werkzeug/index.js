@@ -2,7 +2,7 @@
 // Gleiche Gruppen und Reihenfolge wie im Ideler-Portal (UTIL_GROUPS).
 import './werkzeug.css';
 import { esc, ic } from './ui.js';
-import { createContext } from './platform.adminkit.js';
+import { getContext } from './platform.adminkit.js';
 import pw from './tools/pw.js';
 import spell from './tools/spell.js';
 import imei from './tools/imei.js';
@@ -26,7 +26,7 @@ let ctx = null, root = null, current = null, cleanup = null, filter = '';
 
 export async function initWerkzeugTab(container, deps) {
   root = container;
-  ctx = await createContext(deps);
+  ctx = await getContext(deps);
   current = ctx.state.get('lastTool', 'pw');
   root.classList.add('wz');
   root.innerHTML = `<div class="wz-layout">

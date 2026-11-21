@@ -84,3 +84,7 @@ export function ExportFavorites(format: string): Promise<string>;
 // Werkzeugkasten W1: Zustand
 export function GetToolStates(): Promise<Record<string, any>>;
 export function SaveToolState(key: string, value: string): Promise<void>;
+
+// Werkzeugkasten W4: Links
+export function GetLinks(): Promise<any>;
+export function SaveLinks(l: any): Promise<void>;
