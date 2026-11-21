@@ -19,6 +19,10 @@
         <string>iconfile</string>
         <key>LSMinimumSystemVersion</key>
         <string>10.13.0</string>
+        <key>NSCameraUsageDescription</key>
+        <string>Der Hardwaretest im Werkzeugkasten zeigt das Kamerabild an. Es wird nichts gespeichert oder übertragen.</string>
+        <key>NSMicrophoneUsageDescription</key>
+        <string>Der Hardwaretest im Werkzeugkasten zeigt den Mikrofonpegel an und kann eine kurze Probeaufnahme abspielen. Es wird nichts gespeichert oder übertragen.</string>
         <key>NSHighResolutionCapable</key>
         <string>true</string>
         <key>NSHumanReadableCopyright</key>

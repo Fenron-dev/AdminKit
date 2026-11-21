@@ -224,6 +224,14 @@ function initPaletteProviders() {
       } };
     });
   });
+  // Wiki-Artikel
+  registerPaletteProvider(async function() {
+    var m = await import('./werkzeug/wiki.js');
+    return m.wikiPaletteItems(_pkgDeps, function(slug) {
+      switchTab('wiki'); showWikiView('articles');
+      ensureWikiArticles().then(function() { m.openArticle(slug); });
+    });
+  });
   // Links
   registerPaletteProvider(async function() {
     var m = await import('./werkzeug/links.js');
@@ -250,14 +258,17 @@ function pkgDeps() {
     getConfig: function() { return state.config; },
     getPlatform: function() { return state.platform; },
     getSessionPath: function() { return state.currentSessionPath; },
+    getSystemScan: function() { return state.lastScanResult; },
   };
 }
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 
+// Theme kommt aus config.yaml (ui.theme) im Vault – nicht aus dem localStorage,
+// damit auf dem Kunden-PC nichts zurückbleibt.
 function detectInitialTheme() {
-  const saved = localStorage.getItem('adminkit-theme');
-  if (saved) return saved;
+  // Altbestand aus früheren Versionen entfernen
+  try { localStorage.removeItem('adminkit-theme'); } catch (_) { /* ignorieren */ }
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
@@ -265,13 +276,16 @@ function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   const btn = document.getElementById('btn-theme');
   if (btn) btn.textContent = theme === 'dark' ? '☀' : '🌙';
-  localStorage.setItem('adminkit-theme', theme);
 }
 
 function initThemeToggle() {
   document.getElementById('btn-theme')?.addEventListener('click', () => {
     state.theme = state.theme === 'dark' ? 'light' : 'dark';
     applyTheme(state.theme);
+    if (state.config) {
+      state.config.ui = Object.assign({}, state.config.ui, { theme: state.theme });
+      SaveConfig(state.config).catch(e => console.warn('Theme nicht gespeichert', e));
+    }
   });
 }
 
@@ -347,6 +361,7 @@ function switchTab(tabId) {
   if (tabId === 'fleet') loadFleet();
   if (tabId === 'werkzeug') ensureWerkzeug();
   if (tabId === 'links') ensureLinks();
+  if (tabId === 'wiki' && !document.getElementById('wiki-view-articles')?.classList.contains('hidden')) ensureWikiArticles();
 }
 
 // ─── App-Infos ────────────────────────────────────────────────────────────────
@@ -366,7 +381,7 @@ async function loadAppInfo() {
     updateBrandingBar();
     applyQuickActionVisibility();
 
-    if (cfg?.ui?.theme && !localStorage.getItem('adminkit-theme') && cfg.ui.theme !== 'system') {
+    if (cfg?.ui?.theme && cfg.ui.theme !== 'system') {
       state.theme = cfg.ui.theme;
       applyTheme(state.theme);
     }
@@ -6227,25 +6242,67 @@ function initWikiTab() {
   ];
 
   var osFilterEl = document.getElementById('wiki-os-filter');
-  var initialOs = osFilterEl ? osFilterEl.value : 'all';
-  renderWiki(wikiData, initialOs, '');
+  var catFilterEl = document.getElementById('wiki-cat-filter');
+  // Plattform des Geräts vorauswählen (macOS-Standard im HTML)
+  if (osFilterEl && /Win/.test(navigator.platform || navigator.userAgent)) osFilterEl.value = 'windows';
+  var redraw = function() {
+    renderWiki(wikiData, osFilterEl ? osFilterEl.value : 'all',
+      (document.getElementById('wiki-search')?.value || '').trim().toLowerCase(),
+      catFilterEl ? catFilterEl.value : '');
+  };
+  var fillCats = function() {
+    if (!catFilterEl) return;
+    var cur = catFilterEl.value, seen = {};
+    wikiData.forEach(function(i) { seen[i.cat] = true; });
+    catFilterEl.innerHTML = '<option value="">Alle Kategorien</option>' + Object.keys(seen).sort(function(a, b) { return a.localeCompare(b, 'de'); })
+      .map(function(c) { return '<option' + (c === cur ? ' selected' : '') + '>' + escapeHtml(c) + '</option>'; }).join('');
+  };
+  // Nachschlagewerk aus dem Ideler-Portal ergänzen (HTTP, SMTP, Ports, Windows-Fehler, Bluescreen, Befehle)
+  import('./werkzeug/data/ref.js').then(function(m) {
+    var labels = {}; m.REF_SETS.forEach(function(x) { labels[x[0]] = x[1]; });
+    Object.keys(m.REF).forEach(function(set) {
+      var os = (set === 'winerr' || set === 'bsod' || set === 'cmd') ? 'windows' : 'all';
+      m.REF[set].forEach(function(r) {
+        wikiData.push({ os: os, cat: labels[set] || set, title: r[1] || r[0], cmd: r[0], desc: r[2] || '' });
+      });
+    });
+    fillCats(); redraw();
+  }).catch(function() { /* Nachschlagewerk optional */ });
+  fillCats();
+  redraw();
 
-  document.getElementById('wiki-search')?.addEventListener('input', function(e) {
-    var os = document.getElementById('wiki-os-filter')?.value || 'all';
-    renderWiki(wikiData, os, e.target.value.trim().toLowerCase());
-  });
-  document.getElementById('wiki-os-filter')?.addEventListener('change', function(e) {
-    var q = document.getElementById('wiki-search')?.value.trim().toLowerCase() || '';
-    renderWiki(wikiData, e.target.value, q);
+  document.getElementById('wiki-search')?.addEventListener('input', redraw);
+  osFilterEl?.addEventListener('change', redraw);
+  catFilterEl?.addEventListener('change', redraw);
+
+  // Unterbereiche Artikel / Nachschlagen
+  document.querySelectorAll('#wiki-subtabs [data-wview]').forEach(function(b) {
+    b.addEventListener('click', function() { showWikiView(b.dataset.wview); });
   });
 }
 
-function renderWiki(wikiData, osFilter, query) {
+var _wikiArticlesLoaded = false;
+function showWikiView(view) {
+  document.querySelectorAll('#wiki-subtabs [data-wview]').forEach(function(b) { b.classList.toggle('active', b.dataset.wview === view); });
+  document.getElementById('wiki-view-articles')?.classList.toggle('hidden', view !== 'articles');
+  document.getElementById('wiki-view-ref')?.classList.toggle('hidden', view !== 'ref');
+  if (view === 'articles') ensureWikiArticles();
+}
+function ensureWikiArticles() {
+  if (_wikiArticlesLoaded) return Promise.resolve();
+  _wikiArticlesLoaded = true;
+  var el = document.getElementById('wiki-view-articles');
+  return import('./werkzeug/wiki.js').then(function(m) { return m.initWikiArticles(el, _pkgDeps); })
+    .catch(function(e) { _wikiArticlesLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Wiki konnte nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
+}
+
+function renderWiki(wikiData, osFilter, query, catFilter) {
   var container = document.getElementById('wiki-content');
   if (!container) return;
 
   var data = wikiData.filter(function(item) {
-    if (osFilter !== 'all' && item.os !== osFilter) return false;
+    if (osFilter !== 'all' && item.os !== osFilter && item.os !== 'all') return false;
+    if (catFilter && item.cat !== catFilter) return false;
     if (query) {
       var haystack = (item.title + ' ' + item.cmd + ' ' + item.desc + ' ' + item.cat).toLowerCase();
       return haystack.indexOf(query) !== -1;
@@ -6270,7 +6327,7 @@ function renderWiki(wikiData, osFilter, query) {
   Object.values(groups).forEach(function(g) {
     var sec = document.createElement('div');
     sec.className = 'wiki-section';
-    var osLabel = g.os === 'macos' ? '🍎 macOS' : '🪟 Windows';
+    var osLabel = g.os === 'macos' ? '🍎 macOS' : g.os === 'windows' ? '🪟 Windows' : '📚 Nachschlagewerk';
     sec.innerHTML = '<h3 class="wiki-cat-title">' + osLabel + ' — ' + escapeHtml(g.cat) + '</h3>';
     var tbl = document.createElement('table');
     tbl.className = 'wiki-table';

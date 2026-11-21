@@ -503,3 +503,46 @@
 .wz .dns-res { align-items: flex-end; }
 .wz .dns-res .field { min-width: 240px; flex: 1; }
 .wz .dns-t tr.diff td { background: color-mix(in srgb, var(--color-warning) 12%, transparent); }
+
+/* Wiki-Artikel & Editor (aus dem Portal, unter .wz gekapselt) */
+.wz .art-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.wz .art-card{display:flex;flex-direction:column;gap:10px;padding:20px 22px;border-radius:var(--r-lg);background:var(--color-surface);border:1px solid var(--line);text-decoration:none;transition:border-color .15s,background .15s;min-height:170px}
+.wz .art-card:hover{border-color:color-mix(in srgb, var(--color-warning) 50%, transparent);background:rgba(23,48,75,.55)}
+.wz .art-card h3, .wz .art-card h2{margin:0;font:700 19px/1.25 var(--f-display);letter-spacing:-.01em}
+.wz .art-card p{margin:0;color:var(--muted);font-size:14.5px;line-height:1.5;flex:1}
+.wz .art-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--dim)}
+.wz .locked .art-grid{filter:blur(7px) saturate(.6);opacity:.55;pointer-events:none;user-select:none}
+.wz .wk-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:24px}
+.wz .wk-head h1{margin:0;font:800 clamp(38px,4.6vw,56px)/1 var(--f-display);letter-spacing:-.04em}
+.wz .wk-head p{margin:8px 0 0;color:var(--muted)}
+.wz .crumbs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;color:var(--dim);margin-bottom:14px}
+.wz .crumbs a{text-decoration:none;color:var(--muted)}
+.wz .crumbs a:hover{color:var(--text)}
+.wz .article{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:44px;align-items:start}
+.wz .article h1{margin:0 0 14px;font:800 clamp(34px,4vw,52px)/1.02 var(--f-display);letter-spacing:-.035em;max-width:20ch}
+.wz .art-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;color:var(--muted);font-size:14px;padding-bottom:22px;margin-bottom:28px;border-bottom:1px solid var(--line)}
+.wz .toc{position:sticky;top:88px;font-size:14px;display:grid;gap:2px;border-left:1px solid var(--line);padding-left:14px}
+.wz .toc strong{font-size:12.5px;color:var(--dim);margin-bottom:6px;font-weight:600}
+.wz .toc button{background:none;border:0;padding:4px 0;text-align:left;color:var(--muted);font-size:14px}
+.wz .toc button:hover{color:var(--cyan)}
+.wz .art-acts{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+@media (max-width:1080px){.wz .article{grid-template-columns:1fr}}
+@media (max-width:1080px){.wz .toc{display:none}}
+.wz .ed-meta{display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.wz .ed-title input{font:700 22px/1.2 var(--f-display)!important;letter-spacing:-.01em}
+.wz .ed-bar{display:flex;flex-wrap:wrap;gap:2px;padding:6px;border:1px solid var(--line2);border-bottom:0;border-radius:14px 14px 0 0;background:var(--color-bg)}
+.wz .ed-bar button{border:0;background:none;color:var(--muted);height:32px;min-width:34px;padding:0 9px;border-radius:8px;font-weight:600;font-size:14px}
+.wz .ed-bar button:hover{background:color-mix(in srgb, var(--color-text-muted) 10%, transparent);color:var(--text)}
+.wz .ed-bar .sep{width:1px;background:var(--line);margin:5px 4px}
+.wz .ed-bar .tog{margin-left:auto}
+.wz .ed-split{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line2);border-radius:0 0 14px 14px;overflow:hidden;min-height:62vh}
+.wz .ed-split textarea{border:0;border-right:1px solid var(--line);background:var(--color-bg);padding:20px;resize:none;font:400 14.5px/1.7 var(--f-mono);color:var(--text);outline:none;min-height:62vh}
+.wz .ed-prev{padding:22px 26px;overflow:auto;max-height:78vh;background:var(--color-surface)}
+.wz .ed-split.no-prev{grid-template-columns:1fr}
+.wz .ed-split.no-prev .ed-prev{display:none}
+.wz .ed-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:14px;color:var(--dim);font-size:13.5px}
+@media (max-width:860px){.wz .ed-meta{grid-template-columns:1fr}}
+@media (max-width:860px){.wz .ed-split{grid-template-columns:1fr}}
+@media (max-width:860px){.wz .ed-prev{display:none}}
+@media (max-width:860px){.wz .ed-split.show-prev textarea{display:none}}
+@media (max-width:860px){.wz .ed-split.show-prev .ed-prev{display:block}}

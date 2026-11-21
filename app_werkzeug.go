@@ -11,10 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"adminkit/internal/execx"
 	"adminkit/internal/hashing"
 	"adminkit/internal/logging"
 	"adminkit/internal/netcheck"
@@ -45,13 +47,21 @@ func (a *App) toolState() (*werkzeug.State, error) {
 	return a.wz.state, nil
 }
 
-// GetToolStates liefert alle gespeicherten Werkzeug-Einstellungen (key → JSON).
-func (a *App) GetToolStates() (map[string]json.RawMessage, error) {
+// GetToolStates liefert alle gespeicherten Werkzeug-Einstellungen.
+// (map[string]any statt json.RawMessage – unkritisch für die Wails-Bindings.)
+func (a *App) GetToolStates() (map[string]any, error) {
 	s, err := a.toolState()
 	if err != nil {
 		return nil, err
 	}
-	return s.All(), nil
+	out := map[string]any{}
+	for k, raw := range s.All() {
+		var v any
+		if json.Unmarshal(raw, &v) == nil {
+			out[k] = v
+		}
+	}
+	return out, nil
 }
 
 // SaveToolState speichert eine Werkzeug-Einstellung (value = JSON, "null" löscht).
@@ -389,4 +399,86 @@ func (a *App) SaveSessionNote(folder, name, markdown, workTitle string) (string,
 		_ = werkzeug.AppendWork(a.lastSessionPath, werkzeug.WorkItem{Time: time.Now(), Title: workTitle, Detail: name, File: filepath.Base(p)})
 	}
 	return p, nil
+}
+
+// ── Wiki (#92) ──────────────────────────────────────────────────────────────
+
+// ListWikiArticles gleicht die Startartikel ab und listet alle Artikel.
+func (a *App) ListWikiArticles() ([]werkzeug.ArticleMeta, error) {
+	if a.vault == nil {
+		return nil, fmt.Errorf("keine Vault initialisiert")
+	}
+	if n, err := werkzeug.SyncWikiSeeds(a.vault.RootPath); err != nil {
+		logging.Warnf("Werkzeug", "Wiki-Startartikel: %v", err)
+	} else if n > 0 {
+		logging.Infof("Werkzeug", "%d Wiki-Startartikel angelegt/aktualisiert", n)
+	}
+	return werkzeug.ListArticles(a.vault.RootPath)
+}
+
+// GetWikiArticle liest einen Artikel samt Bildern.
+func (a *App) GetWikiArticle(slug string) (*werkzeug.Article, error) {
+	if a.vault == nil {
+		return nil, fmt.Errorf("keine Vault initialisiert")
+	}
+	return werkzeug.GetArticle(a.vault.RootPath, slug)
+}
+
+// SaveWikiArticle speichert einen Artikel (leerer Slug = neu) und liefert den Slug.
+func (a *App) SaveWikiArticle(art *werkzeug.Article) (string, error) {
+	if a.vault == nil {
+		return "", fmt.Errorf("keine Vault initialisiert")
+	}
+	autor := ""
+	if a.cfg != nil {
+		autor = a.cfg.Branding.TechnicianName
+	}
+	slug, err := werkzeug.SaveArticle(a.vault.RootPath, art, autor)
+	if err == nil {
+		logging.Infof("Werkzeug", "Wiki-Artikel gespeichert: %s", slug)
+	}
+	return slug, err
+}
+
+// DeleteWikiArticle löscht einen Artikel samt Bildern (Bestätigung im Frontend).
+func (a *App) DeleteWikiArticle(slug string) error {
+	if a.vault == nil {
+		return fmt.Errorf("keine Vault initialisiert")
+	}
+	if err := werkzeug.DeleteArticle(a.vault.RootPath, slug); err != nil {
+		return err
+	}
+	logging.Infof("Werkzeug", "Wiki-Artikel gelöscht: %s", slug)
+	return nil
+}
+
+// SaveWikiImage legt ein Bild (data:-URI) für einen Artikel ab → relativer Pfad.
+func (a *App) SaveWikiImage(slug, name, dataURL string) (string, error) {
+	if a.vault == nil {
+		return "", fmt.Errorf("keine Vault initialisiert")
+	}
+	return werkzeug.SaveImage(a.vault.RootPath, slug, name, dataURL)
+}
+
+// ── Hardwaretest (#92) ──────────────────────────────────────────────────────
+
+// OpenSystemApp öffnet Kamera-App bzw. Ton-Einstellungen – Ausweg, falls die
+// WebView keinen Zugriff auf Kamera/Mikrofon bekommt. kind: "camera" | "sound".
+func (a *App) OpenSystemApp(kind string) error {
+	var name string
+	var args []string
+	switch goruntime.GOOS + "/" + kind {
+	case "darwin/camera":
+		name, args = "open", []string{"-a", "Photo Booth"}
+	case "darwin/sound":
+		name, args = "open", []string{"x-apple.systempreferences:com.apple.Sound-Settings.extension"}
+	case "windows/camera":
+		name, args = "explorer.exe", []string{"microsoft.windows.camera:"}
+	case "windows/sound":
+		name, args = "explorer.exe", []string{"ms-settings:sound"}
+	default:
+		return fmt.Errorf("auf diesem System nicht verfügbar")
+	}
+	_, err := execx.Run(a.ctx, execx.Options{Timeout: 15 * time.Second}, name, args...)
+	return err
 }

@@ -107,3 +107,11 @@ export function RDAPLookup(domain: string): Promise<any>;
 export function LinkPreview(url: string): Promise<any>;
 export function URLScanSearch(domain: string): Promise<any[]>;
 export function SaveSessionNote(folder: string, name: string, markdown: string, workTitle: string): Promise<string>;
+
+// Werkzeugkasten W5: Wiki & Hardwaretest
+export function ListWikiArticles(): Promise<any[]>;
+export function GetWikiArticle(slug: string): Promise<any>;
+export function SaveWikiArticle(a: any): Promise<string>;
+export function DeleteWikiArticle(slug: string): Promise<void>;
+export function SaveWikiImage(slug: string, name: string, dataURL: string): Promise<string>;
+export function OpenSystemApp(kind: string): Promise<void>;

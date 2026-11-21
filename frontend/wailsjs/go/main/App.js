@@ -508,3 +508,23 @@ export function URLScanSearch(arg1) {
 export function SaveSessionNote(arg1, arg2, arg3, arg4) {
     return window['go']['main']['App']['SaveSessionNote'](arg1, arg2, arg3, arg4);
 }
+
+// ── Werkzeugkasten W5: Wiki & Hardwaretest ──
+export function ListWikiArticles() {
+    return window['go']['main']['App']['ListWikiArticles']();
+}
+export function GetWikiArticle(arg1) {
+    return window['go']['main']['App']['GetWikiArticle'](arg1);
+}
+export function SaveWikiArticle(arg1) {
+    return window['go']['main']['App']['SaveWikiArticle'](arg1);
+}
+export function DeleteWikiArticle(arg1) {
+    return window['go']['main']['App']['DeleteWikiArticle'](arg1);
+}
+export function SaveWikiImage(arg1, arg2, arg3) {
+    return window['go']['main']['App']['SaveWikiImage'](arg1, arg2, arg3);
+}
+export function OpenSystemApp(arg1) {
+    return window['go']['main']['App']['OpenSystemApp'](arg1);
+}

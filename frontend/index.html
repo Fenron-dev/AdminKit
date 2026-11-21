@@ -855,19 +855,27 @@
 
         <!-- ── Wiki-Tab ─────────────────────────────────────────────────── -->
         <section class="tab-panel" id="tab-wiki">
-          <div class="tab-panel-simple">
-            <div class="wiki-header">
-              <h2 class="wiki-title">Wiki — Befehle, Shortcuts & Tipps</h2>
-              <div class="wiki-filter-wrap">
-                <input type="text" id="wiki-search" class="wiki-search" placeholder="Suchen…">
-                <select id="wiki-os-filter" class="wiki-os-filter">
-                  <option value="all">Alle Betriebssysteme</option>
-                  <option value="macos" selected>macOS</option>
-                  <option value="windows">Windows</option>
-                </select>
-              </div>
+          <div class="wiki-wrap">
+            <div class="subtab-bar wiki-subtabs" id="wiki-subtabs">
+              <button class="subtab-btn active" data-wview="articles">📄 Artikel</button>
+              <button class="subtab-btn" data-wview="ref">🔎 Nachschlagen</button>
             </div>
-            <div id="wiki-content" class="wiki-content"></div>
+            <div id="wiki-view-articles" class="werkzeug-root wiki-articles"><div class="info-placeholder">Wiki wird geladen…</div></div>
+            <div id="wiki-view-ref" class="tab-panel-simple hidden">
+              <div class="wiki-header">
+                <h2 class="wiki-title">Nachschlagen — Befehle, Shortcuts, Codes & Fehler</h2>
+                <div class="wiki-filter-wrap">
+                  <input type="text" id="wiki-search" class="wiki-search" placeholder="Suchen, z. B. 550, 0x80070005, Port 3389…">
+                  <select id="wiki-os-filter" class="wiki-os-filter">
+                    <option value="all">Alle Betriebssysteme</option>
+                    <option value="macos" selected>macOS</option>
+                    <option value="windows">Windows</option>
+                  </select>
+                  <select id="wiki-cat-filter" class="wiki-os-filter"><option value="">Alle Kategorien</option></select>
+                </div>
+              </div>
+              <div id="wiki-content" class="wiki-content"></div>
+            </div>
           </div>
         </section>
 

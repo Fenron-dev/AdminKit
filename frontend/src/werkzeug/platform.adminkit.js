@@ -1,7 +1,7 @@
 // Plattform-Schicht für AdminKit: alles, was zwischen Browser-Portal und App
 // verschieden ist, läuft über dieses ctx-Objekt. Werkzeuge prüfen Fähigkeiten
 // (z. B. `if (ctx.net?.dns)`), nicht die Plattform.
-import { DNSQuery, GetResolverChoices, SMTPProbe, RDAPLookup, LinkPreview, URLScanSearch, SaveSessionNote, GetToolStates, SaveToolState, ExportDocument, RecordWork, GetSessionTiming, OpenTextFileDialog, SaveDataURL, PickFileForHash, HashFile, CancelHash } from '../../wailsjs/go/main/App';
+import { OpenSystemApp, DNSQuery, GetResolverChoices, SMTPProbe, RDAPLookup, LinkPreview, URLScanSearch, SaveSessionNote, GetToolStates, SaveToolState, ExportDocument, RecordWork, GetSessionTiming, OpenTextFileDialog, SaveDataURL, PickFileForHash, HashFile, CancelHash } from '../../wailsjs/go/main/App';
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 
 // Ein gemeinsamer Kontext für Werkzeugkasten, Links und Befehlspalette
@@ -73,6 +73,8 @@ export async function createContext(deps) {
       hash: path => HashFile(path),
       cancelHash: () => CancelHash(),
     },
+    systemScan: () => (deps.getSystemScan ? deps.getSystemScan() : null),
+    async openSystemApp(kind) { try { await OpenSystemApp(kind); } catch (e) { deps.showToast(String(e)); } },
     // Werkzeug-Verknüpfungen (werden von index.js gesetzt)
     hasTool: () => false,
     openTool: () => {},
