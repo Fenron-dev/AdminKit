@@ -207,7 +207,11 @@ func (c *Client) fetchAnalysis(ctx context.Context, id string) (*vtAnalysisRepor
 
 func readFileForUpload(path string, maxMB int) ([]byte, error) {
 	limit := int64(maxMB) * 1024 * 1024
-	f, err := os.Open(cleanPath(path))
+	clean, err := resolvePath(path)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(clean)
 	if err != nil {
 		return nil, fmt.Errorf("Datei nicht lesbar: %w", err)
 	}

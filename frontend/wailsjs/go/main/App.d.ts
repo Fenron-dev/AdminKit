@@ -115,3 +115,27 @@ export function SaveWikiArticle(a: any): Promise<string>;
 export function DeleteWikiArticle(slug: string): Promise<void>;
 export function SaveWikiImage(slug: string, name: string, dataURL: string): Promise<string>;
 export function OpenSystemApp(kind: string): Promise<void>;
+
+export function ListDocuments(): Promise<any>;
+
+export function CreateDocFolder(parent: string, name: string): Promise<string>;
+
+export function RenameDoc(rel: string, newName: string): Promise<string>;
+
+export function DeleteDoc(rel: string): Promise<void>;
+
+export function ReadDocText(rel: string): Promise<string>;
+
+export function SaveDocText(rel: string, content: string): Promise<void>;
+
+export function ImportDocuments(folder: string): Promise<Array<string>>;
+
+export function OpenDocument(rel: string): Promise<void>;
+
+export function RevealDocument(rel: string): Promise<void>;
+
+export function GetDocumentInfo(): Promise<any>;
+
+export function GetWikiCategories(): Promise<Array<string>>;
+
+export function SaveWikiCategories(cats: Array<string>): Promise<void>;

@@ -581,3 +581,49 @@
 .wz .hb-prose kbd{font:600 12px/1 var(--f-mono)}
 .wz .hb-nav{display:flex;justify-content:space-between;gap:12px;margin-top:36px;padding-top:20px;border-top:1px solid var(--line)}
 .wz .hb-nav .btn{max-width:48%;overflow:hidden;text-overflow:ellipsis}
+/* Links: Tags & eigene Bereiche (#96) */
+.wz .lk-tagbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-4px 0 14px;font-size:13px}
+.wz .lk-tagbar:empty{display:none}
+.wz .lk-chip{border:1px solid var(--line2);background:none;border-radius:999px;padding:3px 10px;font-size:12.5px;color:var(--muted)}
+.wz .lk-chip em{font-style:normal;opacity:.7;margin-left:2px}
+.wz .lk-chip:hover{color:var(--text);border-color:color-mix(in srgb, var(--color-primary) 45%, transparent)}
+.wz .lk-chip.on{background:color-mix(in srgb, var(--color-primary) 14%, transparent);border-color:var(--cyan);color:var(--cyan);font-weight:600}
+.wz .lk-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;font-style:normal}
+.wz .lk-tags small{font-size:11px;padding:1px 7px;border-radius:999px;background:color-mix(in srgb, var(--color-text-muted) 12%, transparent);color:var(--muted)}
+.wz .lk-list.as-list .lk-tags{margin:0;flex:none}
+.wz .lk-head h3 .lk-bedit{width:28px;height:28px;vertical-align:middle}
+.wz-tab.wz-add{color:var(--color-text-muted);margin-top:6px}
+.wz-tab.wz-add:hover{color:var(--color-primary)}
+.wz .lk-form>strong{font-size:15px}
+/* Wiki-Kategorien (#96) */
+.wz .wk-catrow{display:flex;align-items:center}
+.wz .wk-catrow .wz-tab{flex:1;min-width:0}
+.wz .wk-catdel{width:26px;height:26px;opacity:0;flex:none}
+.wz .wk-catrow:hover .wk-catdel{opacity:1}
+.wz .wk-catform{display:flex;gap:6px;margin-top:6px}
+.wz .wk-catform .input{padding:6px 9px;font-size:13px}
+/* Tab „Dokumente“ (#96) */
+.wz .dk-actions{margin:-4px 0 14px}
+.wz .dk-form{padding:12px 14px}
+.wz .dk-form .row .input{flex:1;min-width:220px}
+.wz .dk-card{min-height:150px;cursor:pointer;position:relative}
+.wz .dk-top{display:flex;align-items:center;gap:8px}
+.wz .dk-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb, var(--color-primary) 12%, transparent);color:var(--color-primary)}
+.wz .dk-ext{font:600 11px/1 var(--f-mono);color:var(--dim);letter-spacing:.04em}
+.wz .dk-acts{margin-left:auto;display:flex;gap:0;opacity:0;transition:opacity .12s}
+.wz .dk-card:hover .dk-acts,.wz .dk-row:hover .dk-acts,.wz .dk-acts:focus-within{opacity:1}
+.wz .dk-acts .icon-btn{width:28px;height:28px}
+.wz .dk-card h2{font-size:17px}
+.wz .dk-row{cursor:pointer;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 60px 190px auto}
+.wz .dk-row .art-row-t{display:flex;align-items:center;gap:8px}
+.wz .dk-top2{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:20px}
+.wz .dk-h1{margin:0!important;font-size:clamp(26px,3vw,38px)!important}
+.wz .dk-hint{font-size:13px;margin:-8px 0 18px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.wz .ph{display:inline-block;padding:0 7px;border-radius:6px;background:color-mix(in srgb, var(--color-warning) 16%, transparent);color:var(--amber);font-size:.9em;font-weight:600}
+.wz .dk-fill{display:grid;grid-template-columns:minmax(260px,380px) minmax(0,1fr);gap:24px;align-items:start}
+.wz .dk-fields{display:grid;gap:12px;position:sticky;top:0}
+.wz .dk-fields h3{margin:0;font:700 20px/1.2 var(--f-display)}
+.wz .dk-fields .input{padding:8px 11px;font-size:14px}
+.wz .dk-fields textarea.input{min-height:90px;font-family:var(--f-body)}
+.wz .dk-prev{padding:24px 28px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--color-surface);max-width:none}
+@media (max-width:980px){.wz .dk-fill{grid-template-columns:1fr}.wz .dk-fields{position:static}}

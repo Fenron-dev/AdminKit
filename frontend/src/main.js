@@ -185,6 +185,16 @@ function ensureHandbuch() {
     .catch(function(e) { _handbuchLoaded = false; console.warn('Handbuch', e); });
 }
 
+// Tab „Dokumente“ (#96): Vorlagen im Vault, erst beim ersten Öffnen laden
+var _dokumenteLoaded = false;
+function ensureDokumente() {
+  if (_dokumenteLoaded) return;
+  _dokumenteLoaded = true;
+  var el = document.getElementById('docs-root');
+  import('./werkzeug/dokumente.js').then(function(m) { return m.initDokumente(el, _pkgDeps); })
+    .catch(function(e) { _dokumenteLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Dokumente konnten nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
+}
+
 // Zuletzt gewählte Tools-Gruppe aus dem Vault (werkzeug/state.json)
 function initToolsState() {
   import('./werkzeug/platform.adminkit.js').then(function(m) { return m.getContext(_pkgDeps); })
@@ -382,6 +392,7 @@ function switchTab(tabId) {
   if (tabId === 'werkzeug') ensureWerkzeug();
   if (tabId === 'links') ensureLinks();
   if (tabId === 'help') ensureHandbuch();
+  if (tabId === 'docs') ensureDokumente();
   if (tabId === 'wiki' && !document.getElementById('wiki-view-articles')?.classList.contains('hidden')) ensureWikiArticles();
 }
 

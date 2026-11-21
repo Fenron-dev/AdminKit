@@ -1,7 +1,7 @@
 # Mitgelieferte Team-Links (Ideler IT). Öffentlich erreichbare Seiten mit eigener Anmeldung.
 # Werden beim Start nach vault/links/links.yaml übernommen: neue Einträge kommen dazu,
 # eigene Änderungen und gelöschte Einträge bleiben erhalten. Revision bei Änderungen erhöhen.
-revision: 2
+revision: 3
 bereiche:
   - { id: it, name: "Ideler IT", icon: server, beschreibung: "Die tägliche Grundausstattung für alle im Team." }
   - { id: eg, name: "Entwicklung", icon: code, beschreibung: "Repositories, Monitoring, Dokumentation und Helfer für Webprojekte." }
@@ -98,18 +98,18 @@ links:
   - { id: mscatalog, name: "Microsoft Update-Katalog", url: "https://www.catalog.update.microsoft.com/", icon: package, beschreibung: "Einzelne Windows-Updates und Treiber (KB-Nummern) herunterladen.", bereiche: [drv, tools] }
   - { id: win11, name: "Windows 11 herunterladen", url: "https://www.microsoft.com/de-de/software-download/windows11", icon: download, beschreibung: "Offizielles ISO und Media Creation Tool.", bereiche: [drv, tools] }
   - { id: sysinternals, name: "Sysinternals", url: "https://learn.microsoft.com/de-de/sysinternals/", icon: wrench, beschreibung: "Process Explorer, Autoruns, TCPView u. v. m. von Microsoft.", bereiche: [tools] }
-  - { id: ninite, name: "Ninite", url: "https://ninite.com/", icon: package, beschreibung: "Mehrere Standardprogramme in einem Rutsch installieren.", bereiche: [tools] }
+  - { id: ninite, name: "Ninite", url: "https://ninite.com/", icon: package, beschreibung: "Mehrere Standardprogramme in einem Rutsch installieren.", bereiche: [tools], tags: [Windows] }
   - { id: rufus, name: "Rufus", url: "https://rufus.ie/de/", icon: download, beschreibung: "Bootfähige USB-Sticks aus ISO-Dateien erstellen.", bereiche: [tools] }
   - { id: ventoy, name: "Ventoy", url: "https://www.ventoy.net/", icon: download, beschreibung: "Mehrere ISOs auf einem USB-Stick booten.", bereiche: [tools] }
   - { id: crystaldisk, name: "CrystalDiskInfo", url: "https://crystalmark.info/en/software/crystaldiskinfo/", icon: gauge, beschreibung: "SMART-Werte und Zustand von Festplatten/SSDs.", bereiche: [tools] }
   - { id: hwinfo, name: "HWiNFO", url: "https://www.hwinfo.com/", icon: gauge, beschreibung: "Detaillierte Hardware-Infos und Sensoren.", bereiche: [tools] }
   - { id: memtest, name: "Memtest86+", url: "https://www.memtest.org/", icon: gauge, beschreibung: "Arbeitsspeicher auf Fehler testen (bootfähig).", bereiche: [tools] }
-  - { id: wiztree, name: "WizTree", url: "https://diskanalyzer.com/", icon: folder, beschreibung: "Zeigt sehr schnell, was die Festplatte füllt.", bereiche: [tools] }
-  - { id: everything, name: "Everything", url: "https://www.voidtools.com/", icon: search, beschreibung: "Blitzschnelle Dateisuche für Windows.", bereiche: [tools] }
+  - { id: wiztree, name: "WizTree", url: "https://diskanalyzer.com/", icon: folder, beschreibung: "Zeigt sehr schnell, was die Festplatte füllt.", bereiche: [tools], tags: [Windows] }
+  - { id: everything, name: "Everything", url: "https://www.voidtools.com/", icon: search, beschreibung: "Blitzschnelle Dateisuche für Windows.", bereiche: [tools], tags: [Windows] }
   - { id: sevenzip, name: "7-Zip", url: "https://www.7-zip.org/", icon: package, beschreibung: "Packprogramm für alle gängigen Archivformate.", bereiche: [tools] }
   - { id: npp, name: "Notepad++", url: "https://notepad-plus-plus.org/", icon: code, beschreibung: "Texteditor für Logs, Skripte und Konfigurationsdateien.", bereiche: [tools] }
-  - { id: winscp, name: "WinSCP", url: "https://winscp.net/", icon: share, beschreibung: "SFTP-/FTP-Client für Windows.", bereiche: [tools] }
-  - { id: putty, name: "PuTTY", url: "https://www.chiark.greenend.org.uk/~sgtatham/putty/", icon: code, beschreibung: "SSH- und Telnet-Client.", bereiche: [tools] }
+  - { id: winscp, name: "WinSCP", url: "https://winscp.net/", icon: share, beschreibung: "SFTP-/FTP-Client für Windows.", bereiche: [tools], tags: [SSH, Windows] }
+  - { id: putty, name: "PuTTY", url: "https://www.chiark.greenend.org.uk/~sgtatham/putty/", icon: code, beschreibung: "SSH- und Telnet-Client.", bereiche: [tools], tags: [SSH] }
   - { id: ipscanner, name: "Advanced IP Scanner", url: "https://www.advanced-ip-scanner.com/de/", icon: network, beschreibung: "Geräte im lokalen Netz finden.", bereiche: [tools] }
   - { id: wireshark, name: "Wireshark", url: "https://www.wireshark.org/", icon: network, beschreibung: "Netzwerkverkehr mitschneiden und analysieren.", bereiche: [tools] }
   - { id: nirsoft, name: "NirSoft", url: "https://www.nirsoft.net/", icon: wrench, beschreibung: "Kleine Diagnose-Helfer, z. B. BlueScreenView.", bereiche: [tools] }
@@ -118,6 +118,11 @@ links:
   - { id: keepassxc, name: "KeePassXC", url: "https://keepassxc.org/", icon: key, beschreibung: "Freier Passwortmanager – gut für Kunden ohne Cloud.", bereiche: [tools, su] }
   - { id: shutup10, name: "O&O ShutUp10++", url: "https://www.oo-software.com/de/shutup10", icon: lock, beschreibung: "Windows-Datenschutzeinstellungen übersichtlich setzen.", bereiche: [tools] }
   - { id: breitband, name: "Breitbandmessung", url: "https://breitbandmessung.de/", icon: gauge, beschreibung: "Offizielle Speedtest-App der Bundesnetzagentur (gerichtsfest).", bereiche: [tools, su] }
-  - { id: brew, name: "Homebrew", url: "https://brew.sh/", icon: package, beschreibung: "Paketmanager für macOS.", bereiche: [tools] }
-  - { id: etrecheck, name: "EtreCheck", url: "https://etrecheck.com/", icon: monitor, beschreibung: "Diagnosebericht für Macs.", bereiche: [tools] }
-  - { id: onyx, name: "OnyX", url: "https://www.titanium-software.fr/en/onyx.html", icon: wrench, beschreibung: "Wartung und Bereinigung für macOS.", bereiche: [tools] }
+  - { id: brew, name: "Homebrew", url: "https://brew.sh/", icon: package, beschreibung: "Paketmanager für macOS.", bereiche: [tools], tags: [macOS] }
+  - { id: etrecheck, name: "EtreCheck", url: "https://etrecheck.com/", icon: monitor, beschreibung: "Diagnosebericht für Macs.", bereiche: [tools], tags: [macOS] }
+  - { id: onyx, name: "OnyX", url: "https://www.titanium-software.fr/en/onyx.html", icon: wrench, beschreibung: "Wartung und Bereinigung für macOS.", bereiche: [tools], tags: [macOS] }
+  - { id: bluechip, name: "bluechip", url: "https://www.bluechip.de/", icon: download, beschreibung: "Service, Treiber und Support für bluechip-PCs und -Server.", bereiche: [drv] }
+  - { id: wortmann, name: "Wortmann / TERRA", url: "https://www.wortmann.de/", icon: download, beschreibung: "Treiber und Service für TERRA-PCs, -Notebooks und -Server.", bereiche: [drv] }
+  - { id: daisydisk, name: "DaisyDisk", url: "https://daisydiskapp.com/", icon: folder, beschreibung: "Zeigt anschaulich, was den Mac-Speicher füllt.", bereiche: [tools], tags: [macOS] }
+  - { id: tunnelblick, name: "Tunnelblick", url: "https://tunnelblick.net/", icon: lock, beschreibung: "Kostenloser OpenVPN-Client für macOS.", bereiche: [tools], tags: [macOS, VPN] }
+  - { id: wireguard, name: "WireGuard", url: "https://www.wireguard.com/install/", icon: lock, beschreibung: "Schnelles, schlankes VPN – Clients für Windows, macOS, iOS, Android.", bereiche: [tools], tags: [VPN] }

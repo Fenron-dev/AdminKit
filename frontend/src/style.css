@@ -2995,3 +2995,9 @@ body.platform-mac .titlebar {
 .vt-hash code { font-family: var(--font-mono); color: var(--color-text); }
 .vt-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
 .vt-tip { font-size: 12px !important; }
+
+/* Netzwerk-Terminal füllt die verfügbare Höhe (#96) */
+#tools-pane:has(.tools-group[data-tg="terminal"]:not(.tools-group-off)) { display: flex; flex-direction: column; padding-bottom: 18px; }
+#tools-pane .tools-group[data-tg="terminal"]:not(.tools-group-off) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+#tools-pane .tools-group[data-tg="terminal"] .console-tools { flex: 1; min-height: 0; }
+#tools-pane .tools-group[data-tg="terminal"] .terminal-output { flex: 1; min-height: 260px; max-height: none; }

@@ -528,3 +528,51 @@ export function SaveWikiImage(arg1, arg2, arg3) {
 export function OpenSystemApp(arg1) {
     return window['go']['main']['App']['OpenSystemApp'](arg1);
 }
+
+export function ListDocuments() {
+    return window['go']['main']['App']['ListDocuments']();
+}
+
+export function CreateDocFolder(arg1, arg2) {
+    return window['go']['main']['App']['CreateDocFolder'](arg1, arg2);
+}
+
+export function RenameDoc(arg1, arg2) {
+    return window['go']['main']['App']['RenameDoc'](arg1, arg2);
+}
+
+export function DeleteDoc(arg1) {
+    return window['go']['main']['App']['DeleteDoc'](arg1);
+}
+
+export function ReadDocText(arg1) {
+    return window['go']['main']['App']['ReadDocText'](arg1);
+}
+
+export function SaveDocText(arg1, arg2) {
+    return window['go']['main']['App']['SaveDocText'](arg1, arg2);
+}
+
+export function ImportDocuments(arg1) {
+    return window['go']['main']['App']['ImportDocuments'](arg1);
+}
+
+export function OpenDocument(arg1) {
+    return window['go']['main']['App']['OpenDocument'](arg1);
+}
+
+export function RevealDocument(arg1) {
+    return window['go']['main']['App']['RevealDocument'](arg1);
+}
+
+export function GetDocumentInfo() {
+    return window['go']['main']['App']['GetDocumentInfo']();
+}
+
+export function GetWikiCategories() {
+    return window['go']['main']['App']['GetWikiCategories']();
+}
+
+export function SaveWikiCategories(arg1) {
+    return window['go']['main']['App']['SaveWikiCategories'](arg1);
+}

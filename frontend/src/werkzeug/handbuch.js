@@ -11,7 +11,7 @@ import { viewToggleHTML, getView, setView } from './viewmode.js';
 const CATS = [
   ['Einstieg', ['quickstart', 'farben', 'dashboard', 'tastatur', 'feedback']],
   ['System & Netzwerk', ['system', 'autostart', 'dienste', 'ereignisse', 'prozesse', 'netzwerk', 'usb', 'benutzer', 'profile']],
-  ['Software & Werkzeuge', ['software', 'pakete', 'browser', 'werkzeug']],
+  ['Software & Werkzeuge', ['software', 'pakete', 'browser', 'werkzeug', 'dokumente']],
   ['Sicherheit & KI', ['vt', 'ki', 'ollama']],
   ['Daten & Export', ['export', 'vault']],
 ];

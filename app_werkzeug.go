@@ -112,6 +112,21 @@ func (a *App) SaveLinks(l *werkzeug.Links) error {
 				l.Entfernt = append(l.Entfernt, x.ID)
 			}
 		}
+		// Gelöschte mitgelieferte Bereiche ebenso vermerken (#96)
+		nowB := map[string]bool{}
+		for _, b := range l.Bereiche {
+			nowB[b.ID] = true
+		}
+		seedB := werkzeug.DefaultBereichIDs()
+		removedB := map[string]bool{}
+		for _, id := range l.EntfernteBereiche {
+			removedB[id] = true
+		}
+		for _, b := range old.Bereiche {
+			if !nowB[b.ID] && seedB[b.ID] && !removedB[b.ID] {
+				l.EntfernteBereiche = append(l.EntfernteBereiche, b.ID)
+			}
+		}
 	}
 	if err := werkzeug.SaveLinks(a.vault.RootPath, l); err != nil {
 		return err

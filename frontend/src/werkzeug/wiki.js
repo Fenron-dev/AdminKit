@@ -2,14 +2,14 @@
 // Vorschau, Bilder als Dateien (wiki/_bilder/<artikel>/), Sonderblöcke aus dem
 // Portal. Kein Login – wer den Vault hat, darf lesen und schreiben.
 import './werkzeug.css';
-import { ListWikiArticles, GetWikiArticle, SaveWikiArticle, DeleteWikiArticle, SaveWikiImage } from '../../wailsjs/go/main/App';
+import { ListWikiArticles, GetWikiArticle, SaveWikiArticle, DeleteWikiArticle, SaveWikiImage, GetWikiCategories, SaveWikiCategories } from '../../wailsjs/go/main/App';
 import { getContext } from './platform.adminkit.js';
 import { $, $$, esc, ic } from './ui.js';
 import { md, setImages, plain } from './markdown.js';
 import { ILLU } from './data/illu.js';
 import { viewToggleHTML, getView, setView } from './viewmode.js';
 
-let ctx = null, root = null, list = [], cat = '', query = '';
+let ctx = null, root = null, list = [], cat = '', query = '', allCats = [], addingCat = false;
 let editing = null; // Artikel im Editor (null = keiner)
 
 const fmtDate = d => { const x = new Date(d); return isNaN(x) || x.getFullYear() < 2000 ? '' : x.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }); };
@@ -26,11 +26,18 @@ export async function initWikiArticles(container, deps) {
 async function reload() {
   try { list = (await ListWikiArticles()) || []; }
   catch (e) { root.innerHTML = `<div class="info-placeholder">Wiki konnte nicht geladen werden: ${esc(e)}</div>`; list = []; }
+  try { allCats = (await GetWikiCategories()) || []; } catch (_) { allCats = []; }
 }
 
 function cats() {
-  const m = {}; list.forEach(a => { m[a.kategorie] = (m[a.kategorie] || 0) + 1; });
+  const m = {}; allCats.forEach(c => { m[c] = 0; }); list.forEach(a => { m[a.kategorie] = (m[a.kategorie] || 0) + 1; });
   return Object.entries(m).sort((a, b) => a[0].localeCompare(b[0], 'de'));
+}
+
+// Kategorien anlegen / leere entfernen (#96) – gespeichert in wiki/_kategorien.yaml
+async function saveCats(next, msg) {
+  try { await SaveWikiCategories(next); allCats = (await GetWikiCategories()) || []; if (msg) ctx.addAction(msg, 'success'); return true; }
+  catch (e) { ctx.toast('Kategorien: ' + e); return false; }
 }
 
 function layout(main) {
@@ -39,7 +46,9 @@ function layout(main) {
       <button class="btn primary" type="button" data-wk="new" style="width:100%;justify-content:center;margin-bottom:10px">${ic('pencil')}Neuer Artikel</button>
       <nav><button type="button" class="wz-tab" data-cat="" aria-selected="${!cat}">${ic('grid')}<span>Alle Artikel</span><em>${list.length}</em></button>
       <div class="wz-g">Kategorien</div>
-      ${cats().map(([c, n]) => `<button type="button" class="wz-tab" data-cat="${esc(c)}" aria-selected="${cat === c}">${ic('book')}<span>${esc(c)}</span><em>${n}</em></button>`).join('')}</nav>
+      ${cats().map(([c, n]) => `<div class="wk-catrow"><button type="button" class="wz-tab" data-cat="${esc(c)}" aria-selected="${cat === c}">${ic('book')}<span>${esc(c)}</span><em>${n}</em></button>${n ? '' : `<button type="button" class="icon-btn wk-catdel" data-delcat="${esc(c)}" title="Leere Kategorie entfernen">${ic('x')}</button>`}</div>`).join('')}
+      ${addingCat ? `<form class="wk-catform" id="wkCatForm"><input class="input" name="c" maxlength="40" placeholder="Neue Kategorie" required><button class="btn sm primary" type="submit">OK</button></form>`
+        : `<button type="button" class="wz-tab wz-add" data-wk="addcat">${ic('plus')}<span>Kategorie anlegen</span></button>`}</nav>
       <p class="note" style="margin-top:14px">Artikel liegen als Markdown im Vault unter <span class="mono">wiki/</span> und lassen sich auch mit Obsidian öffnen.</p>
     </aside>
     <section class="wz-pane" id="wkMain">${main}</section></div>`;
@@ -205,12 +214,25 @@ async function onClick(e) {
   const open = t.closest('a[data-open]'); if (open) { e.preventDefault(); ctx.open(open.dataset.open); return; }
   const wl = t.closest('a[data-wiki]'); if (wl) { e.preventDefault(); showArticle(wl.dataset.wiki); return; }
   const card = t.closest('[data-slug]:not([data-wk])'); if (card) { e.preventDefault(); showArticle(card.dataset.slug); return; }
+  const dc = t.closest('[data-delcat]'); if (dc) { const name = dc.dataset.delcat; if (await saveCats(allCats.filter(x => x !== name), 'Wiki-Kategorie entfernt: ' + name)) { if (cat === name) cat = ''; if (!editing) showList(); } return; }
   const c = t.closest('[data-cat]'); if (c && !editing) { e.preventDefault(); cat = c.dataset.cat; query = ''; showList(); return; }
   if (c && editing) { e.preventDefault(); if (await leaveEditor()) { cat = c.dataset.cat; showList(); } return; }
   const sc = t.closest('[data-scroll]'); if (sc) { $('#' + CSS.escape(sc.dataset.scroll), root)?.scrollIntoView({ behavior: 'smooth' }); return; }
   const cp = t.closest('.code-copy'); if (cp) { ctx.copy(cp.previousElementSibling?.textContent || '', 'Code kopiert'); return; }
   const b = t.closest('[data-wk]'); if (!b) return;
   switch (b.dataset.wk) {
+    case 'addcat': {
+      if (editing) { ctx.toast('Erst den Artikel speichern oder abbrechen.'); break; }
+      addingCat = true; showList();
+      const f = $('#wkCatForm', root); const inp = f.querySelector('input'); inp.focus();
+      inp.addEventListener('keydown', ev => { if (ev.key === 'Escape') { addingCat = false; showList(); } });
+      f.addEventListener('submit', async ev => {
+        ev.preventDefault(); const name = inp.value.trim(); if (!name) return;
+        if (allCats.some(x => x.toLowerCase() === name.toLowerCase())) { ctx.toast('Die Kategorie gibt es schon.'); return; }
+        if (await saveCats(allCats.concat(name), 'Wiki-Kategorie angelegt: ' + name)) { addingCat = false; cat = name; showList(); }
+      });
+      break;
+    }
     case 'new': if (await leaveEditor()) showEditor(null); break;
     case 'cancel': if (await leaveEditor()) showList(); break;
     case 'edit': { try { showEditor(await GetWikiArticle(b.dataset.slug)); } catch (err) { ctx.toast(String(err)); } break; }

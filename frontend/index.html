@@ -61,6 +61,7 @@
         <button class="tab-btn" data-tab="werkzeug">🧰 Werkzeugkasten</button>
         <button class="tab-btn" data-tab="links">🔗 Links</button>
         <button class="tab-btn" data-tab="wiki">Wiki</button>
+        <button class="tab-btn" data-tab="docs">📄 Dokumente</button>
         <button class="tab-btn" data-tab="help">Hilfe</button>
       </nav>
 
@@ -885,6 +886,11 @@
           </div>
         </section>
 
+        <!-- ── Dokumente (#96): Vorlagen im Vault unter dokumente/ ── -->
+        <section class="tab-panel" id="tab-docs">
+          <div id="docs-root" class="werkzeug-root"><div class="info-placeholder">Dokumente werden geladen…</div></div>
+        </section>
+
         <!-- ── Help-Tab ─────────────────────────────────────────────────── -->
         <section class="tab-panel" id="tab-help">
           <!-- Kapitel werden beim ersten Öffnen von werkzeug/handbuch.js im Wiki-Stil dargestellt (#94) -->
@@ -1388,6 +1394,24 @@
                   <li><strong>Wiki</strong> — Team-Artikel als Markdown im Vault (<code>wiki/</code>), plus Nachschlagewerk für Befehle, Codes und Fehler.</li>
                 </ul>
                 <p>Wiki, Links und dieses Handbuch lassen sich oben rechts zwischen <strong>Karten</strong> und <strong>Liste</strong> umschalten. Die Wahl wird im Vault gespeichert.</p>
+                <p>Links bekommen <strong>Tags</strong> (Filter-Chips über der Liste) und lassen sich in <strong>eigene Bereiche</strong> sortieren („Bereich anlegen“ in der Seitenleiste, ✎ neben dem Bereichsnamen). Im Wiki legst du <strong>Kategorien</strong> auch vorab an; leere Kategorien entfernst du mit dem ×.</p>
+              </div>
+
+              <div class="help-section" id="help-dokumente">
+                <h3>Dokumente &amp; Vorlagen</h3>
+                <p>Der Tab <strong>Dokumente</strong> zeigt den Vault-Ordner <code>dokumente/</code> mit allen Unterordnern – für Kundendienstzettel, Anschreiben, Checklisten und Formulare.</p>
+                <ul>
+                  <li><strong>Ordner</strong> legst du in der Seitenleiste an (auch Unterordner), umbenennen und löschen (nur leere) über die Knöpfe neben dem Ordnernamen.</li>
+                  <li><strong>Markdown-Vorlagen (.md)</strong> öffnen in AdminKit: lesen, bearbeiten und <strong>ausfüllen &amp; drucken</strong>. Das Ergebnis bekommt Logo, Firma und Kunde und landet in der Session unter <code>exports/</code>.</li>
+                  <li><strong>Andere Dateien</strong> (Word, PDF, Excel …) öffnen mit dem Standardprogramm. „Dateien importieren“ kopiert sie in den aktuellen Ordner – vorhandene werden nie überschrieben.</li>
+                </ul>
+                <table class="help-table">
+                  <tr><th>Platzhalter</th><th>Bedeutung</th></tr>
+                  <tr><td>{{Kunde}}</td><td>Eingabefeld</td></tr>
+                  <tr><td>{{Kostenrahmen|150 €}}</td><td>Feld mit Vorgabe (in Tabellen <code>\|</code> statt <code>|</code>)</td></tr>
+                  <tr><td>{{Fehler:lang}}</td><td>Mehrzeiliges Feld</td></tr>
+                  <tr><td>{{Datum}}, {{Techniker}}, {{Firma}}, {{Kunde}}</td><td>werden automatisch vorbelegt</td></tr>
+                </table>
               </div>
 
               <div class="help-section" id="help-tastatur">

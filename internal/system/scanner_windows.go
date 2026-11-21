@@ -4,6 +4,7 @@ package system
 
 import (
 	"adminkit/internal/execx"
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -349,10 +350,43 @@ func scanSmart() ([]DiskSmart, []ScanError) {
 		})
 	}
 
-	// Erweiterte SMART-Daten versuchen (benötigt Admin)
-	results = enrichSmartWithWMI(results, &errs)
+	// Erweiterte SMART-Daten: ATA-SMART (nur SATA/ATA) und die Windows-
+	// Speicherzuverlässigkeitszähler (auch NVMe). Fehler nur melden, wenn
+	// keine der beiden Quellen etwas liefert (#96).
+	var ataErrs []ScanError
+	results = enrichSmartWithWMI(results, &ataErrs)
+	hits, relErr := enrichSmartWithReliability(results)
+	if len(ataErrs) > 0 && hits == 0 {
+		msg := "Erweiterte SMART-Werte nicht verfügbar."
+		if relErr != nil {
+			msg += " ATA-SMART: " + ataErrs[0].Message + " · Zuverlässigkeitszähler: " + relErr.Error()
+		} else {
+			msg += " Laufwerk/Treiber liefert weder ATA-SMART noch Zuverlässigkeitszähler (typisch bei USB-Gehäusen oder RAID-Controllern)."
+		}
+		errs = append(errs, ScanError{"smart.detail", msg})
+	}
 
 	return results, errs
+}
+
+// enrichSmartWithReliability liest Get-StorageReliabilityCounter (Windows 8+,
+// auch NVMe). Für Temperatur/Verschleiß sind Admin-Rechte nötig, sonst bleiben
+// die Werte leer – HealthStatus kommt aber auch ohne.
+func enrichSmartWithReliability(disks []DiskSmart) (int, error) {
+	script := `$ErrorActionPreference='SilentlyContinue'; ` +
+		`Get-PhysicalDisk | ForEach-Object { $r = $_ | Get-StorageReliabilityCounter; ` +
+		`[pscustomobject]@{FriendlyName=$_.FriendlyName; SerialNumber=$_.SerialNumber; HealthStatus=[string]$_.HealthStatus; ` +
+		`Temperature=$r.Temperature; Wear=$r.Wear; PowerOnHours=$r.PowerOnHours; ReadErrorsTotal=$r.ReadErrorsTotal; WriteErrorsTotal=$r.WriteErrorsTotal} } ` +
+		`| ConvertTo-Json -Compress`
+	out, err := execx.Output(context.Background(), 30*time.Second, "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script)
+	if err != nil {
+		return 0, err
+	}
+	rows, err := parseReliability([]byte(out))
+	if err != nil {
+		return 0, fmt.Errorf("Ausgabe nicht lesbar: %v", err)
+	}
+	return applyReliability(disks, rows), nil
 }
 
 // enrichSmartWithWMI versucht, detaillierte SMART-Attribute via WMI zu lesen.
@@ -370,7 +404,7 @@ func enrichSmartWithWMI(disks []DiskSmart, errs *[]ScanError) []DiskSmart {
 		&smartData,
 		"root/wmi",
 	); err != nil {
-		*errs = append(*errs, ScanError{"smart.detail", fmt.Sprintf("Admin-Rechte nötig für SMART-Details: %v", err)})
+		*errs = append(*errs, ScanError{"smart.detail", fmt.Sprintf("%v", err)})
 		return disks
 	}
 

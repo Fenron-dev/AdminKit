@@ -97,3 +97,78 @@ func TestLinksValidate(t *testing.T) {
 		}
 	}
 }
+
+// #96: Gelöschte mitgelieferte Bereiche kommen nicht zurück; ihre Links
+// werden ohne den Bereich (oder gar nicht) übernommen.
+func TestLinksRemovedBereichStaysRemoved(t *testing.T) {
+	dir := t.TempDir()
+	l, _, err := LoadLinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Bereich "drv" entfernen, samt aller Links, die nur dort liegen
+	var keepB []Bereich
+	for _, b := range l.Bereiche {
+		if b.ID != "drv" {
+			keepB = append(keepB, b)
+		}
+	}
+	l.Bereiche = keepB
+	var keepL []Link
+	for _, x := range l.Links {
+		var bs []string
+		for _, b := range x.Bereiche {
+			if b != "drv" {
+				bs = append(bs, b)
+			}
+		}
+		if len(bs) > 0 {
+			x.Bereiche = bs
+			keepL = append(keepL, x)
+		} else {
+			l.Entfernt = append(l.Entfernt, x.ID)
+		}
+	}
+	l.Links = keepL
+	l.EntfernteBereiche = []string{"drv"}
+	l.Links[0].Tags = []string{"Kunde", "Cloud"}
+	if err := SaveLinks(dir, l); err != nil {
+		t.Fatal(err)
+	}
+	l2, changed, err := LoadLinks(dir)
+	if err != nil || changed {
+		t.Fatalf("Abgleich: changed=%v err=%v", changed, err)
+	}
+	for _, b := range l2.Bereiche {
+		if b.ID == "drv" {
+			t.Fatal("gelöschter Bereich ist zurückgekommen")
+		}
+	}
+	if len(l2.Links[0].Tags) != 2 {
+		t.Error("Tags gingen verloren")
+	}
+	// Älterer Stand ohne „drv“: Links mit drv+tools kommen nur mit tools
+	l2.Links = nil
+	l2.Entfernt = nil
+	if mergeSeed(l2, mustSeed(t)); true {
+		for _, x := range l2.Links {
+			for _, b := range x.Bereiche {
+				if b == "drv" {
+					t.Fatalf("Link %s mit entferntem Bereich übernommen", x.ID)
+				}
+			}
+		}
+	}
+	if err := l2.Validate(); err != nil {
+		t.Fatalf("nach Abgleich ungültig: %v", err)
+	}
+}
+
+func mustSeed(t *testing.T) *seedLinks {
+	t.Helper()
+	var s seedLinks
+	if err := yaml.Unmarshal(defaultLinksYAML, &s); err != nil {
+		t.Fatal(err)
+	}
+	return &s
+}

@@ -50,16 +50,16 @@ export function md(src){
         out.push(`<aside class="callout ${cls}"><strong class="callout-t">${ic(cls==='warn'?'alert':cls==='tip'?'zap':'info')}${mdInline(title)}</strong>${md(buf.join('\n'))}</aside>`)}
       else out.push(`<blockquote>${md(buf.join('\n'))}</blockquote>`);continue}
     if(/^\|/.test(l)&&i+1<L.length&&/^\|?\s*:?-{2,}/.test(L[i+1])){
-      const row=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());const head=row(l);
+      const row=r=>r.trim().replace(/^\||(?<!\\)\|$/g,'').split(/(?<!\\)\|/).map(c=>c.trim().replace(/\\\|/g,'|'));const head=row(l);
       const al=row(L[i+1]).map(c=>c.startsWith(':')&&c.endsWith(':')?'center':c.endsWith(':')?'right':'');i+=2;const rows=[];
       while(i<L.length&&/^\|/.test(L[i]))rows.push(row(L[i++]));const st=j=>al[j]?` style="text-align:${al[j]}"`:'';
-      out.push(`<div class="table"><table><thead><tr>${head.map((h,j)=>`<th${st(j)}>${mdInline(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${head.map((_,j)=>`<td${st(j)}>${mdInline(r[j]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);continue}
+      out.push(`<div class="table"><table>${head.some(h=>h)?`<thead><tr>${head.map((h,j)=>`<th${st(j)}>${mdInline(h)}</th>`).join('')}</tr></thead>`:''}<tbody>${rows.map(r=>`<tr>${head.map((_,j)=>`<td${st(j)}>${mdInline(r[j]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);continue}
     if((m=l.match(listRe))){const ordered=/\d/.test(m[1]);const items=[];
       while(i<L.length&&(mm=L[i].match(listRe))){items.push(mm[2]);i++;while(i<L.length&&/^\s{2,}\S/.test(L[i])&&!listRe.test(L[i])){items[items.length-1]+=' '+L[i].trim();i++}}
       const lis=items.map(t=>{const tm=t.match(/^\[( |x|X)\]\s+(.*)$/);return tm?`<li class="task${tm[1]!==' '?' done':''}"><span class="cb" aria-hidden="true">${tm[1]!==' '?ic('check'):''}</span><span>${mdInline(tm[2])}</span></li>`:`<li>${mdInline(t)}</li>`}).join('');
       out.push(ordered?`<ol>${lis}</ol>`:`<ul>${lis}</ul>`);continue}
     const buf=[l];i++;while(i<L.length&&L[i].trim()&&!isStart(L[i]))buf.push(L[i++]);
-    out.push(`<p>${buf.map(mdInline).join(' ')}</p>`);
+    out.push(`<p>${buf.map((x,k)=>mdInline(x.replace(/(\s{2,}|\\)$/,''))+(k<buf.length-1?(/(\s{2,}|\\)$/.test(x)?'<br>':' '):'')).join('')}</p>`);
   }
   return out.join('\n');
 }
