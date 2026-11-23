@@ -67,7 +67,7 @@ export function bindSpell(root, st, ctx, redraw) {
 let lastText = 'AdminKit 2026';
 
 export default {
-  id: 'spell', name: 'Buchstabieren', group: 'Passwörter & Telefon', icon: 'telephone',
+  id: 'spell', name: 'Buchstabieren', group: 'Für Kunden', tags: ['Telefon', 'Kunde'], icon: 'telephone',
   keys: 'buchstabiertafel din 5009 anton aachen nato alphabet telefon', online: false,
   render(p, ctx) {
     const st = spellState(ctx);

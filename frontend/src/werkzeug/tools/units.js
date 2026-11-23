@@ -15,7 +15,7 @@ export const fmtTime = s => {
 export const transferSeconds = (bytes, bps, realistic) => bytes * 8 / (bps * (realistic ? 0.85 : 1));
 
 export default {
-  id: 'units', name: 'Speicher & Tempo', group: 'Netzwerk & Mail', icon: 'gauge',
+  id: 'units', name: 'Speicher & Tempo', group: 'Rechnen & Abrechnung', tags: ['Rechner', 'Speicher', 'Netzwerk'], icon: 'gauge',
   keys: 'gb gib tb mbit mbits geschwindigkeit download dauer speicher', online: false,
   render(p, ctx) {
     const UN = Object.assign({}, DEFAULTS, ctx.state.get('units', {}));

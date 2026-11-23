@@ -30,7 +30,7 @@ export function calcNet(v) {
 let lastInput = '192.168.10.34/26';
 
 export default {
-  id: 'net', name: 'Subnetzrechner', group: 'Netzwerk & Mail', icon: 'network',
+  id: 'net', name: 'Subnetzrechner', group: 'Netzwerk & Mail', tags: ['Netzwerk', 'IP', 'Rechner'], icon: 'network',
   keys: 'subnetz ip netzmaske cidr', online: false,
   render(p) {
     p.innerHTML = `<div class="util"><h3>Subnetzrechner</h3><p>IPv4-Adresse mit Präfix oder Subnetzmaske eingeben, zum Beispiel <code>192.168.10.34/26</code>.</p>

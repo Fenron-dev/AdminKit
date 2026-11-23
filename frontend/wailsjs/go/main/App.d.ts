@@ -85,6 +85,30 @@ export function ExportFavorites(format: string): Promise<string>;
 export function GetToolStates(): Promise<Record<string, any>>;
 export function SaveToolState(key: string, value: string): Promise<void>;
 
+export function GetDeviceIdentity(): Promise<any>;
+export function GetGateways(): Promise<Array<string>>;
+export function CertCheck(host: string, port: number, mode: string): Promise<any>;
+export function PortCheck(host: string, ports: Array<number>): Promise<Array<any>>;
+export function WakeOnLAN(mac: string, broadcast: string, port: number): Promise<void>;
+export function ARPTable(): Promise<Array<any>>;
+export function ProbeDevice(ip: string): Promise<any>;
+export function OpenCommandTarget(target: string, args: Array<string>): Promise<void>;
+export function RunCommand(req: any): Promise<any>;
+export function IsElevated(): Promise<boolean>;
+export function WikiMediaBegin(slug: string, name: string): Promise<string>;
+export function WikiMediaChunk(id: string, b64: string): Promise<void>;
+export function WikiMediaEnd(id: string): Promise<string>;
+export function WikiMediaAbort(id: string): Promise<void>;
+export function PickWikiMedia(slug: string): Promise<string>;
+export function OpenWikiMedia(rel: string): Promise<void>;
+export function CaptureScreenshot(mode: string, delay: number): Promise<string>;
+export function CaptureCapabilities(): Promise<Record<string, boolean>>;
+export function RecordStart(mic: boolean, clicks: boolean): Promise<void>;
+export function RecordStop(slug: string): Promise<string>;
+export function MediaToGIF(rel: string, start: number, end: number): Promise<string>;
+export function GetEntries(kind: string): Promise<string>;
+export function SaveEntries(kind: string, data: string): Promise<void>;
+
 // Werkzeugkasten W4: Links
 export function GetLinks(): Promise<any>;
 export function SaveLinks(l: any): Promise<void>;

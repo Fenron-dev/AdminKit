@@ -37,7 +37,7 @@ export const normHash = v => String(v || '').trim().toLowerCase().replace(/[\s:-
 let mode = 'file';
 
 export default {
-  id: 'hash', name: 'Prüfsumme', group: 'Nachschlagen & Prüfen', icon: 'fingerprint',
+  id: 'hash', name: 'Prüfsumme', group: 'Sicherheit & Passwörter', tags: ['Datei', 'Sicherheit', 'Prüfen'], icon: 'fingerprint',
   keys: 'hash sha256 md5 prüfsumme checksumme datei iso', online: false,
   render(p, ctx) {
     let res = null, name = '';

@@ -24,7 +24,7 @@ export function imeiCheck(raw) {
 let lastInput = '490154203237518';
 
 export default {
-  id: 'imei', name: 'IMEI-Prüfer', group: 'Reparatur & Laden', icon: 'phone',
+  id: 'imei', name: 'IMEI-Prüfer', group: 'Geräte & Hardware', tags: ['Handy', 'Seriennummer', 'Prüfen'], icon: 'phone',
   keys: 'imei handy seriennummer luhn prüfziffer', online: false,
   render(p) {
     p.innerHTML = `<div class="util"><h3>IMEI-Prüfer</h3><p>Prüft die Prüfziffer einer IMEI und deckt so Tippfehler bei der Reparaturannahme auf. Bei Dual-SIM-Geräten mehrere Nummern untereinander eingeben.</p>

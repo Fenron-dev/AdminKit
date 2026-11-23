@@ -39,7 +39,7 @@ export function strength(bits) {
 }
 
 export default {
-  id: 'pw', name: 'Passwort & Passphrase', group: 'Passwörter & Telefon', icon: 'key',
+  id: 'pw', name: 'Passwort & Passphrase', group: 'Sicherheit & Passwörter', tags: ['Passwort', 'Sicherheit', 'Generator'], icon: 'key',
   keys: 'passwort passphrase generator kennwort zufall', online: false,
   render(p, ctx) {
     const PW = Object.assign({}, DEFAULTS, ctx.state.get('pwOpts', {}));

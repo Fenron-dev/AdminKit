@@ -449,6 +449,76 @@ export function SaveToolState(arg1, arg2) {
     return window['go']['main']['App']['SaveToolState'](arg1, arg2);
 }
 
+export function GetDeviceIdentity() {
+    return window['go']['main']['App']['GetDeviceIdentity']();
+}
+export function GetGateways() {
+    return window['go']['main']['App']['GetGateways']();
+}
+export function CertCheck(arg1, arg2, arg3) {
+    return window['go']['main']['App']['CertCheck'](arg1, arg2, arg3);
+}
+export function PortCheck(arg1, arg2) {
+    return window['go']['main']['App']['PortCheck'](arg1, arg2);
+}
+export function WakeOnLAN(arg1, arg2, arg3) {
+    return window['go']['main']['App']['WakeOnLAN'](arg1, arg2, arg3);
+}
+export function ARPTable() {
+    return window['go']['main']['App']['ARPTable']();
+}
+export function ProbeDevice(arg1) {
+    return window['go']['main']['App']['ProbeDevice'](arg1);
+}
+export function OpenCommandTarget(arg1, arg2) {
+    return window['go']['main']['App']['OpenCommandTarget'](arg1, arg2);
+}
+export function RunCommand(arg1) {
+    return window['go']['main']['App']['RunCommand'](arg1);
+}
+export function IsElevated() {
+    return window['go']['main']['App']['IsElevated']();
+}
+export function WikiMediaBegin(arg1, arg2) {
+    return window['go']['main']['App']['WikiMediaBegin'](arg1, arg2);
+}
+export function WikiMediaChunk(arg1, arg2) {
+    return window['go']['main']['App']['WikiMediaChunk'](arg1, arg2);
+}
+export function WikiMediaEnd(arg1) {
+    return window['go']['main']['App']['WikiMediaEnd'](arg1);
+}
+export function WikiMediaAbort(arg1) {
+    return window['go']['main']['App']['WikiMediaAbort'](arg1);
+}
+export function PickWikiMedia(arg1) {
+    return window['go']['main']['App']['PickWikiMedia'](arg1);
+}
+export function OpenWikiMedia(arg1) {
+    return window['go']['main']['App']['OpenWikiMedia'](arg1);
+}
+export function CaptureScreenshot(arg1, arg2) {
+    return window['go']['main']['App']['CaptureScreenshot'](arg1, arg2);
+}
+export function CaptureCapabilities() {
+    return window['go']['main']['App']['CaptureCapabilities']();
+}
+export function RecordStart(arg1, arg2) {
+    return window['go']['main']['App']['RecordStart'](arg1, arg2);
+}
+export function RecordStop(arg1) {
+    return window['go']['main']['App']['RecordStop'](arg1);
+}
+export function MediaToGIF(arg1, arg2, arg3) {
+    return window['go']['main']['App']['MediaToGIF'](arg1, arg2, arg3);
+}
+export function GetEntries(arg1) {
+    return window['go']['main']['App']['GetEntries'](arg1);
+}
+export function SaveEntries(arg1, arg2) {
+    return window['go']['main']['App']['SaveEntries'](arg1, arg2);
+}
+
 // ── Werkzeugkasten W4: Links ──
 export function GetLinks() {
     return window['go']['main']['App']['GetLinks']();

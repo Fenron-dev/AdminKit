@@ -1,7 +1,7 @@
 // Plattform-Schicht für AdminKit: alles, was zwischen Browser-Portal und App
 // verschieden ist, läuft über dieses ctx-Objekt. Werkzeuge prüfen Fähigkeiten
 // (z. B. `if (ctx.net?.dns)`), nicht die Plattform.
-import { OpenSystemApp, DNSQuery, GetResolverChoices, SMTPProbe, RDAPLookup, LinkPreview, URLScanSearch, SaveSessionNote, GetToolStates, SaveToolState, ExportDocument, RecordWork, GetSessionTiming, OpenTextFileDialog, SaveDataURL, PickFileForHash, HashFile, CancelHash } from '../../wailsjs/go/main/App';
+import { OpenSystemApp, DNSQuery, GetResolverChoices, SMTPProbe, RDAPLookup, LinkPreview, URLScanSearch, SaveSessionNote, GetToolStates, SaveToolState, ExportDocument, RecordWork, GetSessionTiming, OpenTextFileDialog, SaveDataURL, PickFileForHash, HashFile, CancelHash, GetEntries, SaveEntries, GetDeviceIdentity, GetGateways, CertCheck, PortCheck, WakeOnLAN, ARPTable, ProbeDevice, OpenCommandTarget, RunCommand, IsElevated, GetPlatform } from '../../wailsjs/go/main/App';
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 
 // Ein gemeinsamer Kontext für Werkzeugkasten, Links und Befehlspalette
@@ -15,9 +15,13 @@ export async function createContext(deps) {
   let states = {};
   try { states = (await GetToolStates()) || {}; } catch (e) { console.warn('Werkzeug-Zustand nicht lesbar', e); }
   const timers = {};
+  // Betriebssystem für Plattform-Varianten (windows | macos | linux)
+  let os = /Mac/.test(navigator.platform || '') ? 'macos' : 'windows';
+  try { const p = String(await GetPlatform()).trim(); os = p === 'darwin' ? 'macos' : p || os; } catch (_) { /* Vorgabe aus dem Browser */ }
 
   const ctx = {
     platform: 'adminkit',
+    os,
     state: {
       // Synchron aus dem beim Start geladenen Stand
       get(key, def) { return Object.prototype.hasOwnProperty.call(states, key) ? states[key] : def; },
@@ -73,6 +77,19 @@ export async function createContext(deps) {
       hash: path => HashFile(path),
       cancelHash: () => CancelHash(),
     },
+    // Eigene Einträge (#105): Sammlungen im Vault (werkzeug/eintraege/<art>.json)
+    entries: {
+      load: kind => GetEntries(kind),
+      save: (kind, obj) => SaveEntries(kind, JSON.stringify(obj)),
+    },
+    // Befehle-Starter (#110): Öffnen nur erlaubter Ziele, Ausführen mit Ausgabe
+    cmd: {
+      open: (target, args) => OpenCommandTarget(target, args || []),
+      run: req => RunCommand(req),
+      elevated: () => IsElevated(),
+    },
+    deviceIdentity: () => GetDeviceIdentity(),
+    gateways: () => GetGateways(),
     systemScan: () => (deps.getSystemScan ? deps.getSystemScan() : null),
     async openSystemApp(kind) { try { await OpenSystemApp(kind); } catch (e) { deps.showToast(String(e)); } },
     // Werkzeug-Verknüpfungen (werden von index.js gesetzt)
@@ -86,6 +103,11 @@ export async function createContext(deps) {
       dns: (name, type, server) => DNSQuery(name, type, server || 'system'),
       resolvers: () => GetResolverChoices(),
       smtp: (host, port) => SMTPProbe(host, port),
+      cert: (host, port, mode) => CertCheck(host, port, mode || 'auto'),
+      ports: (host, ports) => PortCheck(host, ports),
+      arp: () => ARPTable(),
+      probe: ip => ProbeDevice(ip),
+      wol: (mac, bc, port) => WakeOnLAN(mac, bc || '', port || 9),
       rdap: domain => RDAPLookup(domain),
       preview: url => LinkPreview(url),
       urlscan: domain => URLScanSearch(domain),

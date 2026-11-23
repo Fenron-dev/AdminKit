@@ -77,3 +77,54 @@ So liest man eine Webadresse
 
 > [!INFO] Tastenkürzel
 > `Strg + S` speichert den Artikel, `Strg + B` macht markierten Text fett, `Strg + V` fügt auch Screenshots ein.
+
+## Videos, Audio, GIFs und Dateien
+Mit **Datei** in der Werkzeugleiste oder per Drag & Drop landen Videos (MP4, WebM, MOV), Audio (MP3, M4A, WAV), animierte GIFs und Anhänge (PDF, TXT, ZIP) im Vault beim Artikel. Eingebunden werden sie wie in Obsidian:
+
+```text
+![[installation.mp4]]
+![[installation.mp4|Bildunterschrift]]
+![[sprachnotiz.m4a]]
+![[handbuch.pdf]]
+```
+
+Ein **YouTube- oder Vimeo-Link** allein in einer Zeile wird als Video eingebettet. Es lädt erst nach einem Klick – vorher wird nichts von YouTube abgerufen.
+
+## Konsolenausgaben
+Ausgaben von Befehlen in einen `console`-Block. Lange Ausgaben (über 20 Zeilen) werden automatisch eingeklappt.
+
+````text
+```console
+C:\> ipconfig /all
+…
+```
+````
+
+## Windows und macOS nebeneinander
+Kästen mit `[!WINDOWS]`, `[!MACOS]` oder `[!LINUX]` direkt hintereinander erscheinen nebeneinander. Über „Nur Windows anzeigen“ blendet man die andere Plattform aus.
+
+```text
+> [!WINDOWS] Drucker hinzufügen
+> Einstellungen → Bluetooth und Geräte → Drucker
+
+> [!MACOS] Drucker hinzufügen
+> Systemeinstellungen → Drucker & Scanner
+```
+
+## Knöpfe, die etwas öffnen oder ausführen
+Mitten im Text klicken, Ergebnis ansehen, weiterlesen:
+
+```text
+[[run:ipconfig|IP-Konfiguration anzeigen]]
+[[run:ping?Ziel=192.168.178.1|Router anpingen]]
+[[open:devmgmt.msc|Geräte-Manager öffnen]]
+[[open:ms-settings:printers|Drucker-Einstellungen]]
+[[cmd:win:netstat -an | findstr 3389|Ist Remotedesktop aktiv?]]
+```
+
+- `run:` nimmt einen Befehl aus **Werkzeugkasten → Befehle & Einstellungen** (dort „Für Wiki“ kopiert den passenden Text). Er läuft auf jedem System in der richtigen Variante, mit Hilfe und Bewertung. Werte für Platzhalter stehen hinter dem `?`.
+- `open:` öffnet Einstellungsseiten und Verwaltungskonsolen.
+- `cmd:` führt den Befehl so aus, wie er im Text steht – es erscheint **immer** eine Rückfrage mit dem genauen Befehl. `win:` bzw. `mac:` legt fest, für welches System er gedacht ist.
+
+> [!WARNUNG] Befehle prüfen
+> Artikel liegen im gemeinsamen Vault. Vor dem Bestätigen eines Befehls immer lesen, was er tut.

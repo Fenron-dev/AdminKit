@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"adminkit/internal/werkzeug"
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -51,6 +53,8 @@ func main() {
 
 		AssetServer: &assetserver.Options{
 			Assets: assets,
+			// Wiki-Medien aus dem Vault streamen (#117), alles andere liefert Assets
+			Handler: werkzeug.MediaHandler(app.wikiMediaRoot),
 		},
 
 		// Native Datei-Drops liefern echte Pfade (VirusTotal-Zone, #96).

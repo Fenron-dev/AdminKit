@@ -123,6 +123,25 @@ test('Mail-Diagnose: Beispiele aus dem Portal', async () => {
   assert.equal(h[0].v, 'Hallo Welt'); assert.equal(m.addrOf(h[1].v), 'a@b.de');
 });
 
+test('Mail-Diagnose: Absender/Empfänger und Umlaut-Prüfung', async () => {
+  const m = await import('../tools/mail.js');
+  const b = m.analyzeMail(m.SAMPLE_BOUNCE).parties;
+  assert.equal(b.senders[0].addr, 'info@beispiel-kunde.de');
+  assert.equal(b.rcpts[0].addr, 'anna.schmidt@gmail.com');
+  assert.equal(b.reporter.addr, 'MAILER-DAEMON@mail.beispiel-hosting.de');
+  assert.equal(b.rcpts[0].iss[0][0], 'ok');
+  const s = m.analyzeMail(m.SAMPLE_SPAM).parties;
+  assert.deepEqual(s.senders.map(x => [x.name, x.addr]), [['Shop Sendet', 'info@shop-sendet.example']]);
+  const r = m.analyzeMail('From: =?utf-8?Q?J=C3=BCrgen_M=C3=BCller?= <jürgen@müller.de>\nTo: "Meier, Anna" <anna@x.de>, bob@y.de\nCc: Zoë <zoe@xn--mller-kva.de>\nSubject: Test').parties;
+  assert.equal(r.senders[0].name, 'Jürgen Müller');
+  assert.deepEqual(r.senders[0].iss.map(x => x[0]), ['err', 'warn']);
+  assert.match(r.senders[0].iss[1][2], /xn--mller-kva\.de/);
+  assert.deepEqual(r.rcpts.map(x => x.addr), ['anna@x.de', 'bob@y.de', 'zoe@xn--mller-kva.de']);
+  assert.equal(r.rcpts[0].name, 'Meier, Anna');
+  assert.equal(r.rcpts[2].iss[0][0], 'info');
+  assert.match(m.analyzeMail('From: MAILER-DAEMON@x.de\nTo: a@b.de\n\n<müller@c.de>: 553 5.6.7 SMTPUTF8 not supported').hits[0].t, /Umlaute/);
+});
+
 test('Link-Prüfer: Sonderfälle aus dem Konzept', async () => {
   const { linkCheck, stripUrl } = await import('../tools/link.js');
   const lvl = u => linkCheck(u).lvl;
@@ -161,4 +180,245 @@ test('DNS-Check: Mail-Auswertung mit festen Antworten', async () => {
   assert.equal(m.txtVal('"v=spf1 " "-all"'), 'v=spf1 -all');
   assert.equal(m.cleanDomain('Max@Kunde.DE'), 'kunde.de');
   assert.equal(m.revName('1.2.3.4'), '4.3.2.1.in-addr.arpa');
+});
+
+test('Fehlercodes: Erkennung und Umrechnung', async () => {
+  const m = await import('../tools/err.js');
+  const t = q => m.lookup(q).flatMap(r => r.hits.map(h => h.t));
+  assert.deepEqual(t('0x80070005'), ['Zugriff verweigert']);
+  assert.deepEqual(t('80070005'), ['Zugriff verweigert']);
+  assert.deepEqual(t('-2147024891'), ['Zugriff verweigert']);
+  assert.deepEqual(t('2147942405'), ['Zugriff verweigert']);
+  assert.deepEqual(t('Systemfehler 5'), ['Zugriff verweigert']);
+  assert.deepEqual(t('5'), ['Zugriff verweigert']);
+  assert.deepEqual(t('0x0000007E'), ['SYSTEM_THREAD_EXCEPTION_NOT_HANDLED'], 'Bluescreen vor Win32 126');
+  assert.deepEqual(t('Stopcode: CRITICAL_PROCESS_DIED'), ['CRITICAL_PROCESS_DIED']);
+  assert.deepEqual(t('Ereignis-ID 41'), ['Unerwartet ausgeschaltet']);
+  assert.deepEqual(t('41'), ['Unerwartet ausgeschaltet']);
+  assert.deepEqual(t('AADSTS50126: Error validating credentials'), ['Benutzername oder Kennwort falsch']);
+  assert.deepEqual(t('-36'), ['Ein-/Ausgabefehler']);
+  assert.deepEqual(t('Fehler 0x800f0922 und 0x80070422'), ['Update konnte nicht installiert werden', 'Windows-Update-Dienst deaktiviert', 'Dienst ist deaktiviert']);
+  assert.equal(t('valid 5').length, 0, 'kein Treffer in Wörtern');
+  const u = m.lookup('0x80071234')[0];
+  assert.equal(u.hits.length, 0); assert.equal(u.info.win32, 0x1234); assert.match(u.info.area, /Win32/);
+  assert.equal(m.lookup('0x80190194')[0].info.http, 404);
+  assert.equal(m.default.match('0x80070005'), true);
+  assert.equal(m.default.match('passwort'), false);
+  const own = [{ id: 'x', code: '0x80070005', text: 'Bei Kunde X: Avira' }];
+  assert.equal(m.lookup('Fehler 0x80070005', own)[0].notes.length, 1);
+  assert.equal(m.searchText('konto gesperrt').hits.length >= 2, true);
+});
+
+test('Mailkonto-Einstellungen: Domain, MX, Text', async () => {
+  const m = await import('../tools/mailcfg.js');
+  const { PROVIDERS } = await import('../data/mailcfg.js');
+  assert.equal(m.cleanDomain(' Max.Muster@T-Online.de '), 't-online.de');
+  assert.equal(m.byDomain('gmx.net', PROVIDERS)[0].id, 'gmx');
+  assert.equal(m.byDomain('kunde.de', PROVIDERS).length, 0);
+  assert.deepEqual(m.mxHosts([{ type: 15, data: '10 mx00.ionos.de.' }, { type: 5, data: 'x' }]), ['mx00.ionos.de']);
+  assert.equal(m.byMx(['mx00.ionos.de'], PROVIDERS)[0].id, 'ionos');
+  assert.equal(m.byMx(['kunde-de.mail.protection.outlook.com'], PROVIDERS)[0].id, 'm365');
+  assert.equal(m.byMx(['smtpin.rzone.de'], PROVIDERS)[0].id, 'strato');
+  assert.equal(m.byMx(['evilionos.de'], PROVIDERS).length, 0, 'nur ganze Namensteile');
+  assert.equal(m.byText('apple', PROVIDERS)[0].id, 'icloud');
+  for (const p of PROVIDERS) { assert.ok(p.smtp.length, p.id); for (const s of [p.imap, p.pop, ...p.smtp].filter(Boolean)) assert.ok([465, 587, 993, 995].includes(s[1]), p.id + ' Port'); }
+  const mail = await import('../tools/mail.js');
+  const r = mail.analyzeMail('From: MAILER-DAEMON@x.de\nTo: chef@kunde.de\n\n<a@b.de>: 530 5.7.0 Authentication required');
+  assert.equal(r.hits[0].cfg, true);
+});
+
+test('Zeitstempel: Formate erkennen und umrechnen', async () => {
+  const m = await import('../tools/time.js');
+  assert.equal(m.parseTime('116444736000000000').ms, 0);
+  assert.equal(m.parseTime('1700000000').ms, 1700000000000);
+  assert.equal(m.parseTime('1700000000123').ms, 1700000000123);
+  assert.equal(m.toFiletime(0), '116444736000000000');
+  assert.equal(m.parseTime(m.toFiletime(1767225600000)).ms, 1767225600000);
+  assert.equal(m.parseTime('0x019DB1DED53E8000').ms, 0);
+  assert.equal(m.parseTime('9223372036854775807').never, true);
+  assert.equal(m.parseTime('0').never, true);
+  assert.equal(m.parseTime('2026-11-23T14:30:00Z').ms, Date.UTC(2026, 10, 23, 14, 30));
+  assert.equal(m.parseTime('Mon, 23 Nov 2026 15:30:00 +0100').ms, Date.UTC(2026, 10, 23, 14, 30));
+  assert.equal(m.parseTime('23.11.2026 14:30').ms, new Date(2026, 10, 23, 14, 30).getTime());
+  assert.ok(m.parseTime('31.02.2026').error);
+  const x = m.parseTime('45000');
+  assert.equal(new Date(x.ms).getDate(), 15); assert.equal(new Date(x.ms).getMonth(), 2);
+  assert.equal(m.toExcel(new Date(2023, 2, 15, 12).getTime()), 45000.5);
+  assert.equal(m.isoWeek(Date.UTC(2026, 0, 1)), 1);
+  assert.equal(m.isoWeek(Date.UTC(2027, 0, 1)), 53);
+  assert.equal(m.duration(90061000), '1 Tag 1 Std. 1 Min. 1 Sek.');
+  assert.ok(m.parseTime('hallo').error);
+});
+
+test('Listen-Werkzeug: Trennen, Bereinigen, Adressen, CSV', async () => {
+  const m = await import('../tools/list.js');
+  assert.equal(m.detectSep('a\nb'), 'line'); assert.equal(m.detectSep('a; b'), 'semi'); assert.equal(m.detectSep('a,b'), 'comma');
+  const r = m.processList(m.splitItems(' b \n\nA\na\nc10\nc9\n'), { sort: 'asc' });
+  assert.deepEqual(r.items, ['A', 'b', 'c9', 'c10']); assert.equal(r.dupes, 1); assert.equal(r.empty, 2);
+  assert.equal(m.processList(['A', 'a'], { caseSens: true }).items.length, 2);
+  assert.deepEqual(m.extractEmails('Max <max@firma.de>; anna.b@x.co.uk, mailto:info@kunde.de. Telefon 0123'), ['max@firma.de', 'anna.b@x.co.uk', 'info@kunde.de']);
+  const rows = m.parseCSV('Name;Mail\n"Meier; Anna";anna@x.de\n"Er sagt ""Hi""";b@y.de\n', m.detectCsvDelim('Name;Mail'));
+  assert.deepEqual(rows, [['Name', 'Mail'], ['Meier; Anna', 'anna@x.de'], ['Er sagt "Hi"', 'b@y.de']]);
+  assert.equal(m.detectCsvDelim('a,b,c'), ',');
+});
+
+test('QR-Codes: Inhalte richtig aufgebaut', async () => {
+  const m = await import('../tools/qr.js');
+  assert.equal(m.qrPayload('url', { url: 'firma.de/hilfe' }), 'https://firma.de/hilfe');
+  assert.equal(m.qrPayload('url', { url: 'http://x.de' }), 'http://x.de');
+  assert.equal(m.qrPayload('tel', { tel: '+49 (0) 30 / 123-45' }), 'tel:+490301234' + '5');
+  assert.equal(m.qrPayload('sms', { tel: '0170 1', msg: 'Hallo' }), 'SMSTO:01701:Hallo');
+  assert.equal(m.qrPayload('mail', { mail: 'a@b.de', subject: 'Hilfe & mehr' }), 'mailto:a@b.de?subject=Hilfe%20%26%20mehr');
+  const v = m.qrPayload('vcard', { fn: 'Anna', ln: 'Meier; Jr.', org: 'Firma, GmbH', tel: '030 1', mail: 'a@b.de' });
+  assert.match(v, /^BEGIN:VCARD\r\nVERSION:3\.0\r\nN:Meier\\; Jr\.;Anna;;;\r\nFN:Anna Meier\\; Jr\.\r\nORG:Firma\\, GmbH/);
+  assert.match(v, /TEL;TYPE=WORK,VOICE:0301\r\n/); assert.match(v, /END:VCARD$/);
+  assert.equal(m.qrPayload('vcard', {}), '');
+});
+
+test('Garantie: Hersteller raten, Adressen füllen', async () => {
+  const m = await import('../tools/warranty.js');
+  assert.equal(m.guessVendor('Dell Inc.', ''), 'dell');
+  assert.equal(m.guessVendor('Hewlett-Packard', ''), 'hp');
+  assert.equal(m.guessVendor('LENOVO', ''), 'lenovo');
+  assert.equal(m.guessVendor('', 'ABC1D23'), 'dell');
+  assert.equal(m.guessVendor('', 'C02XYZ'), '');
+  assert.equal(m.fillUrl('https://x/{serial}/o', ' AB 1 '), 'https://x/AB%201/o');
+  for (const v of m.VENDORS) for (const [, u] of v.links) assert.match(u, /^https:\/\//);
+});
+
+test('Router-Zugänge: Adressen', async () => {
+  const m = await import('../tools/router.js');
+  assert.equal(m.openable('http://fritz.box'), true);
+  assert.equal(m.openable('http://<IP>:5000'), false);
+  for (const d of m.DEVICES) { assert.ok(d.addr.length, d.id); assert.doesNotMatch(d.pw, /\b(admin\/admin|password: )/i); }
+});
+
+test('Zertifikat & Port: Eingaben und Bewertung', async () => {
+  const m = await import('../tools/certport.js');
+  assert.deepEqual(m.parseTarget('https://Www.Kunde.de:8443/pfad?x', 443), { host: 'www.kunde.de', port: 8443 });
+  assert.deepEqual(m.parseTarget('mail.x.de', 993), { host: 'mail.x.de', port: 993 });
+  assert.deepEqual(m.parseTarget('[fe80::1]:22', 443), { host: 'fe80::1', port: 22 });
+  assert.deepEqual(m.parsePorts('443, 3389;3389 99999 abc 22'), [443, 3389, 22]);
+  const ok = { chain: [{}], days_left: 80, hostname_ok: true, trusted: true, tls_version: 'TLS 1.3' };
+  assert.equal(m.certVerdict(ok)[0], 'ok');
+  assert.equal(m.certVerdict({ ...ok, days_left: 5 })[0], 'warn');
+  assert.equal(m.certVerdict({ ...ok, days_left: -1 })[0], 'err');
+  assert.equal(m.certVerdict({ ...ok, trusted: false })[0], 'err');
+  assert.equal(m.certVerdict({ ...ok, tls_version: 'TLS 1.0' })[0], 'warn');
+  assert.equal(m.certVerdict({ error: 'x' })[0], 'err');
+});
+
+test('Wake-on-LAN: Eingaben', async () => {
+  const m = await import('../tools/wol.js');
+  assert.equal(m.normMac('00-11-22-aa-bb-cc'), '00:11:22:AA:BB:CC');
+  assert.equal(m.normMac('0011.22aa.bbcc'), '00:11:22:AA:BB:CC');
+  assert.equal(m.normMac('00:11:22'), '');
+  assert.equal(m.isBroadcast(''), true); assert.equal(m.isBroadcast('192.168.178.255'), true); assert.equal(m.isBroadcast('300.1.1.1'), false);
+});
+
+test('Geräte-Erkennung: MAC, Hersteller, Hinweise', async () => {
+  const m = await import('../tools/macinfo.js');
+  const { V, O } = await import('../data/oui.js');
+  const map = m.buildOui(V, O);
+  assert.ok(map.size > 30000);
+  assert.deepEqual(m.extractMacs('? (192.168.178.1) at 3c:a6:2f:1:2:3 on en0\n 192.168.0.5  00-1b-21-aa-bb-cc dynamisch\n0011.2233.4455'), ['3C:A6:2F:01:02:03', '00:1B:21:AA:BB:CC', '00:11:22:33:44:55']);
+  assert.match(m.identify('3C:A6:2F:01:02:03', map).vendor, /^AVM/);
+  assert.match(m.identify('3C:A6:2F:01:02:03', map).hint.text, /Netzwerkgerät/);
+  assert.match(m.identify('DA:A1:19:00:00:01', map).hint.text, /Private/);
+  assert.match(m.identify('00:15:5D:00:00:01', map).vendor, /Hyper-V/);
+  assert.match(m.identify('00:1B:21:AA:BB:CC', map).hint.text, /Netzwerkchip/);
+  assert.equal(m.guessFromProbe({ open_ports: [80, 9100] }), 'Drucker');
+  assert.equal(m.guessFromProbe({ open_ports: [62078] }), 'iPhone oder iPad');
+  assert.equal(m.guessFromProbe({ names: [{ name: 'Galaxy-S21-FE.fritz.box' }] }), 'Android-Smartphone oder -Tablet');
+  assert.equal(m.guessFromProbe({ open_ports: [3389, 445] }), 'Windows-PC (Remotedesktop aktiv)');
+});
+
+test('Befehle: Platzhalter, Auswertung, Daten', async () => {
+  const e = await import('../tools/cmdeval.js');
+  const { COMMANDS } = await import('../data/commands.js');
+  assert.deepEqual(e.placeholders('ping -n 4 {Ziel|8.8.8.8} {Ziel}'), [{ name: 'Ziel', def: '8.8.8.8' }]);
+  assert.equal(e.fillCommand('ping {Ziel|8.8.8.8}', {}), 'ping 8.8.8.8');
+  assert.equal(e.fillCommand('ping {Ziel|8.8.8.8}', { Ziel: 'drucker.fritz.box' }), 'ping drucker.fritz.box');
+  assert.throws(() => e.fillCommand('ping {Ziel}', { Ziel: 'x & del c:' }));
+  assert.throws(() => e.fillCommand('ping {Ziel}', { Ziel: '' }));
+  const lv = (ev, o) => e.EVAL[ev](o).map(x => x.level);
+  assert.deepEqual(lv('ping', 'Pakete: Gesendet = 4, Empfangen = 4, Verloren = 0\n(0% Verlust),\nMinimum = 9ms, Maximum = 12ms, Mittelwert = 10ms'), ['ok', 'ok']);
+  assert.deepEqual(lv('ping', '4 packets transmitted, 2 packets received, 50.0% packet loss\nround-trip min/avg/max/stddev = 10.1/180.5/300/2 ms'), ['warn', 'err']);
+  assert.deepEqual(lv('ping', 'Ping-Anforderung konnte Host "xy" nicht finden.'), ['err']);
+  assert.equal(lv('ipconfig', '   Autokonfiguration IPv4-Adresse  . : 169.254.12.3(Bevorzugt)')[0], 'err');
+  assert.equal(lv('ipconfig', '   IPv4-Adresse  . . . . . . . . . . : 192.168.178.20(Bevorzugt)\n   Standardgateway . . . . . . . . . : 192.168.178.1\n   DNS-Server  . . . . . . . . . . . : 192.168.178.1')[0], 'ok');
+  assert.deepEqual(lv('sfc', 'Der Windows-Ressourcenschutz hat keine Integritätsverletzungen gefunden.'), ['ok']);
+  assert.deepEqual(lv('sfc', 'Windows Resource Protection found corrupt files but was unable to fix some of them.'), ['err']);
+  assert.deepEqual(lv('dism', 'Fehler: 0x800f081f\nDie Quelldateien wurden nicht gefunden.'), ['err']);
+  assert.deepEqual(lv('wlan', '    Status                 : Verbunden\n    Signal                 : 45%\n    Kanal                  : 36'), ['err', 'info']);
+  assert.deepEqual(lv('w32tm', 'Quelle: Local CMOS Clock'), ['warn']);
+  assert.deepEqual(lv('crypt', 'Schutzstatus: Der Schutz ist aktiviert.\nSchutzstatus: Der Schutz ist deaktiviert.'), ['ok', 'warn']);
+  assert.deepEqual(lv('tracert', '  1    <1 ms  192.168.178.1\n  2     *        *        *     Zeitüberschreitung der Anforderung.\n  3     *        *        *     Zeitüberschreitung der Anforderung.\n  4     *        *        *     Zeitüberschreitung der Anforderung.'), ['warn']);
+  assert.deepEqual(e.evalRules('Verlust = 25%', [{ when: 'number', pattern: 'Verlust = (\\d+)%', op: '>', value: '0', level: 'warn', text: '{wert} % Verlust' }]), [{ level: 'warn', title: '25 % Verlust', text: '' }]);
+  assert.equal(e.evalRules('ok', [{ when: 'missing', pattern: 'Reply', level: 'err', text: 'x' }])[0].level, 'err');
+  assert.equal(e.evaluate({ ev: 'sfc' }, { output: '', exit_code: 5 })[0].level, 'warn');
+  const ids = new Set();
+  for (const c of COMMANDS) {
+    assert.ok(!ids.has(c.id), 'doppelte ID ' + c.id); ids.add(c.id);
+    assert.ok(Object.keys(c.v).length, c.id);
+    if (c.change) assert.ok(c.impact, c.id + ' ohne Auswirkungen');
+    if (c.ev) assert.ok(e.EVAL[c.ev], c.id + ' Auswerter fehlt');
+    for (const v of Object.values(c.v)) if (c.kind === 'open') assert.ok(v.target, c.id); else assert.ok(v.cmd, c.id);
+  }
+});
+
+test('Wiki-Markdown: Medien, Videos, Plattform, Knöpfe, Konsole', async () => {
+  const m = await import('../markdown.js');
+  m.setMediaBase('drucker');
+  assert.match(m.md('![[clip.mp4|Demo]]'), /<video controls preload="metadata" src="\/vaultmedia\/wiki\/_medien\/drucker\/clip\.mp4"><\/video><figcaption>Demo/);
+  assert.match(m.md('![[ton.m4a]]'), /<audio controls/);
+  assert.match(m.md('![[anim.gif]]'), /<img src="\/vaultmedia\/wiki\/_medien\/drucker\/anim\.gif"/);
+  assert.match(m.md('![[anleitung.pdf]]'), /data-media="_medien\/drucker\/anleitung\.pdf"/);
+  assert.match(m.md('![[../../config.yaml]]'), /nicht gefunden/);
+  assert.equal(m.videoEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42').src, 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=42');
+  assert.equal(m.videoEmbedUrl('https://vimeo.com/12345').site, 'Vimeo');
+  assert.equal(m.videoEmbedUrl('https://example.com/x'), null);
+  assert.match(m.md('https://youtu.be/dQw4w9WgXcQ'), /data-embed="https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ"/);
+  assert.doesNotMatch(m.md('https://youtu.be/dQw4w9WgXcQ'), /<iframe/, 'erst nach Klick laden');
+  const g = m.md('> [!WINDOWS] W\n> a\n\n> [!MACOS] M\n> b\n\n> [!TIPP]\n> c');
+  assert.equal((g.match(/class="os-group"/g) || []).length, 1, 'Windows und macOS in einer Gruppe');
+  assert.match(g, /callout tip/);
+  const b = m.md('[[run:ping?Ziel=1.1.1.1|Pingen]] [[open:devmgmt.msc|Geräte-Manager]] [[cmd:mac:ifconfig|IP]] `[[run:x]]`');
+  assert.match(b, /data-act="run" data-arg="ping\?Ziel=1\.1\.1\.1">.*Pingen<\/button>/);
+  assert.match(b, /data-act="open" data-arg="devmgmt\.msc">.*Geräte-Manager/);
+  assert.match(b, /data-act="cmd" data-arg="mac:ifconfig" data-os="macos"/);
+  assert.match(b, /<code>\[\[run:x\]\]<\/code>/, 'in Code bleibt Text');
+  assert.match(m.md('[[cmd:echo "<x>" & del|Böse]]'), /data-arg="echo &quot;&lt;x&gt;&quot; &amp; del"/, 'Attribut maskiert');
+  const lng = m.md('```console\n' + Array.from({ length: 25 }, (_, i) => 'Zeile ' + i).join('\n') + '\n```');
+  assert.match(lng, /<details class="code md-console">.*25 Zeilen/s);
+});
+
+test('Aufnahme: Zuschnitt-Fragment, Formen', async () => {
+  const r = await import('../capture-util.js');
+  assert.equal(r.trimFragment(0, 30, 30), '');
+  assert.equal(r.trimFragment(2.04, 30, 30), '#t=2');
+  assert.equal(r.trimFragment(2, 12.36, 30), '#t=2,12.4');
+  assert.equal(r.pickMime(t => t === 'video/webm'), 'video/webm');
+  assert.equal(r.pickMime(() => false), '');
+  const a = await import('../annotate.js');
+  assert.deepEqual(a.norm({ x1: 50, y1: 40, x2: 10, y2: 60 }), { x: 10, y: 40, w: 40, h: 20 });
+});
+
+test('Abläufe: Schritte lesen, Protokoll erzeugen', async () => {
+  const r = await import('../runbook-util.js');
+  let p = r.parseSteps('Einleitung\n\n## 1. Netzwerk prüfen\n[[run:ipconfig|IP]]\n```bash\n## kein Schritt\n```\n## Drucker\nText');
+  assert.equal(p.intro, 'Einleitung');
+  assert.deepEqual(p.steps.map(s => s.title), ['Netzwerk prüfen', 'Drucker']);
+  assert.match(p.steps[0].body, /## kein Schritt/);
+  p = r.parseSteps('### A\nx\n### B');
+  assert.deepEqual(p.steps.map(s => s.title), ['A', 'B']);
+  p = r.parseSteps('Vorab\n- [ ] Backup\n- [x] Updates\n- normal');
+  assert.deepEqual(p.steps.map(s => s.title), ['Backup', 'Updates']);
+  assert.equal(r.parseSteps('nur Text').steps.length, 1);
+  assert.equal(r.fmtDuration(95 * 60000), '1 Std. 35 Min.');
+  const md = r.buildProtocol({ template: 'pc', templateTitle: 'Neuer PC', customer: 'Müller', os: 'windows', started: Date.UTC(2026, 10, 23, 9), finished: Date.UTC(2026, 10, 23, 10, 30),
+    steps: [{ title: 'Netzwerk', done: true, notes: 'ok', media: ['![[a.mp4]]'], outputs: [{ name: 'IP', command: 'ipconfig', output: 'x', evals: [{ level: 'ok', title: 'IPv4' }] }] }, { title: 'Drucker', done: false }] });
+  assert.match(md, /1 von 2 Schritten/); assert.match(md, /\[Neuer PC\]\(#\/wiki\/a\/pc\)/); assert.match(md, /Dauer: 1 Std\. 30 Min\./);
+  assert.match(md, /## ✓ 1\. Netzwerk/); assert.match(md, /## ○ 2\. Drucker/); assert.match(md, /!\[\[a\.mp4\]\]/); assert.match(md, /✓ IPv4/); assert.match(md, /```console\nx\n```/);
+  assert.equal(r.clipOutput('a'.repeat(30000)).length < 21000, true);
 });

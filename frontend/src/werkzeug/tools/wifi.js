@@ -44,7 +44,7 @@ async function cardPNG(W) {
 }
 
 export default {
-  id: 'wifi', name: 'WLAN-QR-Code', group: 'Passwörter & Telefon', icon: 'wifi',
+  id: 'wifi', name: 'WLAN-QR-Code', group: 'Für Kunden', tags: ['WLAN', 'QR-Code', 'Kunde', 'Drucken'], icon: 'wifi',
   keys: 'wlan wifi qr code gast drucken router', online: false,
   render(p, ctx) {
     // Passwort wird nie gespeichert; Vorbelegung z. B. aus dem Netzwerk-Tab

@@ -16,10 +16,14 @@ import (
 	"sync"
 	"time"
 
+	"adminkit/internal/capture"
+	"adminkit/internal/cmdrun"
 	"adminkit/internal/execx"
 	"adminkit/internal/hashing"
 	"adminkit/internal/logging"
 	"adminkit/internal/netcheck"
+	"adminkit/internal/network"
+	"adminkit/internal/system"
 	"adminkit/internal/werkzeug"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -32,6 +36,10 @@ type wzState struct {
 
 	mu         sync.Mutex
 	hashCancel context.CancelFunc
+
+	uploadsOnce sync.Once
+	uploads     *werkzeug.Uploads
+	recorder    capture.Recorder
 }
 
 func (a *App) toolState() (*werkzeug.State, error) {
@@ -71,6 +79,48 @@ func (a *App) SaveToolState(key, value string) error {
 		return err
 	}
 	return s.Set(key, value)
+}
+
+// GetDeviceIdentity liefert Hersteller, Modell und Geräte-Seriennummer (#111).
+func (a *App) GetDeviceIdentity() (system.DeviceIdentity, error) {
+	return system.Identity()
+}
+
+// GetGateways liefert die Standardgateways verbundener Adapter (#112, nur lesend).
+func (a *App) GetGateways() ([]string, error) {
+	r, err := network.Scan(false)
+	if r == nil {
+		return nil, err
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, ad := range r.Adapters {
+		if ad.IsConnected && ad.Gateway != "" && !seen[ad.Gateway] && ad.Type != network.AdapterLoopback {
+			seen[ad.Gateway] = true
+			out = append(out, ad.Gateway)
+		}
+	}
+	return out, nil
+}
+
+// ── Eigene Einträge (#105) ──────────────────────────────────────────────────
+
+// GetEntries liefert eine Sammlung eigener Einträge (JSON, "{}" wenn leer).
+func (a *App) GetEntries(kind string) (string, error) {
+	root, err := a.vaultRootOrErr()
+	if err != nil {
+		return "", err
+	}
+	return werkzeug.LoadEntries(root, kind)
+}
+
+// SaveEntries speichert eine Sammlung eigener Einträge (JSON-Objekt).
+func (a *App) SaveEntries(kind, data string) error {
+	root, err := a.vaultRootOrErr()
+	if err != nil {
+		return err
+	}
+	return werkzeug.SaveEntries(root, kind, data)
 }
 
 // ── Links (#91) ─────────────────────────────────────────────────────────────
@@ -349,6 +399,86 @@ func (a *App) SMTPProbe(host string, port int) (*netcheck.SMTPResult, error) {
 	return r, nil
 }
 
+// CertCheck liest und prüft das TLS-Zertifikat von host:port (#108, nur lesend).
+// mode: auto (nach Port), tls, smtp, imap, pop3.
+func (a *App) CertCheck(host string, port int, mode string) (*netcheck.CertResult, error) {
+	if !netcheck.IsLocalTarget(host) {
+		if err := a.requireOnline("dns"); err != nil {
+			return nil, err
+		}
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 20*time.Second)
+	defer cancel()
+	r := netcheck.CheckCert(ctx, host, port, mode)
+	logging.Infof("Werkzeug", "Zertifikat %s:%d → vertraut=%v name=%v Tage=%d %s", host, port, r.Trusted, r.HostnameOK, r.DaysLeft, r.Error)
+	return r, nil
+}
+
+// PortCheck prüft bis zu 10 Ports eines Hosts (#108, nur TCP-Verbindungsaufbau).
+func (a *App) PortCheck(host string, ports []int) ([]netcheck.PortResult, error) {
+	if !netcheck.IsLocalTarget(host) {
+		if err := a.requireOnline("dns"); err != nil {
+			return nil, err
+		}
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 15*time.Second)
+	defer cancel()
+	r, err := netcheck.CheckPorts(ctx, host, ports)
+	if err == nil {
+		logging.Infof("Werkzeug", "Port-Test %s %v", host, ports)
+	}
+	return r, err
+}
+
+// WakeOnLAN sendet ein Magic Packet (#116). Bestätigung erfolgt im Frontend.
+func (a *App) WakeOnLAN(mac, broadcast string, port int) error {
+	if err := netcheck.SendWOL(mac, broadcast, port); err != nil {
+		return err
+	}
+	logging.Infof("Werkzeug", "Wake-on-LAN an %s (%s:%d)", mac, broadcast, port)
+	return nil
+}
+
+// ARPTable liefert die bekannten Geräte im lokalen Netz (IP + MAC, #109).
+func (a *App) ARPTable() ([]netcheck.Neighbor, error) {
+	ctx, cancel := context.WithTimeout(a.ctx, 15*time.Second)
+	defer cancel()
+	return netcheck.ARPTable(ctx)
+}
+
+// ProbeDevice fragt ein Gerät im lokalen Netz nach Namen, Modell und Diensten ab (#109, nur lesend).
+func (a *App) ProbeDevice(ip string) (*netcheck.DeviceProbe, error) {
+	ctx, cancel := context.WithTimeout(a.ctx, 10*time.Second)
+	defer cancel()
+	r, err := netcheck.ProbeDevice(ctx, ip)
+	if err == nil {
+		logging.Infof("Werkzeug", "Geräteabfrage %s: %d Namen, Ports %v", ip, len(r.Names), r.OpenPorts)
+	}
+	return r, err
+}
+
+// OpenCommandTarget öffnet eine Einstellungsseite, Konsole oder App aus dem
+// Befehle-Starter (#110). Nur Ziele aus der erlaubten Liste (cmdrun.ValidOpen).
+func (a *App) OpenCommandTarget(target string, args []string) error {
+	if err := cmdrun.Open(target, args); err != nil {
+		return err
+	}
+	logging.Infof("Werkzeug", "Geöffnet: %s %v", target, args)
+	return nil
+}
+
+// RunCommand führt einen Befehl aus dem Befehle-Starter aus (#110). Verändernde
+// Befehle bestätigt der Nutzer vorher im Frontend (Dialog mit Auswirkungen).
+func (a *App) RunCommand(req cmdrun.Request) *cmdrun.Result {
+	logging.Infof("Werkzeug", "Befehl (%s, admin=%v): %s", req.Shell, req.Admin, req.Command)
+	r := cmdrun.Run(a.ctx, req)
+	logging.Infof("Werkzeug", "Befehl beendet: Exit %d, %d ms, Zeitlimit=%v %s", r.ExitCode, r.Millis, r.TimedOut, r.Error)
+	return r
+}
+
+// IsElevated meldet, ob AdminKit mit Administratorrechten läuft.
+func (a *App) IsElevated() bool { return cmdrun.Elevated() }
+
 // RDAPLookup ermittelt Registrierung und Alter einer Domain.
 func (a *App) RDAPLookup(domain string) (*netcheck.RDAPResult, error) {
 	if err := a.requireOnline("link_services"); err != nil {
@@ -473,6 +603,141 @@ func (a *App) SaveWikiImage(slug, name, dataURL string) (string, error) {
 		return "", fmt.Errorf("keine Vault initialisiert")
 	}
 	return werkzeug.SaveImage(a.vault.RootPath, slug, name, dataURL)
+}
+
+// ── Wiki-Medien (#117) ──────────────────────────────────────────────────────
+
+func (a *App) wikiUploads() *werkzeug.Uploads {
+	a.wz.uploadsOnce.Do(func() { a.wz.uploads = werkzeug.NewUploads() })
+	return a.wz.uploads
+}
+
+// WikiMediaBegin startet das Hochladen einer Mediendatei in Stücken.
+func (a *App) WikiMediaBegin(slug, name string) (string, error) {
+	root, err := a.vaultRootOrErr()
+	if err != nil {
+		return "", err
+	}
+	return a.wikiUploads().Begin(root, slug, name)
+}
+
+// WikiMediaChunk hängt ein Base64-Stück an (max. einige MB je Aufruf).
+func (a *App) WikiMediaChunk(id, b64 string) error { return a.wikiUploads().Chunk(id, b64) }
+
+// WikiMediaEnd schließt das Hochladen ab und liefert den Pfad für das Markdown.
+func (a *App) WikiMediaEnd(id string) (string, error) {
+	rel, err := a.wikiUploads().End(id)
+	if err == nil {
+		logging.Infof("Werkzeug", "Wiki-Medium gespeichert: %s", rel)
+	}
+	return rel, err
+}
+
+// WikiMediaAbort verwirft ein begonnenes Hochladen.
+func (a *App) WikiMediaAbort(id string) { a.wikiUploads().Abort(id) }
+
+// PickWikiMedia wählt eine Datei per Dialog und legt sie beim Artikel ab.
+func (a *App) PickWikiMedia(slug string) (string, error) {
+	root, err := a.vaultRootOrErr()
+	if err != nil {
+		return "", err
+	}
+	p, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "Datei einfügen", Filters: []runtime.FileFilter{
+		{DisplayName: "Medien und Anhänge", Pattern: "*.mp4;*.m4v;*.webm;*.mov;*.mp3;*.m4a;*.ogg;*.opus;*.wav;*.gif;*.png;*.jpg;*.jpeg;*.webp;*.pdf;*.txt;*.log;*.zip"},
+	}})
+	if err != nil || p == "" {
+		return "", err
+	}
+	return werkzeug.ImportMedia(root, slug, p)
+}
+
+// OpenWikiMedia öffnet einen Anhang (z. B. PDF) mit dem Standardprogramm.
+func (a *App) OpenWikiMedia(rel string) error {
+	root, err := a.vaultRootOrErr()
+	if err != nil {
+		return err
+	}
+	p, ok := werkzeug.ResolveMedia(root, rel)
+	if !ok {
+		return fmt.Errorf("ungültiger Pfad")
+	}
+	return openFilePlatform(p)
+}
+
+// WikiMediaRoot liefert den Vault-Pfad für den Medien-Handler ("" ohne Vault).
+func (a *App) wikiMediaRoot() string {
+	if a.vault == nil {
+		return ""
+	}
+	return a.vault.RootPath
+}
+
+// ── Bildschirmaufnahme (#121) ───────────────────────────────────────────────
+
+// CaptureScreenshot blendet AdminKit kurz aus und nimmt den Bildschirm auf (PNG als data:-URI).
+// mode "interactive" (nur macOS): Bereich oder Fenster selbst wählen.
+func (a *App) CaptureScreenshot(mode string, delay int) (string, error) {
+	runtime.WindowHide(a.ctx)
+	defer runtime.WindowShow(a.ctx)
+	time.Sleep(450 * time.Millisecond) // Fenster ausblenden lassen
+	ctx, cancel := context.WithTimeout(a.ctx, 6*time.Minute)
+	defer cancel()
+	d, err := capture.Screenshot(ctx, mode, delay)
+	if err == nil {
+		logging.Infof("Werkzeug", "Bildschirmfoto aufgenommen (%s)", mode)
+	}
+	return d, err
+}
+
+// CaptureCapabilities: was auf diesem System möglich ist.
+func (a *App) CaptureCapabilities() map[string]bool {
+	root := ""
+	if a.vault != nil {
+		root = a.vault.RootPath
+	}
+	return map[string]bool{"interactive": goruntime.GOOS == "darwin", "native_video": capture.NativeVideo(), "ffmpeg": capture.FindFFmpeg(root) != ""}
+}
+
+// RecordStart startet eine Videoaufnahme über das System (macOS).
+func (a *App) RecordStart(mic, clicks bool) error { return a.wz.recorder.Start(mic, clicks) }
+
+// RecordStop beendet die Aufnahme und legt das Video beim Wiki-Artikel ab (→ relativer Pfad).
+func (a *App) RecordStop(slug string) (string, error) {
+	file, err := a.wz.recorder.Stop()
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(file)
+	root, err := a.vaultRootOrErr()
+	if err != nil {
+		return "", err
+	}
+	return werkzeug.ImportMedia(root, slug, file)
+}
+
+// MediaToGIF erzeugt aus einem Wiki-Video ein GIF (FFmpeg nötig) → relativer Pfad.
+func (a *App) MediaToGIF(rel string, start, end float64) (string, error) {
+	root, err := a.vaultRootOrErr()
+	if err != nil {
+		return "", err
+	}
+	ff := capture.FindFFmpeg(root)
+	if ff == "" {
+		return "", fmt.Errorf("FFmpeg nicht gefunden (PATH oder Vault-Ordner tools/ffmpeg)")
+	}
+	src, ok := werkzeug.ResolveMedia(root, rel)
+	if !ok {
+		return "", fmt.Errorf("ungültiger Pfad")
+	}
+	tmp := filepath.Join(os.TempDir(), fmt.Sprintf("adminkit-%d.gif", time.Now().UnixNano()))
+	defer os.Remove(tmp)
+	ctx, cancel := context.WithTimeout(a.ctx, 10*time.Minute)
+	defer cancel()
+	if err := capture.ToGIF(ctx, ff, src, tmp, start, end, 10); err != nil {
+		return "", err
+	}
+	slug := strings.Split(strings.TrimPrefix(rel, "_medien/"), "/")[0]
+	return werkzeug.ImportMedia(root, slug, tmp)
 }
 
 // ── Hardwaretest (#92) ──────────────────────────────────────────────────────

@@ -5,12 +5,15 @@ import './werkzeug.css';
 import { ListWikiArticles, GetWikiArticle, SaveWikiArticle, DeleteWikiArticle, SaveWikiImage, GetWikiCategories, SaveWikiCategories } from '../../wailsjs/go/main/App';
 import { getContext } from './platform.adminkit.js';
 import { $, $$, esc, ic } from './ui.js';
-import { md, setImages, plain } from './markdown.js';
+import { md, setImages, setMediaBase, plain } from './markdown.js';
+import { uploadBlob, pickMedia, openMedia, isMediaFile } from './media.js';
+import { platName } from './entries.js';
 import { ILLU } from './data/illu.js';
 import { viewToggleHTML, getView, setView } from './viewmode.js';
 
 let ctx = null, root = null, list = [], cat = '', query = '', allCats = [], addingCat = false;
 let editing = null; // Artikel im Editor (null = keiner)
+let editorAddMedia = null; // Upload-Funktion des offenen Editors (für Aufnahmen, #121)
 
 const fmtDate = d => { const x = new Date(d); return isNaN(x) || x.getFullYear() < 2000 ? '' : x.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }); };
 
@@ -76,16 +79,18 @@ function showList() {
 async function showArticle(slug) {
   let a;
   try { a = await GetWikiArticle(slug); } catch (e) { ctx.toast('Artikel nicht gefunden'); return showList(); }
-  setImages(a.images);
+  setImages(a.images); setMediaBase(a.slug);
   const html = md(a.body);
+  const hasOs = /class="callout os /.test(html), osOnly = ctx.state.get('wikiOsOnly', false);
   const tmp = document.createElement('div'); tmp.innerHTML = html; const heads = $$('h2', tmp);
   layout(`<div class="crumbs"><a href="#" data-cat="">Wissen</a><span>/</span><a href="#" data-cat="${esc(a.kategorie)}">${esc(a.kategorie)}</a></div>
     <div class="article"><article>
       <h1>${esc(a.titel)}</h1>
       <div class="art-top"><span>${a.geaendert ? 'Aktualisiert ' + esc(fmtDate(a.geaendert)) : ''}${a.autor ? ' von ' + esc(a.autor) : ''}${a.vorgabe ? ' · mitgelieferter Artikel' : ''}</span>
         ${(a.tags || []).length ? `<span class="tags">${a.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</span>` : ''}
-        <span class="art-acts"><button class="btn sm" type="button" data-wk="edit" data-slug="${esc(a.slug)}">${ic('pencil')}Bearbeiten</button><button class="btn sm danger" type="button" data-wk="delete" data-slug="${esc(a.slug)}">${ic('trash')}Löschen</button></span></div>
-      <div class="prose" id="wkProse">${html}</div>
+        ${hasOs ? `<label class="check wk-osonly"><input type="checkbox" data-wkos${osOnly ? ' checked' : ''}>Nur ${esc(platName(ctx.os))} anzeigen</label>` : ''}
+        <span class="art-acts">${a.kategorie !== 'Protokolle' ? `<button class="btn sm" type="button" data-wk="runbook" data-slug="${esc(a.slug)}" title="Artikel Schritt für Schritt abarbeiten und protokollieren">${ic('clipboard')}Als Ablauf starten</button>` : ''}<button class="btn sm" type="button" data-wk="edit" data-slug="${esc(a.slug)}">${ic('pencil')}Bearbeiten</button><button class="btn sm danger" type="button" data-wk="delete" data-slug="${esc(a.slug)}">${ic('trash')}Löschen</button></span></div>
+      <div class="prose${hasOs && osOnly ? ' os-only-' + esc(ctx.os) : ''}" id="wkProse" data-title="${esc(a.titel)}">${html}</div>
       ${a.erstellt && fmtDate(a.erstellt) ? `<p class="muted" style="margin-top:40px;font-size:13px">Erstellt am ${esc(fmtDate(a.erstellt))}.</p>` : ''}
     </article>
     ${heads.length > 1 ? `<nav class="toc" aria-label="Inhalt"><strong>Auf dieser Seite</strong>${heads.map(h => `<button type="button" data-scroll="${h.id}">${esc(h.textContent)}</button>`).join('')}</nav>` : '<div></div>'}
@@ -110,6 +115,8 @@ function showEditor(a) {
       <span class="sep"></span><button type="button" data-md="ul" title="Liste">${ic('list')}</button><button type="button" data-md="task" title="Checkliste">${ic('check')}</button><button type="button" data-md="link" title="Link">${ic('link')}</button><button type="button" data-md="table" title="Tabelle">${ic('grid')}</button>
       <span class="sep"></span><button type="button" data-md="tip" title="Tipp-Kasten">Tipp</button><button type="button" data-md="warn" title="Warnung">Warnung</button><button type="button" data-md="pre" title="Codeblock">{ }</button>
       <span class="sep"></span><button type="button" data-md="img" title="Bild einfügen (Screenshots auch mit Strg + V)">${ic('image')}Bild</button><button type="button" data-md="flow" title="Ablauf-Diagramm">Ablauf</button><button type="button" data-md="cmp" title="Vergleichstabelle">Vergleich</button><button type="button" data-md="illu" title="Fertige Illustration">Illustration</button><input type="file" id="edImg" accept="image/*" hidden>
+      <span class="sep"></span><button type="button" data-md="rec" title="Bildschirmfoto oder Video aufnehmen">${ic('camera')}Aufnahme</button><button type="button" data-md="file" title="Video, Audio, GIF, PDF … einfügen (auch per Drag & Drop)">${ic('upload')}Datei</button><button type="button" data-md="yt" title="YouTube-/Vimeo-Video einbetten">${ic('video')}Video-Link</button><button type="button" data-md="console" title="Konsolenausgabe">${ic('code')}Ausgabe</button>
+      <button type="button" data-md="os" title="Anleitung für Windows und macOS nebeneinander">Win/Mac</button><button type="button" data-md="act" title="Knopf, der einen Befehl ausführt oder eine Einstellung öffnet">${ic('play')}Befehl</button>
       <button type="button" class="tog" data-md="preview" title="Vorschau ein- oder ausblenden">${ic('eye')}Vorschau</button>
     </div>
     <div class="ed-split" id="edSplit"><textarea class="input" id="edBody" name="body" spellcheck="true" aria-label="Artikeltext in Markdown" placeholder="Schreib los. Markdown wird unterstützt, die Vorschau aktualisiert sich beim Tippen.">${esc(editing.body)}</textarea><div class="ed-prev prose" id="edPrev"></div></div>
@@ -117,7 +124,7 @@ function showEditor(a) {
       <span class="row"><button class="btn" type="button" data-wk="cancel">Abbrechen</button><button class="btn primary" type="submit">${ic('check')}${isNew ? 'Artikel speichern' : 'Änderungen speichern'}</button></span></div>
   </form>`);
   const ta = $('#edBody', root), prev = $('#edPrev', root); let tm;
-  const up = () => { setImages(imgs); prev.innerHTML = md(ta.value) || '<p class="muted">Die Vorschau erscheint hier.</p>'; };
+  const up = () => { setImages(imgs); setMediaBase(editing.slug); prev.innerHTML = md(ta.value) || '<p class="muted">Die Vorschau erscheint hier.</p>'; };
   const addImg = async file => {
     if (!file || !/^image\//.test(file.type)) return;
     if (!editing.slug) { ctx.toast('Bitte den Artikel zuerst einmal speichern, dann Bilder einfügen.'); return; }
@@ -129,12 +136,32 @@ function showEditor(a) {
       ctx.toast(`Bild gespeichert (${Math.round(data.length * 0.75 / 1024)} KB)`);
     } catch (e) { ctx.toast('Das Bild konnte nicht gespeichert werden: ' + e); }
   };
+  const addMedia = async file => {
+    if (!editing.slug) { ctx.toast('Bitte den Artikel zuerst einmal speichern, dann Dateien einfügen.'); return; }
+    if (file.size > 500 * 1024 * 1024) { ctx.toast('Datei größer als 500 MB'); return; }
+    if (file.size > 50 * 1024 * 1024) ctx.toast('Große Datei – das Hochladen dauert einen Moment. Große Videos machen den Vault schwer (Sicherung, Sync).');
+    try {
+      const rel = await uploadBlob(editing.slug, file.name || 'datei', file);
+      insertAt(ta, (ta.selectionStart > 0 && ta.value[ta.selectionStart - 1] !== '\n' ? '\n\n' : '') + `![[${rel.split('/').pop()}]]\n`, '');
+      ctx.toast(`${file.name} gespeichert (${Math.round(file.size / 1024)} KB)`);
+    } catch (e) { ctx.toast('Datei konnte nicht gespeichert werden: ' + e); }
+  };
+  editorAddMedia = addMedia;
   $('#edImg', root).onchange = e => { addImg(e.target.files[0]); e.target.value = ''; };
-  ta.addEventListener('paste', e => { const it = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith('image/')); if (it) { e.preventDefault(); addImg(it.getAsFile()); } });
+  ta.addEventListener('paste', e => { const it = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith('image/')); if (it) { e.preventDefault(); const f = it.getAsFile(); f.type === 'image/gif' ? addMedia(f) : addImg(f); } });
   ta.addEventListener('dragover', e => e.preventDefault());
-  ta.addEventListener('drop', e => { const f = e.dataTransfer?.files?.[0]; if (f && f.type.startsWith('image/')) { e.preventDefault(); addImg(f); } });
+  ta.addEventListener('drop', e => { const f = e.dataTransfer?.files?.[0]; if (!f) return; if (isMediaFile(f)) { e.preventDefault(); addMedia(f); } else if (f.type.startsWith('image/')) { e.preventDefault(); addImg(f); } });
   $('#edForm', root).addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(up, 120); });
-  $('.ed-bar', root).addEventListener('click', e => { const b = e.target.closest('[data-md]'); if (!b) return; mdAction(b.dataset.md, ta); up(); });
+  $('.ed-bar', root).addEventListener('click', async e => {
+    const b = e.target.closest('[data-md]'); if (!b) return;
+    if (b.dataset.md === 'rec') {
+      if (!editing.slug) { ctx.toast('Bitte den Artikel zuerst einmal speichern, dann aufnehmen.'); return; }
+      const { openCapture } = await import('./recorder.js');
+      openCapture(ctx, { slug: editing.slug, onInsert: r => { if (r.data) imgs[r.rel] = r.data; insertAt(ta, (ta.selectionStart > 0 && ta.value[ta.selectionStart - 1] !== '\n' ? '\n\n' : '') + r.md + '\n', ''); up(); } });
+      return;
+    }
+    mdAction(b.dataset.md, ta); up();
+  });
   ta.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); mdAction('bold', ta); up(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') { e.preventDefault(); mdAction('italic', ta); up(); }
@@ -192,6 +219,12 @@ function mdAction(k, ta) {
     case 'flow': return insertAt(ta, nl() + '```ablauf\n', '\nZweiter Schritt | Kurze Erklärung\nDritter Schritt | Kurze Erklärung\n```\n', 'Erster Schritt | Kurze Erklärung');
     case 'cmp': return insertAt(ta, nl() + '```vergleich\n | Variante A | Variante B\n', '\nBequem | - umständlich | + ein Klick\n```\n', 'Sicher | + ja | - nein');
     case 'illu': ctx.toast('Verfügbar: ' + Object.keys(ILLU).join(', ')); return insertAt(ta, nl() + '```illustration\n', '\nBildunterschrift\n```\n', Object.keys(ILLU)[0]);
+    case 'file': if (!editing.slug) { ctx.toast('Bitte den Artikel zuerst einmal speichern.'); return; }
+      pickMedia(editing.slug).then(rel => { if (rel) insertAt(ta, nl() + `![[${rel.split('/').pop()}]]\n`, ''); }).catch(e => ctx.toast(String(e))); return;
+    case 'yt': return insertAt(ta, nl() + '', '\n', 'https://www.youtube.com/watch?v=VIDEO-ID');
+    case 'console': return insertAt(ta, nl() + '```console\n', '\n```\n', 'Ausgabe hier einfügen');
+    case 'os': return insertAt(ta, nl() + '> [!WINDOWS] ', '\n> 1. Schritt unter Windows\n\n> [!MACOS]\n> 1. Schritt unter macOS\n', 'Windows');
+    case 'act': ctx.toast('Befehls-IDs: Werkzeugkasten → Befehle & Einstellungen → „Für Wiki kopieren“'); return insertAt(ta, '[[run:', '|Beschriftung]]', 'ipconfig');
     case 'preview': $('#edSplit', root).classList.toggle('no-prev'); return;
   }
 }
@@ -218,6 +251,13 @@ async function onClick(e) {
   const c = t.closest('[data-cat]'); if (c && !editing) { e.preventDefault(); cat = c.dataset.cat; query = ''; showList(); return; }
   if (c && editing) { e.preventDefault(); if (await leaveEditor()) { cat = c.dataset.cat; showList(); } return; }
   const sc = t.closest('[data-scroll]'); if (sc) { $('#' + CSS.escape(sc.dataset.scroll), root)?.scrollIntoView({ behavior: 'smooth' }); return; }
+  const act = t.closest('.wk-act'); if (act) { runAction(act); return; }
+  const cmd = t.closest('[data-copy-md]'); if (cmd) { ctx.copy(cmd.dataset.copyMd, 'Konsolenblock kopiert'); return; }
+  const cpy = t.closest('[data-copy]'); if (cpy) { ctx.copy(cpy.dataset.copy); return; }
+  const ce = t.closest('[data-cmerr]'); if (ce) { ctx.openTool?.('err', { q: ce.dataset.cmerr }); return; }
+  const emb = t.closest('.md-embed button'); if (emb) { const box = emb.closest('.md-embed'); box.innerHTML = `<iframe src="${esc(box.dataset.embed)}" title="Video" allow="fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`; box.classList.add('on'); return; }
+  const mf = t.closest('a.md-file'); if (mf) { e.preventDefault(); openMedia(mf.dataset.media).catch(err => ctx.toast(String(err))); return; }
+  const os = t.closest('[data-wkos]'); if (os) { ctx.state.set('wikiOsOnly', os.checked); $('#wkProse', root)?.classList.toggle('os-only-' + ctx.os, os.checked); return; }
   const cp = t.closest('.code-copy'); if (cp) { ctx.copy(cp.previousElementSibling?.textContent || '', 'Code kopiert'); return; }
   const b = t.closest('[data-wk]'); if (!b) return;
   switch (b.dataset.wk) {
@@ -233,6 +273,7 @@ async function onClick(e) {
       });
       break;
     }
+    case 'runbook': document.dispatchEvent(new CustomEvent('adminkit:open-tool', { detail: { id: 'runbook', args: { start: b.dataset.slug } } })); break;
     case 'new': if (await leaveEditor()) showEditor(null); break;
     case 'cancel': if (await leaveEditor()) showList(); break;
     case 'edit': { try { showEditor(await GetWikiArticle(b.dataset.slug)); } catch (err) { ctx.toast(String(err)); } break; }
@@ -245,6 +286,12 @@ async function onClick(e) {
       break;
     }
   }
+}
+
+// Aktionsknöpfe im Artikel (#118) – Ausführung gemeinsam mit den Abläufen (#119)
+async function runAction(btn) {
+  const m = await import('./tools/commands.js');
+  m.runActionButton(ctx, btn, 'Wiki-Artikel „' + ($('#wkProse', root)?.dataset.title || 'Vorschau') + '“');
 }
 
 async function leaveEditor() {

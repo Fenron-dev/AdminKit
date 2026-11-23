@@ -207,6 +207,22 @@ function initPinnedLinks() {
     .catch(function() { /* ohne Links kein Balken */ });
 }
 
+// Querverweise zwischen Wiki und Werkzeugkasten (#119): Ereignisse statt direkter Imports
+document.addEventListener('adminkit:open-wiki', function(e) {
+  var slug = e.detail && e.detail.slug; if (!slug) return;
+  switchTab('wiki'); showWikiView('articles');
+  ensureWikiArticles().then(function() { return import('./werkzeug/wiki.js'); }).then(function(m) { m.openArticle(slug); });
+});
+document.addEventListener('adminkit:open-tool', function(e) {
+  var d = e.detail || {}; if (!d.id) return;
+  import('./werkzeug/platform.adminkit.js').then(function(p) { return p.getContext(_pkgDeps); }).then(function(ctx) {
+    if (_werkzeugLoaded) { switchTab('werkzeug'); import('./werkzeug/index.js').then(function(m) { m.openTool(d.id, d.args); }); return; }
+    if (d.args) ctx._prefill[d.id] = d.args;
+    ctx.state.set('lastTool', d.id);
+    switchTab('werkzeug');
+  });
+});
+
 // Quellen der Befehlspalette (Strg/Cmd + K)
 function initPaletteProviders() {
   var click = function(id) { return function() { document.getElementById(id)?.click(); }; };
@@ -244,8 +260,9 @@ function initPaletteProviders() {
   // Werkzeuge
   registerPaletteProvider(async function() {
     var m = await import('./werkzeug/index.js');
-    return m.TOOLS.map(function(t) {
-      return { group: 'Werkzeuge', icon: t.online ? '🌐' : '🧰', title: t.name, sub: t.group, keys: t.keys, run: async function() {
+    var list = await m.paletteTools(_pkgDeps);
+    return list.map(function(t) {
+      return { group: 'Werkzeuge', icon: t.pinned ? '📌' : t.own ? '📝' : t.online ? '🌐' : '🧰', title: t.name, sub: t.group, keys: t.keys, pinned: t.pinned, run: async function() {
         if (_werkzeugLoaded) { switchTab('werkzeug'); m.openTool(t.id); return; }
         var p = await import('./werkzeug/platform.adminkit.js');
         (await p.getContext(_pkgDeps)).state.set('lastTool', t.id);
