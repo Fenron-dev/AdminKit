@@ -1,7 +1,7 @@
 // Plattform-Schicht für AdminKit: alles, was zwischen Browser-Portal und App
 // verschieden ist, läuft über dieses ctx-Objekt. Werkzeuge prüfen Fähigkeiten
 // (z. B. `if (ctx.net?.dns)`), nicht die Plattform.
-import { OpenSystemApp, DNSQuery, GetResolverChoices, SMTPProbe, RDAPLookup, LinkPreview, URLScanSearch, SaveSessionNote, GetToolStates, SaveToolState, ExportDocument, RecordWork, GetSessionTiming, OpenTextFileDialog, SaveDataURL, PickFileForHash, HashFile, CancelHash, GetEntries, SaveEntries, GetDeviceIdentity, GetGateways, CertCheck, PortCheck, WakeOnLAN, ARPTable, ProbeDevice, OpenCommandTarget, RunCommand, IsElevated, GetPlatform } from '../../wailsjs/go/main/App';
+import { OpenSystemApp, DNSQuery, GetResolverChoices, SMTPProbe, RDAPLookup, LinkPreview, URLScanSearch, SaveSessionNote, GetToolStates, SaveToolState, ExportDocument, RecordWork, GetSessionTiming, OpenTextFileDialog, SaveDataURL, PickFileForHash, HashFile, CancelHash, GetEntries, SaveEntries, GetDeviceIdentity, GetGateways, CertCheck, PortCheck, WakeOnLAN, ARPTable, ProbeDevice, OpenCommandTarget, RunCommand, IsElevated, GetPlatform, GetInfoCard, PublicIP, EventTimeline, MonitorStart, MonitorStop, MonitorStatus, LocalSubnets, ScanSubnet } from '../../wailsjs/go/main/App';
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 
 // Ein gemeinsamer Kontext für Werkzeugkasten, Links und Befehlspalette
@@ -89,6 +89,9 @@ export async function createContext(deps) {
       elevated: () => IsElevated(),
     },
     deviceIdentity: () => GetDeviceIdentity(),
+    infoCard: () => GetInfoCard(),
+    eventTimeline: days => EventTimeline(days),
+    publicIP: () => PublicIP(),
     gateways: () => GetGateways(),
     systemScan: () => (deps.getSystemScan ? deps.getSystemScan() : null),
     async openSystemApp(kind) { try { await OpenSystemApp(kind); } catch (e) { deps.showToast(String(e)); } },
@@ -105,6 +108,9 @@ export async function createContext(deps) {
       smtp: (host, port) => SMTPProbe(host, port),
       cert: (host, port, mode) => CertCheck(host, port, mode || 'auto'),
       ports: (host, ports) => PortCheck(host, ports),
+      monitor: { start: (t, min) => MonitorStart(t, min || 0), stop: () => MonitorStop(), status: since => MonitorStatus(since || 0) },
+      subnets: () => LocalSubnets(),
+      scanSubnet: cidr => ScanSubnet(cidr),
       arp: () => ARPTable(),
       probe: ip => ProbeDevice(ip),
       wol: (mac, bc, port) => WakeOnLAN(mac, bc || '', port || 9),

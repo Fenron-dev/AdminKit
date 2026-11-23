@@ -35,9 +35,19 @@ import macinfo from './tools/macinfo.js';
 import commands from './tools/commands.js';
 import capture from './tools/capture.js';
 import runbook from './tools/runbook.js';
+import infocard from './tools/infocard.js';
+import redactTool from './tools/redact.js';
+import snippets from './tools/snippets.js';
+import timeline from './tools/timeline.js';
+import linemon from './tools/linemon.js';
+import netscan from './tools/netscan.js';
+import printers from './tools/printers.js';
+import customers from './tools/customers.js';
+import watch from './tools/watch.js';
+import { collect, dueSoon } from './watch-util.js';
 
 export const GROUPS = ['Netzwerk & Mail', 'Windows & macOS', 'Geräte & Hardware', 'Sicherheit & Passwörter', 'Text & Daten', 'Für Kunden', 'Rechnen & Abrechnung'];
-export const TOOLS = [dns, mail, mailcfg, certport, net, wol, commands, runbook, capture, err, hw, macinfo, warranty, router, imei, pw, link, hash, b64, time, list, spell, wifi, qr, guide, ae, units];
+export const TOOLS = [dns, mail, mailcfg, certport, linemon, netscan, net, wol, commands, runbook, capture, timeline, err, hw, printers, macinfo, warranty, router, imei, pw, link, hash, watch, redactTool, b64, time, list, customers, infocard, snippets, spell, wifi, qr, guide, ae, units];
 const KIND = 'tools';
 const OWN_ICONS = ['book', 'clipboard', 'wrench', 'monitor', 'network', 'printer', 'mail', 'key', 'shield', 'server', 'phone', 'globe', 'code', 'folder', 'users', 'bug', 'zap', 'list'];
 
@@ -84,6 +94,7 @@ export async function initWerkzeugTab(container, deps) {
   ctx.hasTool = id => all.some(t => t.id === id);
   ctx.openTool = (id, args) => { if (args) ctx._prefill[id] = args; select(id); root.querySelector('#wzPane')?.scrollTo?.(0, 0); };
   await loadColl();
+  checkDue();
   current = ctx.state.get('lastTool', 'dns');
   plat = ctx.state.get('wzPlat', '');
   root.classList.add('wz');
@@ -270,6 +281,7 @@ async function onClick(e) {
   const t = e.target;
   // Kopier-Knöpfe aller Werkzeuge (data-copy)
   const cp = t.closest('[data-copy]'); if (cp) { ctx.copy(cp.dataset.copy); return; }
+  const aix = t.closest('[data-aiexplain]'); if (aix) { import('./ai.js').then(m => m.explainWithAI(ctx, { title: 'Ausgabe erklären', kind: 'Befehlsausgabe', text: aix.dataset.aiexplain })); return; }
   const lk = t.closest('.wz-own a[data-open]'); if (lk) { e.preventDefault(); ctx.open(lk.dataset.open); return; }
   if (t.closest('.wz-own a[href="#"]')) { e.preventDefault(); return; }
   const tool = t.closest('[data-tool]'); if (tool) { select(tool.dataset.tool); return; }
@@ -329,6 +341,18 @@ async function onClick(e) {
     const r = importCollection(coll, inc, TOOLS.map(x => x.id));
     await saveColl(`Importiert: ${r.added} Einträge, ${r.overrides} Anpassungen`); showMode('anpassen');
   }
+}
+
+// Ablauf-Wächter (#129): einmal täglich fällige Fristen ins Aktionsprotokoll
+async function checkDue() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (ctx.state.get('watchNotified', '') === today) return;
+  try {
+    const w = parseCollection(await ctx.entries.load('waechter')).entries, k = parseCollection(await ctx.entries.load('kunden')).entries;
+    const due = dueSoon(collect(w, k));
+    if (due.length) ctx.addAction(`Ablauf-Wächter: ${due.length} Frist${due.length > 1 ? 'en' : ''} in den nächsten 14 Tagen (${due.slice(0, 3).map(x => x.name).join(', ')}${due.length > 3 ? ' …' : ''})`, 'warning');
+    ctx.state.set('watchNotified', today);
+  } catch (_) { /* ohne Vault */ }
 }
 
 // Für Befehlspalette/Verknüpfungen aus anderen Tabs

@@ -35,6 +35,7 @@ export default {
   keys: 'garantie warranty seriennummer service tag servicetag dell hp lenovo apple asus acer surface samsung brother treiber support', online: false,
   async render(p, ctx) {
     try { coll = parseCollection(await ctx.entries.load(KIND)); } catch (_) { coll = emptyCollection(); }
+    const pre = ctx.takePrefill('warranty'); if (pre?.serial) { S.serial = pre.serial; S.vendor = guessVendor(pre.vendor || '', pre.serial) || S.vendor; }
     const all = () => VENDORS.concat(coll.entries.map(e => ({ id: e.id, name: e.name, own: true, links: (e.links || []).map(l => [l.label, l.url]) })));
     p.innerHTML = `<div class="util wide"><h3>Garantie & Support</h3><p>Seriennummer eingeben und Hersteller wählen: öffnet die Garantie- bzw. Supportseite im Browser. Es werden keine Daten im Hintergrund abgefragt.</p>
       <div class="row"><label class="field" style="flex:1"><span>Seriennummer / Service-Tag</span><input class="input mono" id="waSn" value="${esc(S.serial)}" spellcheck="false" autocomplete="off"></label>

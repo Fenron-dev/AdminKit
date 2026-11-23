@@ -6,7 +6,7 @@ import { $, esc, ic, chk } from '../ui.js';
 
 let OUI = null;
 export function buildOui(V, O) { const m = new Map(); for (const x of O.split(';')) if (x) m.set(x.slice(0, 6), V[parseInt(x.slice(6), 36)]); return m; }
-async function oui() { if (!OUI) { const d = await import('../data/oui.js'); OUI = buildOui(d.V, d.O); } return OUI; }
+export async function oui() { if (!OUI) { const d = await import('../data/oui.js'); OUI = buildOui(d.V, d.O); } return OUI; }
 
 export function normMac(s) {
   const p = String(s || '').trim().split(/[:-]/);
@@ -109,6 +109,7 @@ export default {
       out.innerHTML = L.length ? `<div class="sub"><h5>Bekannte Geräte im Netz <small>${L.length}</small></h5><p class="note">Nur Geräte, mit denen dieser Rechner kürzlich Kontakt hatte.</p><div class="table"><table class="mc-t"><thead><tr><th>MAC</th><th>IP</th><th>Hersteller</th><th>Hinweis</th><th></th></tr></thead><tbody>${L.map(n => row(identify(n.mac, m), n.ip)).join('')}</tbody></table></div></div>` : chk('info', 'Keine Einträge', 'Die ARP-Tabelle ist leer.');
     };
     $('#maProbe', p).onclick = () => { const ip = $('#maIp', p).value.trim(); if (ip) probe(ip); };
+    const pre = ctx.takePrefill('macinfo'); if (pre?.q) { inp.value = pre.q; run(); }
     p.addEventListener('click', e => { const b = e.target.closest('[data-maip]'); if (b) { $('#maIp', p).value = b.dataset.maip; probe(b.dataset.maip); return; } const w = e.target.closest('[data-maweb]'); if (w) ctx.open('http://' + w.dataset.maweb); });
   },
 };

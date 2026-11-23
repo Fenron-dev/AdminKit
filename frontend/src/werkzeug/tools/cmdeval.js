@@ -104,6 +104,17 @@ export const EVAL = {
     return tail >= 3 ? [R('warn', `Ziel nach ${lines.length - tail} Stationen nicht mehr erreicht`, 'Ab der ersten Station mit nur „*“ antwortet nichts mehr. Liegt das am eigenen Router (Station 1/2) oder beim Provider?')] : [R('ok', `Ziel über ${lines.length} Stationen erreicht`)];
   },
   battery(o) {
+    if (/<BatteryReport|<Batteries/i.test(o)) {
+      const B = [...o.matchAll(/<Battery>([\s\S]*?)<\/Battery>/gi)].map(m => m[1]);
+      if (!B.length) return [R('info', 'Kein Akku gefunden', 'Desktop-PC oder Akku nicht erkannt.')];
+      return B.flatMap((b, i) => {
+        const g = t => (b.match(new RegExp(`<${t}>([^<]*)</${t}>`, 'i')) || [])[1], d = +g('DesignCapacity'), f = +g('FullChargeCapacity'), cyc = g('CycleCount');
+        const name = [g('Manufacturer'), g('Id')].filter(Boolean).join(' ') || `Akku ${i + 1}`, res = [];
+        if (d > 0 && f > 0) { const pct = Math.round(f / d * 100); res.push(pct >= 80 ? R('ok', `${name}: Gesundheit ${pct} %`, `${f.toLocaleString('de-DE')} von ${d.toLocaleString('de-DE')} mWh`) : pct >= 60 ? R('warn', `${name}: Gesundheit ${pct} %`, 'Gealtert – Laufzeit spürbar kürzer.') : R('err', `${name}: Gesundheit ${pct} %`, 'Stark gealtert – Akkutausch empfehlen.')); }
+        if (cyc && +cyc > 0) res.push(R('info', `${cyc} Ladezyklen`));
+        return res;
+      });
+    }
     const out = [], c = o.match(/condition:\s*(.+)/i), cyc = o.match(/cycle count:\s*(\d+)/i), cap = o.match(/maximum capacity:\s*(\d+)\s*%/i), pct = o.match(/(\d+)%;\s*(\w+)/);
     if (c) out.push(/normal/i.test(c[1]) ? R('ok', 'Akkuzustand normal') : R('warn', `Akkuzustand: ${c[1].trim()}`, 'Akkutausch empfehlen.'));
     if (cap) { const v = +cap[1]; out.push(v >= 80 ? R('ok', `Maximale Kapazität ${v} %`) : R('warn', `Maximale Kapazität ${v} %`, 'Deutlich gealtert, Laufzeit spürbar kürzer.')); }

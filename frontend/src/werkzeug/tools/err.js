@@ -140,7 +140,7 @@ export default {
         out.innerHTML = res.map(r => {
           const parts = r.hits.map(card).concat(r.notes.map(note));
           if (!r.hits.length && !r.notes.length) parts.push(unknown(r));
-          return `<div class="sub"><h5>${esc(r.token.raw)}</h5>${parts.join('')}<button class="btn sm ghost" type="button" data-ernote="${esc(r.token.raw)}">${ic('plus')}Notiz zu ${esc(r.token.raw)}</button></div>`;
+          return `<div class="sub"><h5>${esc(r.token.raw)}</h5>${parts.join('')}<button class="btn sm ghost" type="button" data-ernote="${esc(r.token.raw)}">${ic('plus')}Notiz zu ${esc(r.token.raw)}</button><button class="btn sm ghost" type="button" data-aiexplain="${esc(q)}">${ic('chat')}Erklären lassen (KI)</button></div>`;
         }).join('');
         return;
       }

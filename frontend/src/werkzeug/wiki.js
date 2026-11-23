@@ -2,10 +2,10 @@
 // Vorschau, Bilder als Dateien (wiki/_bilder/<artikel>/), Sonderblöcke aus dem
 // Portal. Kein Login – wer den Vault hat, darf lesen und schreiben.
 import './werkzeug.css';
-import { ListWikiArticles, GetWikiArticle, SaveWikiArticle, DeleteWikiArticle, SaveWikiImage, GetWikiCategories, SaveWikiCategories } from '../../wailsjs/go/main/App';
+import { ListWikiArticles, GetWikiArticle, SaveWikiArticle, DeleteWikiArticle, SaveWikiImage, ImportWikiFolder, GetWikiCategories, SaveWikiCategories } from '../../wailsjs/go/main/App';
 import { getContext } from './platform.adminkit.js';
 import { $, $$, esc, ic } from './ui.js';
-import { md, setImages, setMediaBase, plain } from './markdown.js';
+import { md, setImages, setMediaBase, plain, slugify } from './markdown.js';
 import { uploadBlob, pickMedia, openMedia, isMediaFile } from './media.js';
 import { platName } from './entries.js';
 import { ILLU } from './data/illu.js';
@@ -47,6 +47,7 @@ function layout(main) {
   root.innerHTML = `<div class="wz-layout">
     <aside class="wz-side">
       <button class="btn primary" type="button" data-wk="new" style="width:100%;justify-content:center;margin-bottom:10px">${ic('pencil')}Neuer Artikel</button>
+      <div class="row wk-io"><button class="btn sm" type="button" data-wk="import" title="Markdown-Ordner (z. B. Obsidian) übernehmen">${ic('upload')}Import</button><button class="btn sm" type="button" data-wk="export" title="Artikel als Handbuch (HTML/PDF)">${ic('download')}Handbuch</button></div>
       <nav><button type="button" class="wz-tab" data-cat="" aria-selected="${!cat}">${ic('grid')}<span>Alle Artikel</span><em>${list.length}</em></button>
       <div class="wz-g">Kategorien</div>
       ${cats().map(([c, n]) => `<div class="wk-catrow"><button type="button" class="wz-tab" data-cat="${esc(c)}" aria-selected="${cat === c}">${ic('book')}<span>${esc(c)}</span><em>${n}</em></button>${n ? '' : `<button type="button" class="icon-btn wk-catdel" data-delcat="${esc(c)}" title="Leere Kategorie entfernen">${ic('x')}</button>`}</div>`).join('')}
@@ -252,6 +253,7 @@ async function onClick(e) {
   if (c && editing) { e.preventDefault(); if (await leaveEditor()) { cat = c.dataset.cat; showList(); } return; }
   const sc = t.closest('[data-scroll]'); if (sc) { $('#' + CSS.escape(sc.dataset.scroll), root)?.scrollIntoView({ behavior: 'smooth' }); return; }
   const act = t.closest('.wk-act'); if (act) { runAction(act); return; }
+  const aix = t.closest('[data-aiexplain]'); if (aix) { import('./ai.js').then(m => m.explainWithAI(ctx, { title: 'Ausgabe erklären', kind: 'Befehlsausgabe', text: aix.dataset.aiexplain })); return; }
   const cmd = t.closest('[data-copy-md]'); if (cmd) { ctx.copy(cmd.dataset.copyMd, 'Konsolenblock kopiert'); return; }
   const cpy = t.closest('[data-copy]'); if (cpy) { ctx.copy(cpy.dataset.copy); return; }
   const ce = t.closest('[data-cmerr]'); if (ce) { ctx.openTool?.('err', { q: ce.dataset.cmerr }); return; }
@@ -274,6 +276,40 @@ async function onClick(e) {
       break;
     }
     case 'runbook': document.dispatchEvent(new CustomEvent('adminkit:open-tool', { detail: { id: 'runbook', args: { start: b.dataset.slug } } })); break;
+    case 'import': {
+      if (!await leaveEditor()) break;
+      const copies = await ctx.confirm({ title: 'Wiki-Import', what: 'Gleich wählst du einen Ordner mit Markdown-Dateien (z. B. einen Obsidian-Vault). Unterordner werden zu Kategorien, Bilder und Medien werden mitkopiert.', impact: 'Gibt es einen Artikel schon: „Fortfahren“ legt ihn als Kopie an, „Abbrechen“ überspringt ihn. Vorhandene Artikel werden nie überschrieben.' });
+      try {
+        const r = await ImportWikiFolder(copies);
+        if (!r) break;
+        ctx.addAction(`Wiki-Import: ${r.imported.length} Artikel, ${r.media} Medien${r.skipped.length ? `, ${r.skipped.length} übersprungen` : ''}`, r.errors.length ? 'warning' : 'success');
+        ctx.toast(r.errors.length ? r.errors.slice(0, 3).join(' · ') : `${r.imported.length} Artikel importiert`);
+        await reload(); showList();
+      } catch (err) { ctx.toast('Import fehlgeschlagen: ' + err); }
+      break;
+    }
+    case 'export': if (await leaveEditor()) showExport(); break;
+    case 'exp-go': case 'exp-print': {
+      const slugs = $$('[data-expa]:checked', root).map(x => x.dataset.expa);
+      if (!slugs.length) { ctx.toast('Mindestens einen Artikel wählen'); break; }
+      b.disabled = true; ctx.toast('Erstelle Handbuch …');
+      try {
+        const { buildHandbook, HB_CSS } = await import('./wikiexport.js');
+        const arts = []; for (const sl of slugs) arts.push(await GetWikiArticle(sl));
+        const title = $('#expT', root).value.trim() || 'Handbuch';
+        const body = await buildHandbook(title, arts);
+        if (b.dataset.wk === 'exp-print') {
+          if (body.length > 4e6) ctx.toast('Zu groß zum Drucken – bitte als HTML speichern oder weniger Artikel wählen.');
+          else ctx.print('handbuch', title, `<style>${HB_CSS}</style>` + body, {});
+        } else {
+          const html = `<!doctype html><html lang="de"><meta charset="utf-8"><title>${esc(title)}</title><style>${HB_CSS}</style><body>${body}</body></html>`;
+          const bytes = new TextEncoder().encode(html); let bin = '';
+          for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+          await ctx.saveDataURL(slugify(title) + '.html', 'data:text/html;base64,' + btoa(bin));
+        }
+      } catch (err) { ctx.toast('Export fehlgeschlagen: ' + err); }
+      b.disabled = false; break;
+    }
     case 'new': if (await leaveEditor()) showEditor(null); break;
     case 'cancel': if (await leaveEditor()) showList(); break;
     case 'edit': { try { showEditor(await GetWikiArticle(b.dataset.slug)); } catch (err) { ctx.toast(String(err)); } break; }
@@ -292,6 +328,17 @@ async function onClick(e) {
 async function runAction(btn) {
   const m = await import('./tools/commands.js');
   m.runActionButton(ctx, btn, 'Wiki-Artikel „' + ($('#wkProse', root)?.dataset.title || 'Vorschau') + '“');
+}
+
+function showExport() {
+  const C = cats();
+  layout(`<div class="crumbs"><a href="#" data-cat="">Wissen</a><span>/</span><span>Handbuch exportieren</span></div>
+    <div class="util wide"><h3>Handbuch exportieren</h3><p>Artikel auswählen: als eigenständige HTML-Datei speichern (Bilder eingebettet, Videos als Hinweis) oder zum Drucken bzw. als PDF öffnen.</p>
+      <label class="field"><span>Titel</span><input class="input" id="expT" value="${esc(cat || 'Handbuch')}"></label>
+      ${C.map(([c]) => `<details class="er-group" ${!cat || cat === c ? 'open' : ''}><summary><label class="check"><input type="checkbox" data-expc="${esc(c)}"${!cat || cat === c ? ' checked' : ''}>${esc(c)}</label></summary>
+        ${list.filter(a => a.kategorie === c).map(a => `<label class="check"><input type="checkbox" data-expa="${esc(a.slug)}" data-expcat="${esc(c)}"${!cat || cat === c ? ' checked' : ''}>${esc(a.titel)}</label>`).join('')}</details>`).join('')}
+      <div class="row"><button class="btn primary" type="button" data-wk="exp-go">${ic('download')}Als HTML speichern</button><button class="btn" type="button" data-wk="exp-print">Drucken / PDF</button></div></div>`);
+  root.querySelectorAll('[data-expc]').forEach(x => x.addEventListener('change', () => root.querySelectorAll(`[data-expcat="${CSS.escape(x.dataset.expc)}"]`).forEach(y => { y.checked = x.checked; })));
 }
 
 async function leaveEditor() {

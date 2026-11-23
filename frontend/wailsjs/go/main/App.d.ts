@@ -106,6 +106,15 @@ export function CaptureCapabilities(): Promise<Record<string, boolean>>;
 export function RecordStart(mic: boolean, clicks: boolean): Promise<void>;
 export function RecordStop(slug: string): Promise<string>;
 export function MediaToGIF(rel: string, start: number, end: number): Promise<string>;
+export function GetInfoCard(): Promise<any>;
+export function PublicIP(): Promise<string>;
+export function EventTimeline(days: number): Promise<Array<any>>;
+export function MonitorStart(targets: Array<any>, maxMinutes: number): Promise<void>;
+export function MonitorStop(): Promise<void>;
+export function MonitorStatus(since: number): Promise<any>;
+export function LocalSubnets(): Promise<Array<string>>;
+export function ScanSubnet(cidr: string): Promise<Array<any>>;
+export function ImportWikiFolder(copies: boolean): Promise<any>;
 export function GetEntries(kind: string): Promise<string>;
 export function SaveEntries(kind: string, data: string): Promise<void>;
 

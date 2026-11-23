@@ -54,7 +54,8 @@ export function resultHTML(r, command) {
   const codes = [...new Set((r.result.output || '').match(/0x[0-9a-f]{8}/gi) || [])].slice(0, 3);
   return `${evalHTML(r.evals)}${r.result.output ? `<div class="cm-out"><div class="cm-out-h"><span class="mono">${esc(command || '')}</span><span class="muted">${r.result.millis != null ? `${(r.result.millis / 1000).toLocaleString('de-DE')} s · ` : ''}Code ${r.result.exit_code ?? 0}</span>
     <button class="icon-btn" type="button" data-copy="${esc(r.result.output)}" title="Ausgabe kopieren">${ic('copy')}</button></div><pre class="srv">${esc(r.result.output)}</pre></div>` : ''}
-    ${codes.length ? `<button class="btn sm ghost" type="button" data-cmerr="${esc(codes.join(' '))}">${ic('bug')}${esc(codes.join(', '))} nachschlagen</button>` : ''}`;
+    ${codes.length ? `<button class="btn sm ghost" type="button" data-cmerr="${esc(codes.join(' '))}">${ic('bug')}${esc(codes.join(', '))} nachschlagen</button>` : ''}
+    ${r.result.output ? `<button class="btn sm ghost" type="button" data-aiexplain="${esc(`Befehl: ${command || ''}\n\n${r.result.output.slice(0, 20000)}`)}">${ic('chat')}Erklären lassen (KI)</button>` : ''}`;
 }
 
 function helpHTML(c, v) {

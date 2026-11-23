@@ -875,3 +875,45 @@
 .wz .rb-outs summary{cursor:pointer;font-weight:600}
 .wz .rb-out{margin:8px 0;display:grid;gap:4px}
 .wz .rb-out pre{max-height:240px;overflow:auto;margin:0}
+/* Info-Karte (#127) */
+.wz .ic-card{border:1px solid var(--line);border-radius:16px;padding:8px 18px;background:var(--surface);margin:10px 0;max-width:760px}
+.wz .ic-row{display:grid;grid-template-columns:160px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.wz .ic-row:last-child{border-bottom:0}
+.wz .ic-row>span{color:var(--muted)}
+.wz .ic-row b{font-size:22px;word-break:break-all;cursor:copy}
+.wz .ic-card.ic-full{position:fixed;inset:0;z-index:1500;max-width:none;margin:0;border-radius:0;display:flex;flex-direction:column;justify-content:center;padding:4vh 6vw;background:var(--color-bg)}
+.wz .ic-card.ic-full .ic-row b{font-size:clamp(28px,4vw,56px)}
+@media (max-width:600px){.wz .ic-row{grid-template-columns:1fr auto}.wz .ic-row>span{grid-column:1/-1}}
+/* Textbausteine (#131) */
+.wz .sn-grid{display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px}
+.wz .sn-list{display:grid;margin:8px 0;max-height:420px;overflow:auto}
+.wz .sn-list em{font-size:11px;color:var(--muted)}
+.wz .sn-out{width:100%;min-height:260px;margin:8px 0}
+@media (max-width:760px){.wz .sn-grid{grid-template-columns:1fr}}
+/* Was ist passiert? (#123) */
+.wz .tl-list{display:grid;gap:6px}
+.wz .tl-e{border:1px solid var(--line);border-left-width:4px;border-radius:10px;background:var(--surface)}
+.wz .tl-e.err{border-left-color:var(--red)}.wz .tl-e.warn{border-left-color:var(--amber)}.wz .tl-e.info{border-left-color:var(--cyan)}
+.wz .tl-e summary{display:flex;gap:10px;align-items:baseline;padding:8px 12px;cursor:pointer;flex-wrap:wrap}
+.wz .tl-e summary span.muted{font-size:12.5px;margin-left:auto}
+.wz .tl-b{padding:0 12px 10px}
+.wz .tl-msg{font-size:12.5px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+/* Verbindungs-Langzeittest (#124) */
+.wz .lm-cfg{align-items:flex-end}
+.wz .lm-cfg .field{min-width:140px}
+.wz .lm-cv{width:100%;height:240px;border:1px solid var(--line);border-radius:10px;margin:8px 0 4px;background:var(--surface)}
+.wz .lm-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.wz .lm-bad{color:var(--red);font-weight:700}
+/* Netzwerk durchsuchen (#128) */
+.wz .ns-t td{vertical-align:top}
+.wz .ns-mac{font-size:11.5px}
+.wz .ns-act{white-space:nowrap}
+.wz .ns-act .icon-btn{width:28px;height:28px}
+/* Ablauf-Wächter (#129) */
+.wz .wa-t tr.wa-err td:first-child b{color:var(--red)}
+.wz .wa-t tr.wa-warn td:first-child b{color:var(--amber)}
+.wz .wa-t tr.wa-ok td:first-child b{color:var(--green)}
+.wz .wa-t td .muted{font-size:12px}
+
+.wz .wk-io{gap:6px;margin:0 0 10px}
+.wz .wk-io .btn{flex:1;justify-content:center}

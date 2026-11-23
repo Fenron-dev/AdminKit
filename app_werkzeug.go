@@ -7,7 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +20,7 @@ import (
 
 	"adminkit/internal/capture"
 	"adminkit/internal/cmdrun"
+	"adminkit/internal/events"
 	"adminkit/internal/execx"
 	"adminkit/internal/hashing"
 	"adminkit/internal/logging"
@@ -40,6 +43,7 @@ type wzState struct {
 	uploadsOnce sync.Once
 	uploads     *werkzeug.Uploads
 	recorder    capture.Recorder
+	monitor     netcheck.Monitor
 }
 
 func (a *App) toolState() (*werkzeug.State, error) {
@@ -101,6 +105,70 @@ func (a *App) GetGateways() ([]string, error) {
 		}
 	}
 	return out, nil
+}
+
+// GetInfoCard liefert die Angaben für die Info-Karte (#127).
+func (a *App) GetInfoCard() system.InfoCard {
+	ctx, cancel := context.WithTimeout(a.ctx, 25*time.Second)
+	defer cancel()
+	return system.GetInfoCard(ctx)
+}
+
+// PublicIP fragt die öffentliche IP ab (Online-Freigabe „Link-Dienste“ nötig).
+func (a *App) PublicIP() (string, error) {
+	if err := a.requireOnline("link_services"); err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 6*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.ipify.org", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 64))
+	ip := strings.TrimSpace(string(b))
+	if err != nil || net.ParseIP(ip) == nil {
+		return "", fmt.Errorf("keine gültige Antwort")
+	}
+	return ip, nil
+}
+
+// EventTimeline liefert die Ereignis-Zeitleiste der letzten Tage (#123, nur lesend).
+func (a *App) EventTimeline(days int) ([]events.TimelineEntry, error) {
+	ctx, cancel := context.WithTimeout(a.ctx, 3*time.Minute)
+	defer cancel()
+	return events.Timeline(ctx, days)
+}
+
+// MonitorStart beginnt den Verbindungs-Langzeittest (#124).
+func (a *App) MonitorStart(targets []netcheck.MonTarget, maxMinutes int) error {
+	if err := a.wz.monitor.Start(targets, maxMinutes); err != nil {
+		return err
+	}
+	logging.Infof("Werkzeug", "Verbindungstest gestartet (%d Ziele)", len(targets))
+	return nil
+}
+
+// MonitorStop beendet den Verbindungstest.
+func (a *App) MonitorStop() { a.wz.monitor.Stop() }
+
+// MonitorStatus liefert Zustand und Messungen ab since (Unix-ms).
+func (a *App) MonitorStatus(since int64) netcheck.MonitorStatus { return a.wz.monitor.Status(since) }
+
+// LocalSubnets liefert die eigenen privaten Netze (#128).
+func (a *App) LocalSubnets() []string { return netcheck.LocalSubnets() }
+
+// ScanSubnet sucht Geräte im lokalen Netz (#128, Bestätigung im Frontend).
+func (a *App) ScanSubnet(cidr string) ([]netcheck.HostResult, error) {
+	ctx, cancel := context.WithTimeout(a.ctx, 2*time.Minute)
+	defer cancel()
+	r, err := netcheck.ScanSubnet(ctx, cidr)
+	if err == nil {
+		logging.Infof("Werkzeug", "Netzwerk %s durchsucht: %d Geräte", cidr, len(r))
+	}
+	return r, err
 }
 
 // ── Eigene Einträge (#105) ──────────────────────────────────────────────────
@@ -738,6 +806,27 @@ func (a *App) MediaToGIF(rel string, start, end float64) (string, error) {
 	}
 	slug := strings.Split(strings.TrimPrefix(rel, "_medien/"), "/")[0]
 	return werkzeug.ImportMedia(root, slug, tmp)
+}
+
+// ImportWikiFolder übernimmt einen Markdown-Ordner (z. B. Obsidian) ins Wiki (#133).
+func (a *App) ImportWikiFolder(copies bool) (*werkzeug.ImportReport, error) {
+	root, err := a.vaultRootOrErr()
+	if err != nil {
+		return nil, err
+	}
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Ordner mit Markdown-Dateien wählen"})
+	if err != nil || dir == "" {
+		return nil, err
+	}
+	autor := ""
+	if a.cfg != nil {
+		autor = a.cfg.Branding.TechnicianName
+	}
+	rep, err := werkzeug.ImportFolder(root, dir, autor, copies)
+	if err == nil {
+		logging.Infof("Werkzeug", "Wiki-Import aus %s: %d Artikel, %d Medien", dir, len(rep.Imported), rep.Media)
+	}
+	return rep, err
 }
 
 // ── Hardwaretest (#92) ──────────────────────────────────────────────────────

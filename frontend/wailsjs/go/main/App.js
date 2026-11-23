@@ -512,6 +512,33 @@ export function RecordStop(arg1) {
 export function MediaToGIF(arg1, arg2, arg3) {
     return window['go']['main']['App']['MediaToGIF'](arg1, arg2, arg3);
 }
+export function GetInfoCard() {
+    return window['go']['main']['App']['GetInfoCard']();
+}
+export function PublicIP() {
+    return window['go']['main']['App']['PublicIP']();
+}
+export function EventTimeline(arg1) {
+    return window['go']['main']['App']['EventTimeline'](arg1);
+}
+export function MonitorStart(arg1, arg2) {
+    return window['go']['main']['App']['MonitorStart'](arg1, arg2);
+}
+export function MonitorStop() {
+    return window['go']['main']['App']['MonitorStop']();
+}
+export function MonitorStatus(arg1) {
+    return window['go']['main']['App']['MonitorStatus'](arg1);
+}
+export function LocalSubnets() {
+    return window['go']['main']['App']['LocalSubnets']();
+}
+export function ScanSubnet(arg1) {
+    return window['go']['main']['App']['ScanSubnet'](arg1);
+}
+export function ImportWikiFolder(arg1) {
+    return window['go']['main']['App']['ImportWikiFolder'](arg1);
+}
 export function GetEntries(arg1) {
     return window['go']['main']['App']['GetEntries'](arg1);
 }

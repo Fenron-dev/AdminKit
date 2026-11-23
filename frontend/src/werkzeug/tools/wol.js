@@ -29,6 +29,7 @@ export default {
         <p><b>Windows:</b> Geräte-Manager → Netzwerkadapter → Eigenschaften → Energieverwaltung: „Gerät kann den Computer aus dem Ruhezustand aktivieren“ und „Nur Magic Packet …“; Erweitert: „Wake on Magic Packet“ aktivieren. Schnellstart in den Energieoptionen ausschalten.</p>
         <p><b>Netz:</b> Funktioniert nur im selben Netzsegment (Broadcast). Über VPN oder andere Subnetze braucht es die Broadcast-Adresse des Zielnetzes bzw. Weiterleitung am Router. WLAN-Geräte wachen in der Regel nicht auf.</p></div></details></div>`;
     const f = $('#woF', p), list = $('#woList', p);
+    const pre = ctx.takePrefill('wol'); if (pre?.mac) { f.mac.value = pre.mac; if (pre.name) f.name.value = pre.name; }
     const draw = () => {
       list.innerHTML = coll.entries.length ? `<div class="sub"><h5>Gespeicherte Geräte <small>${coll.entries.length}</small></h5>${coll.entries.map(e => `<div class="wz-hrow">${ic('monitor')}<span><b>${esc(e.name)}</b> <span class="mono muted">${esc(e.mac)}${e.bc ? ' → ' + esc(e.bc) : ''}</span></span>
         <button class="btn sm primary" type="button" data-wowake="${esc(e.id)}">${ic('zap')}Aufwecken</button><button class="icon-btn" type="button" data-wodel="${esc(e.id)}" title="Löschen">${ic('trash')}</button></div>`).join('')}</div>` : '';

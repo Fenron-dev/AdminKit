@@ -116,6 +116,7 @@ export default {
         ${open ? `<p class="muted">${open} Schritt${open > 1 ? 'e sind' : ' ist'} noch offen und wird im Protokoll als offen vermerkt.</p>` : ''}
         ${ctx.session ? '<label class="check"><input type="checkbox" name="work" checked>Im Sitzungsbericht vermerken</label>' : ''}
         <label class="check"><input type="checkbox" name="print">Protokoll für den Kunden erzeugen (drucken / PDF)</label>
+        <button class="btn sm ghost" type="button" data-rbx="aisum">${ic('chat')}Kundenzusammenfassung mit KI erstellen</button>
         <div class="row"><button class="btn primary" type="submit">${ic('check')}Abschließen</button><button class="btn" type="button" data-rbx="endcancel">Zurück</button></div></form>`);
       $('#rbEnd', p).scrollIntoView({ behavior: 'smooth' });
       $('#rbEnd', p).addEventListener('submit', async e => {
@@ -190,6 +191,7 @@ export default {
       else if (x.dataset.rbx === 'proto') { await persist(true); openWiki(run.id); }
       else if (x.dataset.rbx === 'finish') finish();
       else if (x.dataset.rbx === 'endcancel') $('#rbEnd', p)?.remove();
+      else if (x.dataset.rbx === 'aisum') { const { explainWithAI } = await import('../ai.js'); explainWithAI(ctx, { title: 'Kundenzusammenfassung', mode: 'summary', text: buildProtocol(run), onResult: t => { run.notes = (run.notes ? run.notes + '\n\n' : '') + '**Zusammenfassung für den Kunden**\n\n' + t; persist(); ctx.toast('Zusammenfassung in die allgemeinen Notizen übernommen'); } }); }
     });
 
     if (pre.start) prepare(pre.start);

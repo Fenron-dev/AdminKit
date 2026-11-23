@@ -422,3 +422,93 @@ test('Abläufe: Schritte lesen, Protokoll erzeugen', async () => {
   assert.match(md, /## ✓ 1\. Netzwerk/); assert.match(md, /## ○ 2\. Drucker/); assert.match(md, /!\[\[a\.mp4\]\]/); assert.match(md, /✓ IPv4/); assert.match(md, /```console\nx\n```/);
   assert.equal(r.clipOutput('a'.repeat(30000)).length < 21000, true);
 });
+
+test('Daten unkenntlich machen', async () => {
+  const { redact } = await import('../redact.js');
+  const r = redact('Mail max@firma.de an MAX@firma.de, IP 192.168.1.20 und 192.168.1.20, password=Geheim123 C:\\Users\\mmueller\\Desktop MAC 00:11:22:AA:BB:CC Tel. +49 30 1234567 Bearer abcdefghijklmnop12345 Computer: PC-EMPFANG Serial: ABC1234X 127.0.0.1', { names: ['Firma'] });
+  const t = r.text;
+  assert.doesNotMatch(t, /max@|192\.168|Geheim123|mmueller|00:11:22|1234567|abcdefghijklmnop|PC-EMPFANG|ABC1234X/);
+  assert.equal((t.match(/<E-MAIL-1>/g) || []).length, 2, 'gleicher Wert → gleicher Platzhalter');
+  assert.equal((t.match(/<IP-1>/g) || []).length, 2);
+  assert.match(t, /password=<GEHEIM-1>/); assert.match(t, /C:\\Users\\<BENUTZER-1>\\Desktop/); assert.match(t, /127\.0\.0\.1/);
+  assert.ok(r.total >= 9);
+  assert.equal(redact('ip 10.0.0.1', { rules: ['email'] }).text, 'ip 10.0.0.1');
+});
+
+test('Akku-Bericht Windows (XML)', async () => {
+  const e = await import('../tools/cmdeval.js');
+  const x = '<BatteryReport><Batteries><Battery><Id>DELL 1VX1H</Id><Manufacturer>SMP</Manufacturer><DesignCapacity>51000</DesignCapacity><FullChargeCapacity>35700</FullChargeCapacity><CycleCount>412</CycleCount></Battery></Batteries></BatteryReport>';
+  const r = e.EVAL.battery(x);
+  assert.equal(r[0].level, 'warn'); assert.match(r[0].title, /70 %/); assert.match(r[1].title, /412 Ladezyklen/);
+  assert.equal(e.EVAL.battery('<BatteryReport><Batteries></Batteries></BatteryReport>')[0].title, 'Kein Akku gefunden');
+});
+
+test('Textbausteine: Platzhalter', async () => {
+  const m = await import('../tools/snippets.js');
+  assert.deepEqual(m.placeholdersOf('Hallo {Anrede}, am {Termin} – {Anrede}'), ['Anrede', 'Termin']);
+  assert.equal(m.fillSnippet('Hi {A}, {B}', { A: 'Frau M.' }), 'Hi Frau M., {B}');
+  const a = m.autoValues({ branding: { technician_name: 'Dennis', company_name: 'IT' } }, new Date(2026, 10, 23, 9, 5));
+  assert.equal(a.Datum, '23.11.2026'); assert.equal(a.Techniker, 'Dennis');
+  for (const s of m.SNIPPETS) assert.ok(s.text.length > 20, s.id);
+});
+
+test('Was ist passiert?: Erklärung und Zusammenfassung', async () => {
+  const m = await import('../tools/timeline.js');
+  assert.equal(m.explain({ event_id: 41, source: 'Microsoft-Windows-Kernel-Power' }).t, 'Unerwartet ausgeschaltet');
+  assert.match(m.explain({ event_id: 19, source: 'Microsoft-Windows-WindowsUpdateClient' }).t, /Update/);
+  assert.equal(m.explain({ event_id: 99999, source: 'x' }), null);
+  const s = m.summarize([{ event_id: 41, source: 'Microsoft-Windows-Kernel-Power', level: 1, message: '' }, { event_id: 1000, source: 'Application Error', level: 2, message: 'Name der fehlerhaften Anwendung: OUTLOOK.EXE, Version' }, { event_id: 1000, source: 'Application Error', level: 2, message: 'Faulting application name: outlook.exe, version' }, { event_id: 1001, source: 'Microsoft-Windows-WER-SystemErrorReporting', level: 2, message: '' }]);
+  assert.deepEqual(s.cats.map(c => c.id + c.n), ['bsod1', 'restart1', 'crash2']);
+});
+
+test('Verbindungstest: Ausfälle, Statistik, Diagnose', async () => {
+  const m = await import('../linemon-util.js');
+  const S = (t, ok, ms = 10) => ({ t: t * 1000, ok, ms });
+  const net = [S(1, true), S(2, false), S(3, false), S(4, true), S(5, false), S(6, true), S(7, false), S(8, false)];
+  assert.deepEqual(m.outages(net).map(o => [o.start, o.n, !!o.open]), [[2000, 2, false], [7000, 2, true]]);
+  assert.deepEqual(m.stats([S(1, true, 10), S(2, true, 30), S(3, false)]), { n: 3, loss: 33.3, avg: 20, p95: 30, max: 30 });
+  assert.match(m.diagnose({ gw: [], net: [{ start: 2000, end: 3000 }], dns: [] }).text, /Provider/);
+  assert.match(m.diagnose({ gw: [{ start: 2000, end: 3000 }], net: [{ start: 2500, end: 3000 }], dns: [] }).text, /lokalen Netz/);
+  assert.match(m.diagnose({ gw: [], net: [], dns: [{ start: 1, end: 2 }] }).text, /DNS/);
+  assert.equal(m.diagnose({}).level, 'ok');
+  assert.match(m.toCSV([{ id: 'a', label: 'X' }], { a: [S(1, true, 1.5)] }), /;X;1;1,5$/);
+});
+
+test('Drucker-Assistent: Quoting, lpstat', async () => {
+  const m = await import('../tools/printers.js');
+  assert.equal(m.psq("Büro's Drucker"), "'Büro''s Drucker'");
+  assert.equal(m.shq("a'b"), "'a'\\''b'");
+  assert.equal(m.cleanName(' Laser {x} "$y" '), 'Laser x y');
+  assert.equal(m.isIP('192.168.178.50'), true); assert.equal(m.isIP('300.1.1.1'), false);
+  const L = m.parseLpstat('device for Buero_Laser: ipp://192.168.178.50/ipp/print\nprinter Buero_Laser is idle.  enabled since Mo 23 Nov\nsystem default destination: Buero_Laser');
+  assert.deepEqual(L, [{ name: 'Buero_Laser', port: 'ipp://192.168.178.50/ipp/print', status: 'idle', isDefault: true }]);
+});
+
+test('Kundenakte: Fristen, neue Akte', async () => {
+  const m = await import('../tools/customers.js');
+  const now = Date.parse('2026-11-23T12:00:00');
+  assert.equal(m.daysLeft('2026-11-30', now), 8);
+  assert.equal(m.daysLeft('2026-11-01', now) < 0, true);
+  assert.equal(m.daysLeft('', now), null);
+  const c = m.newCustomer('Praxis Müller', new Set(['praxis-mueller']));
+  assert.equal(c.id, 'praxis-mueller-2'); assert.deepEqual(c.devices, []);
+});
+
+test('Ablauf-Wächter: Sammeln und Fälligkeit', async () => {
+  const m = await import('../watch-util.js');
+  const now = Date.parse('2026-11-23T12:00:00');
+  const L = m.collect([{ id: 'd', kind: 'domain', name: 'x.de', due: '2027-01-30' }, { id: 'n', kind: 'domain', name: 'y.de', due: '' }],
+    [{ id: 'k', name: 'Müller', devices: [{ name: 'PC1', serial: 'ABC', warranty: '2026-11-30' }], licenses: [{ name: 'M365', until: '2026-11-20' }] }], now);
+  assert.deepEqual(L.map(x => [x.kind, x.days]), [['license', -2], ['warranty', 8], ['domain', 69], ['domain', null]]);
+  assert.equal(m.dueSoon(L).length, 2);
+  assert.deepEqual([-1, 5, 20, 90, null].map(m.level), ['err', 'err', 'warn', 'ok', 'info']);
+});
+
+test('Handbuch-Export: eigenständiges HTML', async () => {
+  const m = await import('../wikiexport.js');
+  const h = m.standaloneHTML('<video controls preload="metadata" src="/vaultmedia/wiki/_medien/a/clip%201.mp4#t=2"></video><div class="md-embed" data-embed="https://www.youtube-nocookie.com/embed/x"><button>x</button><small>y</small></div><button type="button" class="wk-act wk-act-run" data-act="run" data-arg="ipconfig"><svg></svg>IP</button>');
+  assert.match(h, /Video: clip 1\.mp4/);
+  assert.match(h, /Online-Video: <a href="https:\/\/www\.youtube-nocookie\.com\/embed\/x"/);
+  assert.match(h, /<code title="ipconfig">IP<\/code>/);
+  assert.doesNotMatch(h, /<video|<button/);
+});

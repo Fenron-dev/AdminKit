@@ -71,6 +71,7 @@ export default {
   keys: 'buchstabiertafel din 5009 anton aachen nato alphabet telefon', online: false,
   render(p, ctx) {
     const st = spellState(ctx);
+    const pre = ctx.takePrefill('spell'); if (pre?.text) lastText = pre.text;
     p.innerHTML = `<div class="util wide"><h3>Buchstabieren</h3><p>Für Passwörter, Kundennummern oder Namen am Telefon. Ziffern werden als „Zwo“ statt „Zwei“ angesagt, damit sie nicht mit „Drei“ verwechselt werden.</p>
       <label class="field"><span>Text</span><input class="input mono-in" id="spIn" value="${esc(lastText)}" autocomplete="off" spellcheck="false"></label>
       <div class="stack" id="spOut"></div></div>`;
