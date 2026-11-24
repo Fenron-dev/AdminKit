@@ -8,6 +8,7 @@ import './style.css';
 import QRCode from 'qrcode';
 import { initPackages } from './packages.js';
 import { initFavorites } from './favorites.js';
+import { initToolsNav, showToolsGroup, attachToolsState, onToolsGroupShown } from './toolsnav.js';
 import { initPalette, registerPaletteProvider, open as openPalette } from './palette.js';
 import {
   GetAppVersion, GetVaultPath, GetConfig, NewSession,
@@ -58,11 +59,10 @@ import {
   RunPeriodicMaintenance,
   GetSSHStatus,
   SetSSHEnabled,
-  GetDiskUsageByFolder,
   ScanCertificates,
   GetOSLocale,
   GetClients, SaveClient,
-  StartHub, StopHub, GetHubStatus, GetHubPairingCode,
+  StartHub, StopHub, GetHubStatus, GetHubPairingCode, IsSyncAvailable,
   DiscoverHubs, PairWithHub, PushSessionToHub,
   ExportSessionBundle, ImportSessionBundle,
   NewCustomerSession,
@@ -113,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSoftwareTab();
   initSystemSearch();
   initToolsTab();
+  initToolsNav();
   initExport();
   initSettings();
   initDashboardCardNav();
@@ -136,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initPackages(_pkgDeps);
   initFavorites(_pkgDeps);
   initPinnedLinks();
+  initToolsState();
   initPalette();
   document.getElementById('btn-palette')?.addEventListener('click', function() { openPalette(); });
   var kh = document.querySelector('.kbd-hint');
@@ -172,11 +174,69 @@ function ensureLinks() {
     .catch(function(e) { _linksLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Links konnten nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
 }
 
+// Handbuch im Wiki-Stil (#94): Kapitel aus dem statischen Hilfe-HTML
+var _handbuchLoaded = false;
+function ensureHandbuch() {
+  if (_handbuchLoaded) return;
+  _handbuchLoaded = true;
+  var el = document.getElementById('handbuch-root');
+  import('./werkzeug/handbuch.js').then(function(m) { return m.initHandbuch(el, _pkgDeps); })
+    .catch(function(e) { _handbuchLoaded = false; console.warn('Handbuch', e); });
+}
+
+// Tab „Dokumente“ (#96): Vorlagen im Vault, erst beim ersten Öffnen laden
+var _dokumenteLoaded = false;
+function ensureDokumente() {
+  if (_dokumenteLoaded) return;
+  _dokumenteLoaded = true;
+  var el = document.getElementById('docs-root');
+  import('./werkzeug/dokumente.js').then(function(m) { return m.initDokumente(el, _pkgDeps); })
+    .catch(function(e) { _dokumenteLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Dokumente konnten nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
+}
+
+// Tab „Protokolle“: Protokolle aus Abläufen getrennt vom Wiki
+var _protokolleMod = null, _protokolleSlug = '';
+function ensureProtokolle() {
+  var slug = _protokolleSlug; _protokolleSlug = '';
+  if (_protokolleMod) return _protokolleMod.then(function(m) { return m.refresh(slug); });
+  var el = document.getElementById('protokolle-root');
+  _protokolleMod = import('./werkzeug/protokolle.js').then(function(m) { return m.initProtokolle(el, _pkgDeps, slug).then(function() { return m; }); });
+  _protokolleMod.catch(function(e) { _protokolleMod = null; if (el) el.innerHTML = '<div class="info-placeholder">Protokolle konnten nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
+  return _protokolleMod;
+}
+document.addEventListener('adminkit:open-protokoll', function(e) {
+  _protokolleSlug = (e.detail && e.detail.slug) || '';
+  switchTab('protokolle');
+});
+
+// Zuletzt gewählte Tools-Gruppe aus dem Vault (werkzeug/state.json)
+function initToolsState() {
+  import('./werkzeug/platform.adminkit.js').then(function(m) { return m.getContext(_pkgDeps); })
+    .then(function(ctx) { attachToolsState(ctx.state); })
+    .catch(function() { /* ohne Zustand startet die erste Gruppe */ });
+}
+
 // Angeheftete Links auf dem Dashboard (liest nur die Vault-Datei, offline)
 function initPinnedLinks() {
   import('./werkzeug/links.js').then(function(m) { m.renderPinnedBar(document.getElementById('pinned-links-bar'), _pkgDeps); })
     .catch(function() { /* ohne Links kein Balken */ });
 }
+
+// Querverweise zwischen Wiki und Werkzeugkasten (#119): Ereignisse statt direkter Imports
+document.addEventListener('adminkit:open-wiki', function(e) {
+  var slug = e.detail && e.detail.slug; if (!slug) return;
+  switchTab('wiki'); showWikiView('articles');
+  ensureWikiArticles().then(function() { return import('./werkzeug/wiki.js'); }).then(function(m) { m.openArticle(slug); });
+});
+document.addEventListener('adminkit:open-tool', function(e) {
+  var d = e.detail || {}; if (!d.id) return;
+  import('./werkzeug/platform.adminkit.js').then(function(p) { return p.getContext(_pkgDeps); }).then(function(ctx) {
+    if (_werkzeugLoaded) { switchTab('werkzeug'); import('./werkzeug/index.js').then(function(m) { m.openTool(d.id, d.args); }); return; }
+    if (d.args) ctx._prefill[d.id] = d.args;
+    ctx.state.set('lastTool', d.id);
+    switchTab('werkzeug');
+  });
+});
 
 // Quellen der Befehlspalette (Strg/Cmd + K)
 function initPaletteProviders() {
@@ -215,8 +275,9 @@ function initPaletteProviders() {
   // Werkzeuge
   registerPaletteProvider(async function() {
     var m = await import('./werkzeug/index.js');
-    return m.TOOLS.map(function(t) {
-      return { group: 'Werkzeuge', icon: t.online ? '🌐' : '🧰', title: t.name, sub: t.group, keys: t.keys, run: async function() {
+    var list = await m.paletteTools(_pkgDeps);
+    return list.map(function(t) {
+      return { group: 'Werkzeuge', icon: t.pinned ? '📌' : t.own ? '📝' : t.online ? '🌐' : '🧰', title: t.name, sub: t.group, keys: t.keys, pinned: t.pinned, run: async function() {
         if (_werkzeugLoaded) { switchTab('werkzeug'); m.openTool(t.id); return; }
         var p = await import('./werkzeug/platform.adminkit.js');
         (await p.getContext(_pkgDeps)).state.set('lastTool', t.id);
@@ -361,6 +422,9 @@ function switchTab(tabId) {
   if (tabId === 'fleet') loadFleet();
   if (tabId === 'werkzeug') ensureWerkzeug();
   if (tabId === 'links') ensureLinks();
+  if (tabId === 'help') ensureHandbuch();
+  if (tabId === 'docs') ensureDokumente();
+  if (tabId === 'protokolle') ensureProtokolle();
   if (tabId === 'wiki' && !document.getElementById('wiki-view-articles')?.classList.contains('hidden')) ensureWikiArticles();
 }
 
@@ -984,53 +1048,17 @@ function initSSHManagement() {
   refreshSSH();
 }
 
-// ─── Disk-Nutzung nach Ordner ─────────────────────────────────────────────────
-
+// ─── Disk-Analyzer (#97–#99) ──────────────────────────────────────────────────
+// Eigenes Modul, wird erst geladen, wenn die Tools-Gruppe „Disk-Analyzer“ aufgeht.
+var _diskLoaded = false;
 function initDiskUsage() {
-  const btn    = document.getElementById('btn-disk-usage-scan');
-  const result = document.getElementById('disk-usage-result');
-  const status = document.getElementById('disk-usage-status');
-
-  btn?.addEventListener('click', async () => {
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Analysiere…'; }
-    if (result) result.innerHTML = '<div class="info-placeholder">Verzeichnisgrößen werden gemessen…</div>';
-    try {
-      const entries = await GetDiskUsageByFolder();
-      renderDiskUsage(entries, result);
-      if (status) {
-        status.className = 'status-badge badge-ok';
-        status.textContent = `${entries.length} Verzeichnisse`;
-        status.classList.remove('hidden');
-      }
-    } catch (e) {
-      if (result) result.innerHTML = `<div class="info-placeholder">Fehler: ${escapeHtml(String(e))}</div>`;
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '🔍 Analysieren'; }
-    }
+  onToolsGroupShown(function(id) {
+    if (id !== 'disk' || _diskLoaded) return;
+    _diskLoaded = true;
+    var el = document.getElementById('disk-analyzer-root');
+    import('./werkzeug/disk-analyzer.js').then(function(m) { return m.initDiskAnalyzer(el, _pkgDeps); })
+      .catch(function(e) { _diskLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Disk-Analyzer konnte nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
   });
-}
-
-function renderDiskUsage(entries, container) {
-  if (!container) return;
-  if (!entries || entries.length === 0) {
-    container.innerHTML = '<div class="info-placeholder">Keine Daten gefunden.</div>';
-    return;
-  }
-  const maxBytes = entries[0].bytes;
-  container.innerHTML = entries.map(e => {
-    const barPct = maxBytes > 0 ? Math.round(e.bytes / maxBytes * 100) : 0;
-    const barClass = barPct > 80 ? 'fill-critical' : barPct > 50 ? 'fill-warning' : 'fill-ok';
-    return `<div class="disk-folder-item">
-      <div class="disk-folder-header">
-        <span class="disk-folder-label">${escapeHtml(e.label)}</span>
-        <span class="disk-folder-size">${escapeHtml(e.human)}</span>
-      </div>
-      <div class="hw-volume-bar-bg">
-        <div class="hw-volume-bar-fill ${barClass}" style="width:${barPct}%"></div>
-      </div>
-      <div class="disk-folder-path mono-cell">${escapeHtml(e.path)}</div>
-    </div>`;
-  }).join('');
 }
 
 // ─── Zertifikats-Check ────────────────────────────────────────────────────────
@@ -4024,6 +4052,7 @@ function initToolsTab() {
     // Treiber-Export über Konsolen-Tool
     document.getElementById('console-tool').value = 'drivers';
     document.getElementById('console-target').value = '';
+    showToolsGroup('terminal', false);
     runConsoleTool();
   });
 
@@ -4231,8 +4260,9 @@ async function runConsoleTool() {
 }
 
 /** Compat-Wrapper — früher console-output, jetzt unified terminal-output. */
-function consoleWrite(header, _body) {
-  termWrite(`[${header}]`, null);
+function consoleWrite(header, body) {
+  showToolsGroup('terminal', false); // Ausgabe landet im Netzwerk-Terminal (#94)
+  termWrite(`[${header}]`, body || null);
 }
 function consoleAppend(text) {
   termAppend(text);
@@ -4353,22 +4383,25 @@ function initToolsExtended() {
       dropZone.classList.add('drag-over');
     });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    // Native Wails-Drops liefern den echten Pfad (#96). Nur Drops auf Elemente
+    // mit --wails-drop-target: drop (die Zone) lösen den Callback aus.
+    var nativeDrop = false;
+    if (window.runtime?.OnFileDrop) {
+      try {
+        window.runtime.OnFileDrop(function(_x, _y, paths) {
+          dropZone.classList.remove('drag-over');
+          if (paths && paths.length) scanFileWithVT(paths[0]);
+        }, true);
+        nativeDrop = true;
+      } catch (_) { nativeDrop = false; }
+    }
     dropZone.addEventListener('drop', async e => {
       e.preventDefault();
       dropZone.classList.remove('drag-over');
-      const files = e.dataTransfer?.files;
-      if (files?.length > 0) {
-        // In Wails WebView haben wir leider nur den Dateinamen, nicht den Pfad.
-        // Falls der Pfad verfügbar ist (macOS WebKit gibt ihn manchmal), nutzen wir ihn.
-        const file = files[0];
-        const path = file.path || ''; // Electron-/Wails-Erweiterung
-        if (path) {
-          scanFileWithVT(path);
-        } else {
-          // Fallback: Hash des Datei-Inhalts berechnen (browser-seitig)
-          scanFileContentWithVT(file);
-        }
-      }
+      if (nativeDrop) return; // Pfad kommt über OnFileDrop
+      const file = e.dataTransfer?.files?.[0];
+      // Fallback ohne nativen Drop: Hash des Inhalts im Browser berechnen
+      if (file) scanFileContentWithVT(file);
     });
   }
 
@@ -4424,10 +4457,8 @@ async function scanFileWithVT(filePath) {
   try {
     const hash = await HashFileForVT(filePath);
     if (!vtKey) {
-      // Ohne API-Key: Browser öffnen
-      showVTFileResult('info', `${name}\nSHA256: ${hash}\nÖffne virustotal.com im Browser…`);
-      OpenVTInBrowser(hash);
-      addAction('VT Browser-Check gestartet: ' + hash.slice(0, 12) + '…', 'info');
+      // Ohne API-Key: Hash zeigen, Browser nur auf Klick (#96)
+      showVTNoKeyResult(name, hash);
       return;
     }
     // Mit API-Key: Hash-Lookup
@@ -4487,11 +4518,37 @@ async function scanFileContentWithVT(file) {
     const buffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
     const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-    showVTFileResult('info', `${file.name}\nSHA256: ${hash}\nÖffne virustotal.com…`);
-    OpenVTInBrowser(hash);
+    showVTNoKeyResult(file.name, hash);
   } catch (err) {
     showVTFileResult('error', 'Fehler: ' + err);
   }
+}
+
+// Ohne API-Key kann AdminKit nicht abfragen, ob VirusTotal die Datei kennt.
+// Unbekannte Hashes zeigen dort „Item not found“ – das erklären wir vorher.
+function showVTNoKeyResult(name, hash) {
+  const el = document.getElementById('vt-file-result');
+  if (!el) return;
+  el.classList.remove('hidden');
+  el.className = 'vt-file-result vt-file-info';
+  el.innerHTML = `<div class="vt-nokey">
+      <div><strong>${escapeHtml(name)}</strong></div>
+      <div class="vt-hash">SHA256: <code>${escapeHtml(hash)}</code></div>
+      <p>Ohne API-Key kann AdminKit nicht selbst nachfragen. Zeigt VirusTotal <strong>„Item not found“</strong>, wurde diese Datei dort noch nie hochgeladen –
+        das ist <em>kein</em> Befund, aber auch keine Entwarnung. Dann kannst du sie auf der Upload-Seite selbst einreichen (sie ist danach für VT-Kunden einsehbar – keine vertraulichen Kundendateien!).</p>
+      <div class="vt-actions">
+        <button class="btn btn-primary btn-sm" data-vt="lookup">🔎 Bei VirusTotal nachsehen</button>
+        <button class="btn btn-secondary btn-sm" data-vt="upload">⬆ Zur Upload-Seite</button>
+        <button class="btn btn-secondary btn-sm" data-vt="copy">📋 Hash kopieren</button>
+      </div>
+      <p class="vt-tip">Tipp: Mit einem kostenlosen API-Key (Einstellungen → API-Keys) prüft AdminKit direkt und bietet bei unbekannten Dateien den Upload an.</p>
+    </div>`;
+  el.querySelector('[data-vt="lookup"]').onclick = () => { OpenVTInBrowser(hash); addAction('VT Browser-Check: ' + hash.slice(0, 12) + '…', 'info'); };
+  el.querySelector('[data-vt="upload"]').onclick = () => { window.runtime?.BrowserOpenURL?.('https://www.virustotal.com/gui/home/upload'); };
+  el.querySelector('[data-vt="copy"]').onclick = async () => {
+    try { await navigator.clipboard.writeText(hash); } catch (_) { await window.runtime?.ClipboardSetText?.(hash); }
+    showToast('Hash kopiert');
+  };
 }
 
 function showVTFileResult(type, text) {
@@ -5573,6 +5630,11 @@ function closeSettings() {
 // ─── Synchronisierung / Fleet (#74) ───────────────────────────────────────────
 
 function initSyncSettings() {
+  // Synchronisierung vorübergehend abgeschaltet (Sicherheits-Härtung ausstehend)
+  IsSyncAvailable().then(function(ok) {
+    document.getElementById('sync-settings-section')?.classList.toggle('hidden', !ok);
+    document.getElementById('sync-disabled-note')?.classList.toggle('hidden', !!ok);
+  }).catch(function() { /* ältere Bindings: Bereich bleibt sichtbar */ });
   // Hub starten (öffnet einen Netzwerk-Port → Bestätigung)
   document.getElementById('btn-hub-start')?.addEventListener('click', async () => {
     const ok = await showConfirm({

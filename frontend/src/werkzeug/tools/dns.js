@@ -110,7 +110,7 @@ function mailMarkdown(d,r,extraEl){
 }
 
 export default {
-  id: 'dns', name: 'DNS & Mail-Check', group: 'Netzwerk & Mail', icon: 'globe',
+  id: 'dns', name: 'DNS & Mail-Check', group: 'Netzwerk & Mail', tags: ['Mail', 'DNS', 'Domain', 'Fehlersuche'], icon: 'globe',
   keys: 'dns mx spf dkim dmarc ptr nslookup domain smtp autodiscover resolver', online: true,
   render(p, ctx) {
   CTX=ctx;

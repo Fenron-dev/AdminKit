@@ -1,7 +1,7 @@
 # Mitgelieferte Team-Links (Ideler IT). Öffentlich erreichbare Seiten mit eigener Anmeldung.
 # Werden beim Start nach vault/links/links.yaml übernommen: neue Einträge kommen dazu,
 # eigene Änderungen und gelöschte Einträge bleiben erhalten. Revision bei Änderungen erhöhen.
-revision: 1
+revision: 3
 bereiche:
   - { id: it, name: "Ideler IT", icon: server, beschreibung: "Die tägliche Grundausstattung für alle im Team." }
   - { id: eg, name: "Entwicklung", icon: code, beschreibung: "Repositories, Monitoring, Dokumentation und Helfer für Webprojekte." }
@@ -13,6 +13,9 @@ bereiche:
   - { id: hp, name: "Homepage erstellen", kurz: "Homepage", icon: layout, beschreibung: "Bildmaterial und Ressourcen für Kundenwebseiten." }
   - { id: ek, name: "Einkauf", icon: cart, beschreibung: "Lieferanten und Bestellportale." }
   - { id: vb, name: "Vertrieb", icon: trend, beschreibung: "Kundenpflege und Angebote." }
+  - { id: news, name: "News & Lagebild", kurz: "News", icon: megaphone, beschreibung: "IT-Nachrichten, Störungen und Patch-Stand im Blick." }
+  - { id: drv, name: "Treiber & Support", kurz: "Treiber", icon: download, beschreibung: "Offizielle Treiber- und Supportseiten der Hersteller. Keine Treiber-Sammelseiten." }
+  - { id: tools, name: "Admin-Tools", kurz: "Tools", icon: wrench, beschreibung: "Bewährte, meist kostenlose Werkzeuge – immer von der Herstellerseite laden." }
 links:
   - { id: seafile, name: "Seafile", url: "https://ideler.cloud/", icon: folder, beschreibung: "Dateien ablegen, synchronisieren und freigeben.", bereiche: [it, eg] }
   - { id: idelertime, name: "IdelerTime", url: "https://ideler.idelertime.de/", icon: clock, beschreibung: "Zeiterfassung und Planung.", bereiche: [it] }
@@ -59,3 +62,67 @@ links:
   - { id: itneu, name: "IdelerTime Neu", url: "https://idelertest.idelertime.de/", icon: clock, beschreibung: "Testinstanz der neuen Version.", bereiche: [ti] }
   - { id: italt, name: "IdelerTime Alt", url: "https://idelerdemo.idelertime.de/", icon: clock, beschreibung: "Demo der bisherigen Version.", bereiche: [ti] }
   - { id: wfc, name: "WorkflowCheck", url: "https://idelerdemo.workflowcheck.com/", icon: check, beschreibung: "Demo-Instanz von WorkflowCheck.", bereiche: [ti] }
+  - { id: heise, name: "heise online", url: "https://www.heise.de/", icon: globe, beschreibung: "IT-Nachrichten aus Deutschland.", bereiche: [news] }
+  - { id: heisesec, name: "heise Security", url: "https://www.heise.de/security/", icon: shield, beschreibung: "Sicherheitsmeldungen und Patch-Hinweise.", bereiche: [news, sec] }
+  - { id: golem, name: "Golem.de", url: "https://www.golem.de/", icon: globe, beschreibung: "IT-News und Hintergründe.", bereiche: [news] }
+  - { id: borncity, name: "Borns IT- und Windows-Blog", url: "https://www.borncity.com/blog/", icon: book, beschreibung: "Windows-/Office-Updates, bekannte Probleme und Workarounds.", bereiche: [news] }
+  - { id: bleeping, name: "BleepingComputer", url: "https://www.bleepingcomputer.com/", icon: bug, beschreibung: "Malware, Ransomware und Sicherheitslücken (englisch).", bereiche: [news, sec] }
+  - { id: relhealth, name: "Windows Release Health", url: "https://learn.microsoft.com/de-de/windows/release-health/", icon: monitor, beschreibung: "Bekannte Probleme und Status der Windows-Updates.", bereiche: [news] }
+  - { id: m365status, name: "Microsoft 365 Dienststatus", url: "https://status.cloud.microsoft/", icon: server, beschreibung: "Aktuelle Störungen bei Microsoft 365, Outlook, Teams.", bereiche: [news, su] }
+  - { id: applestatus, name: "Apple Systemstatus", url: "https://www.apple.com/de/support/systemstatus/", icon: server, beschreibung: "Störungen bei iCloud, App Store und Apple-Diensten.", bereiche: [news, su] }
+  - { id: stoerung, name: "Allestörungen", url: "https://allestoerungen.de/", icon: alert, beschreibung: "Gemeldete Störungen bei Providern und Diensten.", bereiche: [news, su] }
+  - { id: certbund, name: "CERT-Bund Warnmeldungen", url: "https://wid.cert-bund.de/portal/wid/kurzinformationen", icon: alert, beschreibung: "Sicherheitswarnungen des BSI (Warn- und Informationsdienst).", bereiche: [sec, news] }
+  - { id: bsi, name: "BSI", url: "https://www.bsi.bund.de/", icon: shield, beschreibung: "Bundesamt für Sicherheit in der Informationstechnik.", bereiche: [sec] }
+  - { id: msrc, name: "Microsoft Security Update Guide", url: "https://msrc.microsoft.com/update-guide", icon: shield, beschreibung: "Alle Microsoft-Sicherheitsupdates mit CVE-Nummern.", bereiche: [sec] }
+  - { id: applesec, name: "Apple Sicherheitsupdates", url: "https://support.apple.com/de-de/100100", icon: shield, beschreibung: "Übersicht der Sicherheitsinhalte aller Apple-Updates.", bereiche: [sec] }
+  - { id: cisakev, name: "CISA KEV-Katalog", url: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog", icon: alert, beschreibung: "Lücken, die nachweislich aktiv ausgenutzt werden (englisch).", bereiche: [sec] }
+  - { id: nvd, name: "NVD (CVE-Datenbank)", url: "https://nvd.nist.gov/", icon: search, beschreibung: "CVE-Nummern nachschlagen, inkl. CVSS-Bewertung.", bereiche: [sec] }
+  - { id: hibp, name: "Have I Been Pwned", url: "https://haveibeenpwned.com/", icon: search, beschreibung: "Prüft, ob eine E-Mail-Adresse in Datenlecks auftaucht.", bereiche: [sec, su] }
+  - { id: vtweb, name: "VirusTotal", url: "https://www.virustotal.com/", icon: shield, beschreibung: "Dateien, Hashes, URLs und Domains prüfen.", bereiche: [sec] }
+  - { id: urlscan, name: "urlscan.io", url: "https://urlscan.io/", icon: search, beschreibung: "Verdächtige Links in einer Sandbox ansehen, ohne sie selbst zu öffnen.", bereiche: [sec] }
+  - { id: idransom, name: "ID Ransomware", url: "https://id-ransomware.malwarehunterteam.com/", icon: bug, beschreibung: "Ransomware-Variante anhand Erpresserschreiben/Datei bestimmen.", bereiche: [sec] }
+  - { id: nomoreransom, name: "No More Ransom", url: "https://www.nomoreransom.org/", icon: key, beschreibung: "Kostenlose Entschlüsselungstools von Europol und Partnern.", bereiche: [sec] }
+  - { id: mxtoolbox, name: "MXToolbox", url: "https://mxtoolbox.com/", icon: mail, beschreibung: "MX, SPF, DKIM, DMARC und Blacklists prüfen.", bereiche: [sec, tk] }
+  - { id: ssllabs, name: "SSL Labs Server Test", url: "https://www.ssllabs.com/ssltest/", icon: lock, beschreibung: "TLS-Konfiguration und Zertifikat einer Webseite prüfen.", bereiche: [sec, eg] }
+  - { id: dell, name: "Dell Support & Treiber", url: "https://www.dell.com/support/home/de-de", icon: download, beschreibung: "Treiber, BIOS und Garantie per Service-Tag.", bereiche: [drv] }
+  - { id: hpsupport, name: "HP Support & Treiber", url: "https://support.hp.com/de-de/drivers", icon: download, beschreibung: "Treiber für HP-PCs, Notebooks und Drucker.", bereiche: [drv] }
+  - { id: lenovo, name: "Lenovo Support", url: "https://pcsupport.lenovo.com/de/de", icon: download, beschreibung: "Treiber, BIOS und Garantie per Seriennummer.", bereiche: [drv] }
+  - { id: asus, name: "ASUS Support", url: "https://www.asus.com/de/support/", icon: download, beschreibung: "Treiber und BIOS für ASUS-Geräte und Mainboards.", bereiche: [drv] }
+  - { id: acer, name: "Acer Support", url: "https://www.acer.com/de-de/support", icon: download, beschreibung: "Treiber und Handbücher für Acer-Geräte.", bereiche: [drv] }
+  - { id: brother, name: "Brother Support", url: "https://support.brother.com/", icon: printer, beschreibung: "Druckertreiber und Firmware.", bereiche: [drv] }
+  - { id: canon, name: "Canon Support", url: "https://www.canon.de/support/", icon: printer, beschreibung: "Treiber für Drucker und Scanner.", bereiche: [drv] }
+  - { id: epson, name: "Epson Support", url: "https://www.epson.de/support", icon: printer, beschreibung: "Treiber für Drucker und Scanner.", bereiche: [drv] }
+  - { id: nvidia, name: "NVIDIA Treiber", url: "https://www.nvidia.com/de-de/drivers/", icon: monitor, beschreibung: "Grafiktreiber von NVIDIA.", bereiche: [drv] }
+  - { id: amd, name: "AMD Treiber", url: "https://www.amd.com/de/support/download/drivers.html", icon: monitor, beschreibung: "Grafik- und Chipsatztreiber von AMD.", bereiche: [drv] }
+  - { id: intel, name: "Intel Treiber- & Support-Assistent", url: "https://www.intel.de/content/www/de/de/support/detect.html", icon: download, beschreibung: "Erkennt Intel-Hardware und bietet passende Treiber an.", bereiche: [drv] }
+  - { id: mscatalog, name: "Microsoft Update-Katalog", url: "https://www.catalog.update.microsoft.com/", icon: package, beschreibung: "Einzelne Windows-Updates und Treiber (KB-Nummern) herunterladen.", bereiche: [drv, tools] }
+  - { id: win11, name: "Windows 11 herunterladen", url: "https://www.microsoft.com/de-de/software-download/windows11", icon: download, beschreibung: "Offizielles ISO und Media Creation Tool.", bereiche: [drv, tools] }
+  - { id: sysinternals, name: "Sysinternals", url: "https://learn.microsoft.com/de-de/sysinternals/", icon: wrench, beschreibung: "Process Explorer, Autoruns, TCPView u. v. m. von Microsoft.", bereiche: [tools] }
+  - { id: ninite, name: "Ninite", url: "https://ninite.com/", icon: package, beschreibung: "Mehrere Standardprogramme in einem Rutsch installieren.", bereiche: [tools], tags: [Windows] }
+  - { id: rufus, name: "Rufus", url: "https://rufus.ie/de/", icon: download, beschreibung: "Bootfähige USB-Sticks aus ISO-Dateien erstellen.", bereiche: [tools] }
+  - { id: ventoy, name: "Ventoy", url: "https://www.ventoy.net/", icon: download, beschreibung: "Mehrere ISOs auf einem USB-Stick booten.", bereiche: [tools] }
+  - { id: crystaldisk, name: "CrystalDiskInfo", url: "https://crystalmark.info/en/software/crystaldiskinfo/", icon: gauge, beschreibung: "SMART-Werte und Zustand von Festplatten/SSDs.", bereiche: [tools] }
+  - { id: hwinfo, name: "HWiNFO", url: "https://www.hwinfo.com/", icon: gauge, beschreibung: "Detaillierte Hardware-Infos und Sensoren.", bereiche: [tools] }
+  - { id: memtest, name: "Memtest86+", url: "https://www.memtest.org/", icon: gauge, beschreibung: "Arbeitsspeicher auf Fehler testen (bootfähig).", bereiche: [tools] }
+  - { id: wiztree, name: "WizTree", url: "https://diskanalyzer.com/", icon: folder, beschreibung: "Zeigt sehr schnell, was die Festplatte füllt.", bereiche: [tools], tags: [Windows] }
+  - { id: everything, name: "Everything", url: "https://www.voidtools.com/", icon: search, beschreibung: "Blitzschnelle Dateisuche für Windows.", bereiche: [tools], tags: [Windows] }
+  - { id: sevenzip, name: "7-Zip", url: "https://www.7-zip.org/", icon: package, beschreibung: "Packprogramm für alle gängigen Archivformate.", bereiche: [tools] }
+  - { id: npp, name: "Notepad++", url: "https://notepad-plus-plus.org/", icon: code, beschreibung: "Texteditor für Logs, Skripte und Konfigurationsdateien.", bereiche: [tools] }
+  - { id: winscp, name: "WinSCP", url: "https://winscp.net/", icon: share, beschreibung: "SFTP-/FTP-Client für Windows.", bereiche: [tools], tags: [SSH, Windows] }
+  - { id: putty, name: "PuTTY", url: "https://www.chiark.greenend.org.uk/~sgtatham/putty/", icon: code, beschreibung: "SSH- und Telnet-Client.", bereiche: [tools], tags: [SSH] }
+  - { id: ipscanner, name: "Advanced IP Scanner", url: "https://www.advanced-ip-scanner.com/de/", icon: network, beschreibung: "Geräte im lokalen Netz finden.", bereiche: [tools] }
+  - { id: wireshark, name: "Wireshark", url: "https://www.wireshark.org/", icon: network, beschreibung: "Netzwerkverkehr mitschneiden und analysieren.", bereiche: [tools] }
+  - { id: nirsoft, name: "NirSoft", url: "https://www.nirsoft.net/", icon: wrench, beschreibung: "Kleine Diagnose-Helfer, z. B. BlueScreenView.", bereiche: [tools] }
+  - { id: malwarebytes, name: "Malwarebytes", url: "https://www.malwarebytes.com/", icon: shield, beschreibung: "Zweitmeinung bei Verdacht auf Schadsoftware (Gratis-Scanner).", bereiche: [tools, sec] }
+  - { id: mssafety, name: "Microsoft Safety Scanner", url: "https://learn.microsoft.com/de-de/defender-endpoint/safety-scanner-download", icon: shield, beschreibung: "Kostenloser Einmal-Scanner von Microsoft.", bereiche: [tools, sec] }
+  - { id: keepassxc, name: "KeePassXC", url: "https://keepassxc.org/", icon: key, beschreibung: "Freier Passwortmanager – gut für Kunden ohne Cloud.", bereiche: [tools, su] }
+  - { id: shutup10, name: "O&O ShutUp10++", url: "https://www.oo-software.com/de/shutup10", icon: lock, beschreibung: "Windows-Datenschutzeinstellungen übersichtlich setzen.", bereiche: [tools] }
+  - { id: breitband, name: "Breitbandmessung", url: "https://breitbandmessung.de/", icon: gauge, beschreibung: "Offizielle Speedtest-App der Bundesnetzagentur (gerichtsfest).", bereiche: [tools, su] }
+  - { id: brew, name: "Homebrew", url: "https://brew.sh/", icon: package, beschreibung: "Paketmanager für macOS.", bereiche: [tools], tags: [macOS] }
+  - { id: etrecheck, name: "EtreCheck", url: "https://etrecheck.com/", icon: monitor, beschreibung: "Diagnosebericht für Macs.", bereiche: [tools], tags: [macOS] }
+  - { id: onyx, name: "OnyX", url: "https://www.titanium-software.fr/en/onyx.html", icon: wrench, beschreibung: "Wartung und Bereinigung für macOS.", bereiche: [tools], tags: [macOS] }
+  - { id: bluechip, name: "bluechip", url: "https://www.bluechip.de/", icon: download, beschreibung: "Service, Treiber und Support für bluechip-PCs und -Server.", bereiche: [drv] }
+  - { id: wortmann, name: "Wortmann / TERRA", url: "https://www.wortmann.de/", icon: download, beschreibung: "Treiber und Service für TERRA-PCs, -Notebooks und -Server.", bereiche: [drv] }
+  - { id: daisydisk, name: "DaisyDisk", url: "https://daisydiskapp.com/", icon: folder, beschreibung: "Zeigt anschaulich, was den Mac-Speicher füllt.", bereiche: [tools], tags: [macOS] }
+  - { id: tunnelblick, name: "Tunnelblick", url: "https://tunnelblick.net/", icon: lock, beschreibung: "Kostenloser OpenVPN-Client für macOS.", bereiche: [tools], tags: [macOS, VPN] }
+  - { id: wireguard, name: "WireGuard", url: "https://www.wireguard.com/install/", icon: lock, beschreibung: "Schnelles, schlankes VPN – Clients für Windows, macOS, iOS, Android.", bereiche: [tools], tags: [VPN] }

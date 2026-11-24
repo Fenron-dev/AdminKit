@@ -12,7 +12,8 @@ export const BOUNCE=[
   {re:/5\.7\.25|reverse dns|\bPTR\b|\brDNS\b|reverse (lookup|mapping)/i,t:'Fehlende Rückwärtsauflösung (PTR)',why:'Die IP-Adresse des sendenden Servers hat keinen passenden Namen im DNS. Viele Empfänger nehmen von solchen Servern keine Mails an.',fix:['PTR-Eintrag beim Anbieter der IP-Adresse (Hoster oder Internetanbieter) setzen lassen.','Er sollte auf den Hostnamen des Mailservers zeigen, der wiederum auf die IP zeigt.']},
   {re:/spamhaus|block ?list|black ?list|\bdnsbl\b|\brbl\b|barracuda|spamcop|\bsorbs\b|\blisted\b|5\.7\.606|5\.7\.708|banned sending ip|traffic not accepted from this ip/i,t:'Server-IP steht auf einer Sperrliste',why:'Die IP-Adresse, über die gesendet wurde, ist als Spam-Quelle gelistet. Oft steckt ein gehacktes Postfach oder ein infizierter Rechner dahinter, manchmal nur ein schlechter Ruf des Netzbereichs.',fix:['IP bei MXToolbox auf Sperrlisten prüfen.','Ursache beseitigen: Postfächer auf ungewöhnlichen Versand prüfen, Passwörter ändern, Rechner auf Schadsoftware prüfen.','Danach Entfernung bei der jeweiligen Liste beantragen (bei Microsoft über sender.office.com).']},
   {re:/sending limit|rate limit|too many (messages|recipients|connections)|5\.7\.750|5\.1\.8\b|bad outbound sender|daily (sending )?quota|limit exceeded/i,t:'Versandlimit erreicht oder Absender gesperrt',why:'Das Postfach hat mehr Mails verschickt als erlaubt, oder der Anbieter hat es wegen Spamverdacht für den Versand gesperrt. Häufigste Ursache ist ein gehacktes Passwort.',fix:['Gesendete Elemente und Postausgang auf unbekannte Mails prüfen.','Passwort sofort ändern und Zwei-Faktor-Anmeldung aktivieren.','Bei Microsoft 365 muss ein Administrator die Sperre im Admin Center aufheben.']},
-  {re:/relay(ing)? (access )?(denied|not permitted)|not permitted to relay|unable to relay|relay not permitted|authentication required|must authenticate|smtp auth/i,t:'Versand ohne Anmeldung am Postausgangsserver',why:'Der Server leitet Mails nur weiter, wenn sich das Mailprogramm mit Benutzername und Passwort anmeldet. Das ist im Programm nicht eingestellt oder die Zugangsdaten stimmen nicht.',fix:['Im Mailprogramm beim Postausgangsserver (SMTP) „Authentifizierung erforderlich“ aktivieren.','Port 587 mit STARTTLS oder 465 mit SSL/TLS verwenden, nicht Port 25.','Bei Scannern und Kopierern ebenfalls Benutzername und Passwort für SMTP hinterlegen.']},
+  {re:/relay(ing)? (access )?(denied|not permitted)|not permitted to relay|unable to relay|relay not permitted|authentication required|must authenticate|smtp auth/i,t:'Versand ohne Anmeldung am Postausgangsserver',why:'Der Server leitet Mails nur weiter, wenn sich das Mailprogramm mit Benutzername und Passwort anmeldet. Das ist im Programm nicht eingestellt oder die Zugangsdaten stimmen nicht.',cfg:true,fix:['Im Mailprogramm beim Postausgangsserver (SMTP) „Authentifizierung erforderlich“ aktivieren.','Port 587 mit STARTTLS oder 465 mit SSL/TLS verwenden, nicht Port 25.','Bei Scannern und Kopierern ebenfalls Benutzername und Passwort für SMTP hinterlegen.']},
+  {re:/5\.1\.3\b|5\.6\.7\b|smtputf8|non-?ascii|bad (destination |recipient )?(mailbox )?address syntax|invalid characters?|unzulässige zeichen/i,t:'Ungültige Zeichen in der Adresse (z. B. Umlaute)',why:'In der Adresse stehen Zeichen, die der Server nicht annimmt, meist ein Umlaut oder ß vor dem @, ein Leerzeichen oder ein Tippfehler. Adressen mit Umlauten unterstützen die meisten Mailserver nicht.',fix:['Adresse im Feld „Absender und Empfänger“ unten prüfen, Umlaute sind dort markiert.','Umlaute ausschreiben: ä → ae, ö → oe, ü → ue, ß → ss.','Gespeicherte Adressvorschläge im Mailprogramm löschen und die Adresse neu eintippen.']},
   {re:/sender (address )?rejected|sender (domain )?(unknown|not found|denied|not allowed)|5\.1\.7\b|from address (rejected|not allowed)/i,t:'Absenderadresse abgelehnt',why:'Die Absenderadresse ist ungültig, gehört nicht zum angemeldeten Konto oder ihre Domain ist im DNS nicht auffindbar.',fix:['Prüfen, ob die Absenderadresse im Mailprogramm korrekt eingetragen ist.','Mit Konto A angemeldet, aber als Adresse B gesendet? Das erlauben viele Server nicht.']},
   {re:/5\.1\.1\b|5\.1\.10\b|5\.4\.1\b|user unknown|unknown user|no such (user|mailbox|recipient)|does ?n[o']t exist|recipient (address )?rejected|unknown recipient|recipient not found|mailbox (not found|unavailable)|invalid recipient|recipnotfound|unbekannt|existiert nicht/i,t:'Empfängeradresse existiert nicht',why:'Beim Empfänger gibt es kein Postfach mit dieser Adresse. Meist ist es ein Tippfehler, oder die Person ist nicht mehr dort.',fix:['Adresse Zeichen für Zeichen prüfen, besonders die Domain (z. B. gmial.com, t-onlien.de).','Im Mailprogramm gespeicherte Vorschläge löschen, falls dort eine alte Adresse hängt.','Den Empfänger auf anderem Weg nach der richtigen Adresse fragen.']},
   {re:/5\.2\.2\b|4\.2\.2\b|mailbox (is )?full|over ?quota|quota exceeded|insufficient (system )?storage|postfach[^\n]{0,20}voll|speicherplatz/i,t:'Postfach des Empfängers ist voll',why:'Der Empfänger hat seinen Speicherplatz ausgeschöpft. Daran kann der Absender nichts ändern.',fix:['Dem Empfänger auf anderem Weg Bescheid geben.','Später erneut senden.']},
@@ -37,6 +38,27 @@ export const addrOf=v=>{const m=String(v||'').match(/<([^>]+)>/)||String(v||'').
 export const domOf=a=>(a.split('@')[1]||'').replace(/[>\s].*$/,'');
 export const SL2=new Set(['co.uk','org.uk','ac.uk','gov.uk','com.au','net.au','org.au','co.at','or.at','gv.at','co.nz','co.jp','ne.jp','or.jp','com.br','com.cn','com.tr','co.za','com.mx','co.in','com.pl','com.es','co.il','com.sg','com.hk','com.tw','co.kr','com.ua']);
 export const regDom=h=>{h=String(h||'').toLowerCase();if(/^[\d.]+$/.test(h)||h.includes(':'))return h;const p=h.split('.');if(p.length<=2)return h;const l2=p.slice(-2).join('.');return SL2.has(l2)?p.slice(-3).join('.'):l2};
+// MIME-kodierte Wörter (=?utf-8?B?…?= / =?iso-8859-1?Q?…?=) dekodieren, damit Umlaute sichtbar werden
+export function decodeMime(v){return String(v||'').replace(/=\?([^?]+)\?([bq])\?([^?]*)\?=(?:\s+(?==\?))?/gi,(all,cs,enc,txt)=>{try{let bytes;
+  if(enc.toLowerCase()==='b')bytes=Uint8Array.from(atob(txt),c=>c.charCodeAt(0));
+  else{const s=txt.replace(/_/g,' '),a=[];for(let i=0;i<s.length;i++){if(s[i]==='='&&/^[0-9a-f]{2}$/i.test(s.substr(i+1,2))){a.push(parseInt(s.substr(i+1,2),16));i+=2}else a.push(s.charCodeAt(i))}bytes=new Uint8Array(a)}
+  return new TextDecoder(cs.toLowerCase().replace(/\*.*$/,'')).decode(bytes)}catch{return all}})}
+// Alle Adressen eines Felds (To, Cc, …) mit Anzeigename, Schreibweise wie im Original
+export function addrList(v){const s=decodeMime(v),parts=[],out=[];let cur='',q=false,ang=false;
+  for(const c of s){if(c==='"')q=!q;else if(c==='<'&&!q)ang=true;else if(c==='>'&&!q)ang=false;if((c===','||c===';')&&!q&&!ang){parts.push(cur);cur=''}else cur+=c}parts.push(cur);
+  const push=(a,n)=>{a=a.trim();if(a.includes('@')&&!out.some(x=>x.addr.toLowerCase()===a.toLowerCase()))out.push({addr:a,name:String(n||'').replace(/[()]/g,'').replace(/^["'\s]+|["'\s]+$/g,'')})};
+  for(const p of parts){const m=p.match(/^(.*)<([^>]*)>/);if(m)push(m[2],m[1]);else{const b=p.match(/[^\s<>"(),;]+@[^\s<>"(),;]+/);if(b)push(b[0],p.replace(b[0],''))}}
+  return out}
+const UML=/[äöüÄÖÜß]/;
+export const toPuny=d=>{try{return new URL('http://'+d).hostname}catch{return d}};
+// Prüft eine Adresse auf Umlaute und andere Nicht-ASCII-Zeichen
+export function checkAddr(addr){const i=addr.lastIndexOf('@'),loc=addr.slice(0,i),dom=addr.slice(i+1),iss=[];
+  const na=s=>[...new Set(s.match(/[^\x00-\x7f]/g)||[])];const lu=na(loc),du=na(dom);
+  if(lu.length)iss.push(['err',`${UML.test(loc)?'Umlaut':'Sonderzeichen'} vor dem @: ${lu.join(' ')}`,'Vor dem @ sollten nur a–z, Ziffern und . - _ + stehen. Adressen mit Umlauten nehmen die meisten Mailserver nicht an, die Mail kommt als unzustellbar zurück (oft mit 5.1.3 oder 5.6.7). Umlaut ausschreiben: ä → ae, ö → oe, ü → ue, ß → ss.']);
+  if(du.length)iss.push(['warn',`${UML.test(dom)?'Umlaut':'Sonderzeichen'} in der Domain: ${du.join(' ')}`,`Umlaut-Domains funktionieren technisch (umgeschrieben als <span class="mono">${esc(toPuny(dom))}</span>), machen aber mit älteren Programmen und Servern oft Probleme. Prüfen, ob die Domain wirklich so geschrieben wird oder ob ae/oe/ue gemeint ist.`]);
+  else if(/(^|\.)xn--/i.test(dom))iss.push(['info','Umlaut-Domain in technischer Schreibweise (xn--)','Die Domain enthält eigentlich Umlaute oder Sonderzeichen und ist hier in der Umschrift (Punycode) angegeben. Das ist gültig.']);
+  if(!iss.length)iss.push(['ok','Keine Umlaute oder Sonderzeichen','']);
+  return iss}
 export function analyzeMail(raw){
   const H=parseHdr(raw),get=k=>H.filter(h=>h.k===k).map(h=>h.v),one=k=>get(k)[0];const S2=[];
   // Bounce
@@ -70,7 +92,15 @@ export function analyzeMail(raw){
   // Hops
   const hops=get('received').map(v=>{const date=Date.parse(v.slice(v.lastIndexOf(';')+1).replace(/\([^)]*\)/g,'').trim());
     return {from:(v.match(/\bfrom\s+(\S+)/i)||[])[1]||'',ip:(v.match(/\[((?:\d{1,3}\.){3}\d{1,3}|[0-9a-f:]{3,})\]/i)||[])[1]||'',by:(v.match(/\bby\s+(\S+)/i)||[])[1]||'',date}}).reverse();
-  return {H,hits,codes,isBounce,replyLines,dsn,auth,ar,spam,tests,isSpam,fa,fd,snd,hops,subject:one('subject'),rcpt:addrOf(one('final-recipient')||one('original-recipient')||one('to')||'')};
+  // Absender und Empfänger. Beim Unzustellbarkeitsbericht ist die ursprüngliche Mail gemeint:
+  // Absender = Empfänger des Berichts, Empfänger = Final-Recipient bzw. abgelehnte Adresse.
+  const L=ks=>addrList(ks.flatMap(get).join(', '));let senders,rcpts;
+  if(isBounce){senders=L(['to']);rcpts=L(['final-recipient','x-failed-recipients','original-recipient']);
+    if(!rcpts.length)rcpts=addrList([...raw.matchAll(/^\s*<([^<>\s]+@[^<>\s]+)>:/gm)].map(m=>m[1]).join(', '))}
+  else{senders=L(['from']);rcpts=L(['to','cc']);if(!rcpts.length)rcpts=L(['delivered-to','x-original-to'])}
+  const chkAll=a=>a.map(x=>({...x,iss:checkAddr(x.addr)}));
+  const parties={senders:chkAll(senders),rcpts:chkAll(rcpts),reporter:isBounce?addrList(from)[0]||null:null};
+  return {H,hits,codes,isBounce,replyLines,dsn,auth,ar,spam,tests,isSpam,fa,fd,snd,hops,parties,subject:one('subject'),rcpt:addrOf(one('final-recipient')||one('original-recipient')||one('to')||'')};
 }
 export const AUTHX={pass:['ok','bestanden'],fail:['err','fehlgeschlagen'],softfail:['warn','weich fehlgeschlagen'],neutral:['warn','neutral'],none:['warn','nicht vorhanden'],temperror:['warn','vorübergehender Fehler'],permerror:['err','fehlerhafter Eintrag'],policy:['warn','Richtlinie'],bestguesspass:['info','vermutlich bestanden']};
 export const AUTHD={spf:'Durfte der sendende Server für diese Domain senden?',dkim:'Ist die Mail unterwegs unverändert und digital signiert?',dmarc:'Passen SPF oder DKIM zur sichtbaren Absenderdomain?',compauth:'Microsofts Gesamtbewertung der Absender-Echtheit.'};
@@ -120,7 +150,7 @@ Date: Tue, 17 Nov 2026 09:31:10 +0100
 Message-ID: <abc123@pc-buero>`;
 
 export default {
-  id: 'mail', name: 'Mail-Diagnose', group: 'Netzwerk & Mail', icon: 'mail',
+  id: 'mail', name: 'Mail-Diagnose', group: 'Netzwerk & Mail', tags: ['Mail', 'Fehlersuche', 'Spam'], icon: 'mail',
   keys: 'mail header bounce unzustellbar spam abgelehnt ndr eml', online: false,
   render(p, ctx) {
   p.innerHTML=`<div class="util wide"><h3>Mail-Diagnose</h3><p>Warum kam eine Mail nicht an, wurde abgelehnt oder landete im Spam? Fehlermeldung (Unzustellbarkeitsbericht) oder Kopfzeilen der Mail hier einfügen. Alles wird lokal ausgewertet.</p>
@@ -137,7 +167,7 @@ export default {
     // Headline
     let head;
     if(r.isBounce){const b=r.hits[0];head=`<div class="verdict err"><div class="v-i">${ic('x')}</div><div><span>Unzustellbar</span><h4>${b.t}</h4><p>${b.why}</p></div></div>
-      <div class="todo"><strong>Was tun?</strong><ol>${b.fix.map(f=>`<li>${f}</li>`).join('')}</ol>${b.dns?`<button class="btn sm" type="button" data-dnsgo="${b.dns}">${ic('globe')}Mail-Check für ${esc(b.dns==='rcpt'?domOf(r.rcpt)||'Empfängerdomain':r.fd||'Absenderdomain')}</button>`:''}</div>`}
+      <div class="todo"><strong>Was tun?</strong><ol>${b.fix.map(f=>`<li>${f}</li>`).join('')}</ol>${b.dns?`<button class="btn sm" type="button" data-dnsgo="${b.dns}">${ic('globe')}Mail-Check für ${esc(b.dns==='rcpt'?domOf(r.rcpt)||'Empfängerdomain':r.fd||'Absenderdomain')}</button>`:''}${b.cfg&&r.parties.senders[0]?`<button class="btn sm" type="button" data-mcgo="${esc(r.parties.senders[0].addr)}">${ic('mail')}Kontoeinstellungen für ${esc(r.parties.senders[0].addr)}</button>`:''}</div>`}
     else if(r.isSpam){const reasons=[];if(r.auth.spf&&r.auth.spf!=='pass')reasons.push('SPF nicht bestanden');if(r.auth.dkim&&r.auth.dkim!=='pass')reasons.push('keine gültige DKIM-Signatur');if(r.auth.dmarc&&r.auth.dmarc!=='pass')reasons.push('DMARC nicht bestanden');
       r.tests.forEach(t=>{const m=SA_TESTS.find(([re])=>re.test(t));if(m&&/Sperrliste|Privatanschluss|Rückwärts|bekannte|Spam-Datenbanken|stark/.test(m[1]))reasons.push(m[1].replace(/\.$/,''))});
       head=`<div class="verdict warn"><div class="v-i">${ic('alert')}</div><div><span>Als Spam eingestuft</span><h4>Der Empfangsserver hat die Mail als Spam bewertet</h4><p>${reasons.length?'Hauptgründe: '+[...new Set(reasons)].map(esc).join(', ')+'.':'Details stehen in der Spam-Bewertung unten.'}</p></div></div>
@@ -146,6 +176,12 @@ export default {
     else if(r.H.length)head=`<div class="verdict ok"><div class="v-i">${ic('check')}</div><div><span>Kopfzeilen ausgewertet</span><h4>Keine eindeutige Ablehnung oder Spam-Markierung gefunden</h4><p>Die Details unten zeigen Prüfergebnisse und den Weg der Mail.</p></div></div>`;
     else head=chk('info','Nichts erkannt','Füge die vollständige Fehlermeldung oder die Kopfzeilen ein. Sie beginnen meist mit „Received:“, „Return-Path:“ oder „Delivered-To:“.');
     sec.push(head);
+    const P=r.parties;
+    if(P.senders.length||P.rcpts.length){
+      const mark=a=>esc(a).replace(/[^\x00-\x7f]/g,c=>`<mark>${c}</mark>`);
+      const field=x=>`<div class="addr-f">${x.name?`<span class="addr-n">${esc(x.name)}</span>`:''}<span class="input mono addr-v">${mark(x.addr)}</span><div class="chks">${x.iss.map(([s,t,b])=>chk(s,t,b)).join('')}</div></div>`;
+      const col=(lbl,list)=>`<div class="party"><h6>${lbl}</h6>${list.length?list.map(field).join(''):'<p class="muted">nicht gefunden</p>'}</div>`;
+      sec.push(`<div class="sub"><h5>Absender und Empfänger${r.isBounce?' <small>der ursprünglichen Mail</small>':''}</h5><div class="parties">${col('Absender',P.senders)}${col(P.rcpts.length>1?'Empfänger ('+P.rcpts.length+')':'Empfänger',P.rcpts)}</div>${P.reporter?`<p class="note">Fehlerbericht erstellt von <span class="mono">${esc(P.reporter.addr)}</span>.</p>`:''}</div>`)}
     if(r.hits.length>1&&r.isBounce)sec.push(`<div class="sub"><h5>Weitere mögliche Ursachen</h5>${r.hits.slice(1,4).map(b=>chk('info',b.t,b.why)).join('')}</div>`);
     if(r.codes.length||r.replyLines.length)sec.push(`<div class="sub"><h5>Antwort des Servers</h5>${r.replyLines.length?`<pre class="srv">${esc(r.replyLines.join('\n'))}</pre>`:''}${r.codes.map(c=>{const [a,b]=c.split('.');const ref=REF.smtp.find(x=>x[0]===c);return `<div class="code-ex"><span class="mono c${a}">${c}</span><span>${ENH_CLASS[a]||''}, Bereich ${ENH_SUBJ[b]||b}${ref?`. <b>${esc(ref[1])}</b>${ref[2]?': '+esc(ref[2]):''}`:''}</span></div>`}).join('')}</div>`);
     if(r.dsn.length)sec.push(`<div class="sub"><h5>Zustellbericht</h5><dl class="kv">${r.dsn.map(([k,v])=>`<dt>${{'final-recipient':'Empfänger','action':'Aktion','status':'Status','remote-mta':'Empfangsserver','reporting-mta':'Meldender Server','diagnostic-code':'Fehlertext'}[k]}</dt><dd style="text-align:left;justify-content:flex-start">${esc(v)}</dd>`).join('')}</dl></div>`);
@@ -155,7 +191,9 @@ export default {
     if(r.hops.length){let prev=null;sec.push(`<div class="sub"><h5>Weg der Mail <small>${r.hops.length} Station${r.hops.length>1?'en':''}, älteste zuerst</small></h5><ol class="hops">${r.hops.map((h,i)=>{const d=prev&&!isNaN(h.date)&&!isNaN(prev)?(h.date-prev)/1000:null;prev=h.date;
       return `<li${d!=null&&d>300?' class="slow"':''}><div><b>${esc(h.by||'?')}</b><span>von ${esc(h.from||'?')}${h.ip?` <span class="mono">[${esc(h.ip)}]</span>`:''}</span></div><em>${isNaN(h.date)?'':new Date(h.date).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})}${d!=null?`<br>${d<0?'Uhrzeit ungenau':'+'+fmtTime(d)}${d>300?' Verzögerung':''}`:''}</em></li>`}).join('')}</ol>
       ${r.hops.some((h,i)=>i&&!isNaN(h.date)&&!isNaN(r.hops[i-1].date)&&h.date-r.hops[i-1].date>300000)?'<p class="note">Eine Verzögerung von mehreren Minuten zwischen zwei Stationen deutet oft auf Greylisting oder eine Warteschlange beim Server hin.</p>':''}</div>`)}
+    sec.push(`<div class="row"><button class="btn sm ghost" type="button" data-aiexplain="${esc(ta.value.slice(0,20000))}">${ic('chat')}Erklären lassen (KI)</button></div>`);
     out.innerHTML=sec.join('');
+    out.querySelectorAll('[data-mcgo]').forEach(b=>{if(!ctx.hasTool('mailcfg')){b.remove();return}b.onclick=()=>ctx.openTool('mailcfg',{q:b.dataset.mcgo})});
     out.querySelectorAll('[data-dnsgo]').forEach(b=>{if(!ctx.hasTool('dns')){b.remove();return}b.onclick=()=>{const d=b.dataset.dnsgo==='rcpt'?domOf(r.rcpt):r.fd;if(!d)return;ctx.openTool('dns',{mode:'mail',domain:d,auto:true})}});
   };
   let tm;ta.addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(run,300)});$('#mlGo',p).onclick=run;

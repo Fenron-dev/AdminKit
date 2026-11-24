@@ -1,6 +1,8 @@
 package main
 
 import (
+	"adminkit/internal/diskscan"
+	"adminkit/internal/execx"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -8,11 +10,10 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"adminkit/internal/advisor"
@@ -67,8 +68,12 @@ type App struct {
 	lastTasksScan      *tasks.ScanResult
 	lastProfilesScan   *profiles.ScanResult
 	lastUSBScan        *usbhistory.ScanResult
-	lastSessionName    string
-	lastSessionPath    string
+	// Disk-Analyzer (#97): ein Scan zur Zeit, Ergebnis für den Bericht
+	disk            *diskscan.Scanner
+	diskOnce        sync.Once
+	lastDiskReport  *export.DiskReport
+	lastSessionName string
+	lastSessionPath string
 
 	// VirusTotal-Client (lazy-initialisiert wenn API-Key vorhanden)
 	vtClient *virustotal.Client
@@ -199,7 +204,7 @@ func (a *App) GetPlatform() string {
 func (a *App) GetOSLocale() string {
 	if goruntime.GOOS == "darwin" {
 		// macOS: primäre Sprache aus den globalen Preferences
-		out, err := exec.Command("defaults", "read", ".GlobalPreferences", "AppleLocale").Output()
+		out, err := execx.Command("defaults", "read", ".GlobalPreferences", "AppleLocale").Output()
 		if err == nil {
 			locale := strings.TrimSpace(string(out))
 			// z.B. "de_DE", "en_US", "fr_FR" → nur erstes Segment
@@ -215,7 +220,7 @@ func (a *App) GetOSLocale() string {
 		}
 	}
 	if goruntime.GOOS == "windows" {
-		out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		out, err := execx.Command("powershell", "-NoProfile", "-Command",
 			"(Get-Culture).TwoLetterISOLanguageName").Output()
 		if err == nil {
 			return strings.ToLower(strings.TrimSpace(string(out)))
@@ -327,6 +332,7 @@ func (a *App) NewSession(customerName string) (string, error) {
 	a.lastTasksScan = nil
 	a.lastProfilesScan = nil
 	a.lastUSBScan = nil
+	a.lastDiskReport = nil
 	return path, nil
 }
 
@@ -917,6 +923,7 @@ func (a *App) ExportSession(format string) (string, error) {
 		Tasks:          a.lastTasksScan,
 		Profiles:       a.lastProfilesScan,
 		USB:            a.lastUSBScan,
+		Disk:           a.lastDiskReport,
 		WorkDone:       workDone,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
@@ -978,6 +985,7 @@ func (a *App) ExportCSV() (string, error) {
 		Tasks:          a.lastTasksScan,
 		Profiles:       a.lastProfilesScan,
 		USB:            a.lastUSBScan,
+		Disk:           a.lastDiskReport,
 		CompanyName:    a.cfg.Branding.CompanyName,
 		TechnicianName: a.cfg.Branding.TechnicianName,
 	}
@@ -1370,7 +1378,7 @@ func (a *App) EjectUSBDevice(bsdName string) error {
 		return fmt.Errorf("kein BSD-Name angegeben")
 	}
 	logging.Infof("USB", "Auswerfen: %s", bsdName)
-	out, err := exec.Command("diskutil", "eject", bsdName).CombinedOutput()
+	out, err := execx.Command("diskutil", "eject", bsdName).CombinedOutput()
 	if err != nil {
 		msg := strings.TrimSpace(string(out))
 		logging.Warnf("USB", "Auswerfen fehlgeschlagen (%s): %v — %s", bsdName, err, msg)
@@ -1400,7 +1408,7 @@ func (a *App) ToggleAutostartEntry(plistPath string, enable bool) error {
 	}
 	action := map[bool]string{true: "bootstrap", false: "bootout"}[enable]
 	logging.Infof("Autostart", "%s (%s): %s", action, domain, plistPath)
-	out, err := exec.Command("launchctl", modernArgs...).CombinedOutput()
+	out, err := execx.Command("launchctl", modernArgs...).CombinedOutput()
 	if err == nil {
 		logging.Infof("Autostart", "%s erfolgreich: %s", action, plistPath)
 		return nil
@@ -1420,7 +1428,7 @@ func (a *App) ToggleAutostartEntry(plistPath string, enable bool) error {
 		legacyAction = "load"
 		legacyArgs = []string{"load", "-w", plistPath}
 	}
-	legacyOut, legacyErr := exec.Command("launchctl", legacyArgs...).CombinedOutput()
+	legacyOut, legacyErr := execx.Command("launchctl", legacyArgs...).CombinedOutput()
 	if legacyErr != nil {
 		legacyMsg := strings.TrimSpace(string(legacyOut))
 		logging.Warnf("Autostart", "legacy %s fehlgeschlagen (%s): %v — %s", legacyAction, plistPath, legacyErr, legacyMsg)
@@ -1461,7 +1469,7 @@ func (a *App) RunPeriodicMaintenance(level string) (string, error) {
 		return "", fmt.Errorf("ungültiger Level: %s", level)
 	}
 	logging.Infof("Maintenance", "periodic %s gestartet", level)
-	out, err := exec.Command("osascript", "-e",
+	out, err := execx.Command("osascript", "-e",
 		fmt.Sprintf(`do shell script "periodic %s" with administrator privileges`, level)).
 		CombinedOutput()
 	if err != nil {
@@ -1491,14 +1499,14 @@ type SSHStatus struct {
 func (a *App) GetSSHStatus() (*SSHStatus, error) {
 	status := &SSHStatus{}
 
-	out, err := exec.Command("systemsetup", "-getremotelogin").Output()
+	out, err := execx.Command("systemsetup", "-getremotelogin").Output()
 	if err != nil {
 		return nil, fmt.Errorf("systemsetup: %v", err)
 	}
 	status.Enabled = strings.Contains(strings.ToLower(string(out)), "on")
 
 	// Aktive SSH-Sessions aus 'who' (Zeilen mit "(.*)" = Remote)
-	whoOut, whoErr := exec.Command("who").Output()
+	whoOut, whoErr := execx.Command("who").Output()
 	if whoErr == nil {
 		for _, line := range strings.Split(strings.TrimSpace(string(whoOut)), "\n") {
 			line = strings.TrimSpace(line)
@@ -1518,7 +1526,7 @@ func (a *App) SetSSHEnabled(enable bool) error {
 		state = "on"
 	}
 	logging.Infof("SSH", "Remote Login → %s", state)
-	out, err := exec.Command("osascript", "-e",
+	out, err := execx.Command("osascript", "-e",
 		fmt.Sprintf(`do shell script "systemsetup -setremotelogin %s" with administrator privileges`, state)).
 		CombinedOutput()
 	if err != nil {
@@ -1530,97 +1538,7 @@ func (a *App) SetSSHEnabled(enable bool) error {
 	return nil
 }
 
-// ── Disk-Nutzung nach Ordner ──────────────────────────────────────────────────
-
-// DiskFolderEntry beschreibt die Größe eines Verzeichnisses.
-type DiskFolderEntry struct {
-	Path       string  `json:"path"`
-	Label      string  `json:"label"`
-	Bytes      int64   `json:"bytes"`
-	Human      string  `json:"human"`
-	PctOfTotal float64 `json:"pct_of_total"`
-}
-
-// GetDiskUsageByFolder misst die Größe vordefinierter Verzeichnisse via du.
-func (a *App) GetDiskUsageByFolder() ([]DiskFolderEntry, error) {
-	home, _ := os.UserHomeDir()
-	targets := []struct{ path, label string }{
-		{filepath.Join(home, "Documents"), "Dokumente"},
-		{filepath.Join(home, "Downloads"), "Downloads"},
-		{filepath.Join(home, "Movies"), "Filme"},
-		{filepath.Join(home, "Music"), "Musik"},
-		{filepath.Join(home, "Pictures"), "Bilder"},
-		{filepath.Join(home, "Desktop"), "Desktop"},
-		{"/Applications", "Applications"},
-		{filepath.Join(home, "Library", "Application Support"), "Library/Application Support"},
-		{filepath.Join(home, "Library", "Caches"), "Library/Caches"},
-		{filepath.Join(home, "Library", "Mobile Documents"), "iCloud Drive"},
-		{filepath.Join(home, "Library", "Developer"), "Library/Developer (Xcode)"},
-		{filepath.Join(home, "Library", "Logs"), "Library/Logs"},
-		{filepath.Join(home, ".Trash"), "Papierkorb"},
-		{"/Library/Application Support", "/Library/App Support (System)"},
-		{"/Library/Caches", "/Library/Caches (System)"},
-		{"/var/log", "/var/log"},
-		{"/tmp", "/tmp"},
-	}
-
-	var entries []DiskFolderEntry
-	var total int64
-	for _, t := range targets {
-		if _, err := os.Stat(t.path); err != nil {
-			continue
-		}
-		out, err := exec.Command("du", "-sk", t.path).Output()
-		if err != nil {
-			continue
-		}
-		// Format: "1234\t/path"
-		parts := strings.Fields(string(out))
-		if len(parts) < 1 {
-			continue
-		}
-		kb, err := strconv.ParseInt(parts[0], 10, 64)
-		if err != nil {
-			continue
-		}
-		bytes := kb * 1024
-		total += bytes
-		entries = append(entries, DiskFolderEntry{
-			Path:  t.path,
-			Label: t.label,
-			Bytes: bytes,
-			Human: formatBytes(bytes),
-		})
-	}
-	// Prozentwerte berechnen
-	if total > 0 {
-		for i := range entries {
-			entries[i].PctOfTotal = float64(entries[i].Bytes) / float64(total) * 100
-		}
-	}
-	// Absteigend sortieren
-	for i := 0; i < len(entries); i++ {
-		for j := i + 1; j < len(entries); j++ {
-			if entries[j].Bytes > entries[i].Bytes {
-				entries[i], entries[j] = entries[j], entries[i]
-			}
-		}
-	}
-	return entries, nil
-}
-
-func formatBytes(b int64) string {
-	const unit = 1024
-	if b < unit {
-		return fmt.Sprintf("%d B", b)
-	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
-}
+// Disk-Nutzung: ersetzt durch den Disk-Analyzer (app_disk.go, #97).
 
 // ── Zertifikats-Check ─────────────────────────────────────────────────────────
 
@@ -1649,7 +1567,7 @@ func (a *App) ScanCertificates() ([]CertInfo, error) {
 			continue
 		}
 		// Zertifikate als PEM exportieren
-		pemOut, err := exec.Command("security", "find-certificate", "-a", "-p", kc.path).Output()
+		pemOut, err := execx.Command("security", "find-certificate", "-a", "-p", kc.path).Output()
 		if err != nil || len(pemOut) == 0 {
 			continue
 		}
@@ -1664,7 +1582,7 @@ func (a *App) ScanCertificates() ([]CertInfo, error) {
 			block := pem[start : end+len("-----END CERTIFICATE-----")]
 			pem = pem[end+len("-----END CERTIFICATE-----"):]
 
-			cmd := exec.Command("openssl", "x509", "-noout", "-subject", "-issuer", "-dates")
+			cmd := execx.Command("openssl", "x509", "-noout", "-subject", "-issuer", "-dates")
 			cmd.Stdin = strings.NewReader(block)
 			opOut, opErr := cmd.Output()
 			if opErr != nil {

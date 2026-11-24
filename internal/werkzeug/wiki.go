@@ -344,6 +344,7 @@ func DeleteArticle(vaultRoot, slug string) error {
 		return err
 	}
 	_ = os.RemoveAll(filepath.Join(wikiDir(vaultRoot), "_bilder", slug))
+	_ = os.RemoveAll(mediaDir(vaultRoot, slug))
 	if seedSlugs(vaultRoot)[slug] {
 		var st seedState
 		if b, err := os.ReadFile(seedStatePath(vaultRoot)); err == nil {

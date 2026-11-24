@@ -3,8 +3,8 @@
 package network
 
 import (
+	"adminkit/internal/execx"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -36,7 +36,7 @@ func Scan(includeWiFiPasswords bool) (*ScanResult, error) {
 
 // fetchSearchDomains liest DNS-Suchdomänen aus ipconfig /all.
 func fetchSearchDomains() []string {
-	out, err := exec.Command("ipconfig", "/all").Output()
+	out, err := execx.Command("ipconfig", "/all").Output()
 	if err != nil {
 		return nil
 	}
@@ -70,13 +70,13 @@ type wmiNetAdapter struct {
 }
 
 type wmiNetConfig struct {
-	Description      string
-	MACAddress       string
-	IPAddress        []string
-	IPSubnet         []string
-	DefaultIPGateway []string
+	Description          string
+	MACAddress           string
+	IPAddress            []string
+	IPSubnet             []string
+	DefaultIPGateway     []string
 	DNSServerSearchOrder []string
-	IPEnabled        bool
+	IPEnabled            bool
 }
 
 func scanAdapters() ([]Adapter, []ScanError) {
@@ -144,9 +144,9 @@ func scanAdapters() ([]Adapter, []ScanError) {
 // ─── Netzlaufwerke ───────────────────────────────────────────────────────────
 
 type wmiShare struct {
-	Name       string
+	Name         string
 	ProviderName string
-	Status     string
+	Status       string
 }
 
 func scanShares() ([]NetworkShare, []ScanError) {
@@ -172,7 +172,7 @@ func scanShares() ([]NetworkShare, []ScanError) {
 
 func scanSharesFallback(errs *[]ScanError) []NetworkShare {
 	var shares []NetworkShare
-	out, err := exec.Command("net", "use").Output()
+	out, err := execx.Command("net", "use").Output()
 	if err != nil {
 		*errs = append(*errs, ScanError{"network.shares", fmt.Sprintf("net use fehlgeschlagen: %v", err)})
 		return shares
@@ -211,7 +211,7 @@ func scanWiFi(includePasswords bool) ([]WiFiProfile, []ScanError) {
 
 	// Aktuell verbundenes SSID ermitteln
 	connectedSSID := ""
-	connOut, err := exec.Command("netsh", "wlan", "show", "interfaces").Output()
+	connOut, err := execx.Command("netsh", "wlan", "show", "interfaces").Output()
 	if err == nil {
 		for _, line := range strings.Split(string(connOut), "\n") {
 			if strings.Contains(line, "SSID") && !strings.Contains(line, "BSSID") {
@@ -225,7 +225,7 @@ func scanWiFi(includePasswords bool) ([]WiFiProfile, []ScanError) {
 	}
 
 	// Alle gespeicherten Profile auflisten
-	out, err := exec.Command("netsh", "wlan", "show", "profiles").Output()
+	out, err := execx.Command("netsh", "wlan", "show", "profiles").Output()
 	if err != nil {
 		errs = append(errs, ScanError{"network.wifi", fmt.Sprintf("netsh wlan fehlgeschlagen: %v", err)})
 		return profiles, errs
@@ -258,7 +258,7 @@ func scanWiFi(includePasswords bool) ([]WiFiProfile, []ScanError) {
 		if includePasswords {
 			detailArgs = append(detailArgs, "key=clear")
 		}
-		detOut, err2 := exec.Command("netsh", detailArgs...).Output()
+		detOut, err2 := execx.Command("netsh", detailArgs...).Output()
 		if err2 == nil {
 			parseWiFiDetail(string(detOut), &profile)
 		}

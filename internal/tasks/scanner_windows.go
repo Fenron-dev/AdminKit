@@ -3,8 +3,8 @@
 package tasks
 
 import (
+	"adminkit/internal/execx"
 	"encoding/csv"
-	"os/exec"
 	"strings"
 	"time"
 )
@@ -14,7 +14,7 @@ func Scan() (*ScanResult, error) {
 	result := &ScanResult{}
 
 	// schtasks /query /fo CSV /v gibt alle Tasks als CSV aus
-	out, err := exec.Command("schtasks", "/query", "/fo", "CSV", "/v").Output()
+	out, err := execx.Command("schtasks", "/query", "/fo", "CSV", "/v").Output()
 	if err != nil && len(out) == 0 {
 		result.Errors = append(result.Errors, ScanError{Module: "tasks", Message: err.Error()})
 		return result, nil
@@ -52,15 +52,15 @@ func parseSchtasksCSV(content string) ([]ScheduledTask, error) {
 		return -1
 	}
 
-	nameIdx     := idx("TaskName")
-	statusIdx   := idx("Status")
-	nextRunIdx  := idx("Next Run Time")
-	lastRunIdx  := idx("Last Run Time")
-	lastResIdx  := idx("Last Result")
-	cmdIdx      := idx("Task To Run")
-	userIdx     := idx("Run As User")
-	schedIdx    := idx("Schedule Type")
-	triggerIdx  := idx("Scheduled Task State")
+	nameIdx := idx("TaskName")
+	statusIdx := idx("Status")
+	nextRunIdx := idx("Next Run Time")
+	lastRunIdx := idx("Last Run Time")
+	lastResIdx := idx("Last Result")
+	cmdIdx := idx("Task To Run")
+	userIdx := idx("Run As User")
+	schedIdx := idx("Schedule Type")
+	triggerIdx := idx("Scheduled Task State")
 
 	var tasks []ScheduledTask
 	for _, row := range records[1:] {

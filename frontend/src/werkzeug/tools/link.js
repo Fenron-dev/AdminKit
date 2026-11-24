@@ -147,7 +147,7 @@ async function linkOnline(ctx,r,box,target){
   $('#olChk',box).innerHTML=`<div class="ol-v ${V[0]}">${ic(V[1])}<b>${V[2]}</b></div>`+items.map(x=>chk(...x)).join('');
 }
 export default {
-  id: 'link', name: 'Link-Prüfer', group: 'Netzwerk & Mail', icon: 'shield',
+  id: 'link', name: 'Link-Prüfer', group: 'Sicherheit & Passwörter', tags: ['Phishing', 'Sicherheit', 'Prüfen'], icon: 'shield',
   keys: 'link url phishing prüfen sicher domain', online: true,
   render(p, ctx) {
   p.innerHTML=`<div class="util wide"><h3>Link-Prüfer</h3><p>Zeigt, wohin ein Link wirklich führt, und sucht nach typischen Tricks von Phishing-Mails. Der Link wird dabei nicht geöffnet.</p>

@@ -153,6 +153,9 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if data.Profiles != nil && len(data.Profiles.Profiles) > 0 {
 		sb.WriteString("  <a href=\"#sec-profiles\">🛡 Profile</a>\n")
 	}
+	if data.Disk != nil {
+		sb.WriteString("  <a href=\"#sec-disk\">💽 Speicher</a>\n")
+	}
 	if data.USB != nil && len(data.USB.Devices) > 0 {
 		sb.WriteString("  <a href=\"#sec-usb\">🔌 USB</a>\n")
 	}
@@ -286,6 +289,13 @@ func GenerateHTML(data *SessionExport, includePasswords bool) string {
 	if data.USB != nil && len(data.USB.Devices) > 0 {
 		sb.WriteString("<section id=\"sec-usb\">\n<h2 class=\"sec-title\">🔌 USB-Geräte</h2>\n")
 		writeUSBSection(sb, data.USB)
+		sb.WriteString("</section>\n")
+	}
+
+	// ── Speicherbelegung (Disk-Analyzer, #99) ─────────────────────────────────
+	if data.Disk != nil {
+		sb.WriteString("<section id=\"sec-disk\">\n<h2 class=\"sec-title\">💽 Speicherbelegung</h2>\n")
+		writeDiskSection(sb, data.Disk)
 		sb.WriteString("</section>\n")
 	}
 
@@ -1403,4 +1413,62 @@ func writeWorkDone(sb *strings.Builder, sections []WorkSection) {
 			sb.WriteString("</ul>\n")
 		}
 	}
+}
+
+// diskCatLabel übersetzt die Kategorien des Disk-Analyzers.
+func diskCatLabel(c string) string {
+	switch c {
+	case "app":
+		return "Programme"
+	case "cache":
+		return "Cache / Temp"
+	case "user":
+		return "Benutzerdaten"
+	case "system":
+		return "System"
+	}
+	return "Sonstiges"
+}
+
+// HumanBytes formatiert Bytes (1024er-Basis, deutsche Schreibweise).
+func HumanBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return strings.Replace(fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp]), ".", ",", 1)
+}
+
+func writeDiskSection(sb *strings.Builder, d *DiskReport) {
+	meta := []string{"Analysiert: " + h(d.Root), HumanBytes(d.Bytes) + " in " + fmt.Sprintf("%d", d.Files) + " Dateien"}
+	if d.VolumeTotal > 0 {
+		used := d.VolumeTotal - d.VolumeFree
+		meta = append(meta, fmt.Sprintf("Laufwerk: %s von %s belegt (%.0f %%), %s frei",
+			HumanBytes(used), HumanBytes(d.VolumeTotal), float64(used)/float64(d.VolumeTotal)*100, HumanBytes(d.VolumeFree)))
+	}
+	if !d.ScannedAt.IsZero() {
+		meta = append(meta, "Stand "+d.ScannedAt.Format("02.01.2006 15:04"))
+	}
+	fmt.Fprintf(sb, "<p class=\"section-meta\">%s</p>\n", strings.Join(meta, " · "))
+	if d.Unreadable > 0 {
+		fmt.Fprintf(sb, "<p class=\"section-meta\">%d Ordner waren nicht lesbar (fehlende Rechte) und fehlen in der Summe.</p>\n", d.Unreadable)
+	}
+	table := func(title string, rows []DiskRow) {
+		if len(rows) == 0 {
+			return
+		}
+		fmt.Fprintf(sb, "<h3>%s</h3>\n<table class=\"data-table\">\n<thead><tr><th>Pfad</th><th>Art</th><th style=\"text-align:right\">Größe</th></tr></thead>\n<tbody>\n", h(title))
+		for _, r := range rows {
+			fmt.Fprintf(sb, "<tr><td class=\"mono\" style=\"word-break:break-all\">%s</td><td>%s</td><td style=\"text-align:right;white-space:nowrap\">%s</td></tr>\n",
+				h(r.Path), h(diskCatLabel(r.Category)), HumanBytes(r.Size))
+		}
+		sb.WriteString("</tbody></table>\n")
+	}
+	table("Größte Ordner (ohne Systembereiche)", d.Hotspots)
+	table("Größte Dateien (ohne Systembereiche)", d.TopFiles)
 }

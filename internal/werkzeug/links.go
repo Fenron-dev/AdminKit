@@ -33,6 +33,8 @@ type Link struct {
 	Icon         string   `yaml:"icon,omitempty"         json:"icon,omitempty"`
 	Beschreibung string   `yaml:"beschreibung,omitempty" json:"beschreibung,omitempty"`
 	Bereiche     []string `yaml:"bereiche"               json:"bereiche"`
+	// Tags: freie Schlagwörter zum feineren Filtern (#96).
+	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
 	// Eigen: in der App angelegt (nicht aus den mitgelieferten Links).
 	Eigen bool `yaml:"eigen,omitempty" json:"eigen,omitempty"`
 }
@@ -45,8 +47,10 @@ type Links struct {
 	Bereiche []Bereich `yaml:"bereiche" json:"bereiche"`
 	Links    []Link    `yaml:"links"    json:"links"`
 	// Entfernt: gelöschte mitgelieferte Links – kommen beim Abgleich nicht zurück.
-	Entfernt []string  `yaml:"entfernt,omitempty" json:"entfernt,omitempty"`
-	Updated  time.Time `yaml:"updated,omitempty"  json:"updated,omitempty"`
+	Entfernt []string `yaml:"entfernt,omitempty" json:"entfernt,omitempty"`
+	// EntfernteBereiche: gelöschte mitgelieferte Bereiche – kommen nicht zurück (#96).
+	EntfernteBereiche []string  `yaml:"entfernte_bereiche,omitempty" json:"entfernte_bereiche,omitempty"`
+	Updated           time.Time `yaml:"updated,omitempty"  json:"updated,omitempty"`
 }
 
 type seedLinks struct {
@@ -97,9 +101,14 @@ func mergeSeed(l *Links, seed *seedLinks) bool {
 	for _, b := range l.Bereiche {
 		haveB[b.ID] = true
 	}
+	removedB := map[string]bool{}
+	for _, id := range l.EntfernteBereiche {
+		removedB[id] = true
+	}
 	for _, b := range seed.Bereiche {
-		if !haveB[b.ID] {
+		if !haveB[b.ID] && !removedB[b.ID] {
 			l.Bereiche = append(l.Bereiche, b)
+			haveB[b.ID] = true
 			changed = true
 		}
 	}
@@ -112,10 +121,22 @@ func mergeSeed(l *Links, seed *seedLinks) bool {
 		removed[id] = true
 	}
 	for _, x := range seed.Links {
-		if !haveL[x.ID] && !removed[x.ID] {
-			l.Links = append(l.Links, x)
-			changed = true
+		if haveL[x.ID] || removed[x.ID] {
+			continue
 		}
+		// Nur Bereiche übernehmen, die es (noch) gibt; ohne Bereich kein Link
+		var bs []string
+		for _, b := range x.Bereiche {
+			if haveB[b] {
+				bs = append(bs, b)
+			}
+		}
+		if len(bs) == 0 {
+			continue
+		}
+		x.Bereiche = bs
+		l.Links = append(l.Links, x)
+		changed = true
 	}
 	if l.Revision < seed.Revision {
 		l.Revision = seed.Revision
@@ -155,6 +176,11 @@ func (l *Links) Validate() error {
 		if len(x.Bereiche) == 0 {
 			return fmt.Errorf("Link „%s“: mindestens einen Bereich wählen", x.Name)
 		}
+		for _, t := range x.Tags {
+			if strings.TrimSpace(t) == "" || len(t) > 40 {
+				return fmt.Errorf("Link „%s“: Tag %q ungültig (1–40 Zeichen)", x.Name, t)
+			}
+		}
 		for _, b := range x.Bereiche {
 			if !bs[b] {
 				return fmt.Errorf("Link „%s“: unbekannter Bereich %q", x.Name, b)
@@ -186,6 +212,17 @@ func SaveLinks(vaultRoot string, l *Links) error {
 		return err
 	}
 	return os.Rename(tmp, p)
+}
+
+// DefaultBereichIDs liefert die IDs der mitgelieferten Bereiche.
+func DefaultBereichIDs() map[string]bool {
+	var seed seedLinks
+	_ = yaml.Unmarshal(defaultLinksYAML, &seed)
+	m := map[string]bool{}
+	for _, b := range seed.Bereiche {
+		m[b.ID] = true
+	}
+	return m
 }
 
 // DefaultLinkIDs liefert die IDs der mitgelieferten Links (für „Entfernt“).

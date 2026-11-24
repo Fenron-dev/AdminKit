@@ -19,7 +19,7 @@ let rows = [{ s: '09:00', e: '09:47', p: '0' }];
 let filledFor = null; // Session, deren Einsatzzeit schon vorbelegt wurde
 
 export default {
-  id: 'ae', name: 'Arbeitszeit & AE', group: 'Reparatur & Laden', icon: 'clock',
+  id: 'ae', name: 'Arbeitszeit & AE', group: 'Rechnen & Abrechnung', tags: ['Abrechnung', 'Zeit'], icon: 'clock',
   keys: 'arbeitseinheit ae minuten stunden abrechnung rechner', online: false,
   render(p, ctx) {
     const bill = ctx.config.billing || {};

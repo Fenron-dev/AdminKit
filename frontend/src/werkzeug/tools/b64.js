@@ -11,7 +11,7 @@ export function convert(mode, v) {
 let mode = 'b64e', lastInput = 'Grüße aus der Werkstatt! 50 % Rabatt & mehr.';
 
 export default {
-  id: 'b64', name: 'Kodieren & Dekodieren', group: 'Nachschlagen & Prüfen', icon: 'code',
+  id: 'b64', name: 'Kodieren & Dekodieren', group: 'Text & Daten', tags: ['Text', 'Kodierung'], icon: 'code',
   keys: 'base64 url encode decode', online: false,
   render(p, ctx) {
     p.innerHTML = `<div class="util"><h3>Kodieren &amp; Dekodieren</h3><p>Base64 und URL-Kodierung, mit Umlauten und Sonderzeichen (UTF-8).</p>

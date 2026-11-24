@@ -60,10 +60,33 @@ type SessionExport struct {
 	Tasks      *tasks.ScanResult
 	Profiles   *profiles.ScanResult
 	USB        *usbhistory.ScanResult
+	// Disk: Ergebnis des Disk-Analyzers (#99), nil = nicht analysiert.
+	Disk *DiskReport
 
 	// WorkDone: durchgeführte Arbeiten (Paketänderungen, übergebene Ratgeber,
 	// Einsatzdauer …). Wird als eigener Abschnitt im Bericht ausgegeben.
 	WorkDone []WorkSection
+}
+
+// DiskReport fasst eine Speicher-Analyse für den Bericht zusammen. Enthält nur
+// nicht-systemische Ordner/Dateien – also das, was sich tatsächlich aufräumen lässt.
+type DiskReport struct {
+	Root        string    `json:"root"`
+	ScannedAt   time.Time `json:"scanned_at"`
+	Bytes       int64     `json:"bytes"`
+	Files       int64     `json:"files"`
+	Unreadable  int64     `json:"unreadable"`
+	VolumeTotal int64     `json:"volume_total"`
+	VolumeFree  int64     `json:"volume_free"`
+	Hotspots    []DiskRow `json:"hotspots"`
+	TopFiles    []DiskRow `json:"top_files"`
+}
+
+// DiskRow ist ein Ordner oder eine Datei im Disk-Abschnitt.
+type DiskRow struct {
+	Path     string `json:"path"`
+	Size     int64  `json:"size"`
+	Category string `json:"category"`
 }
 
 // WorkSection ist ein Block im Abschnitt „Durchgeführte Arbeiten“.

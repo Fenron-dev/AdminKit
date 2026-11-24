@@ -3,20 +3,20 @@
 package users
 
 import (
-	"os/exec"
+	"adminkit/internal/execx"
 	"strings"
 
 	"github.com/yusufpapurcu/wmi"
 )
 
 type win32User struct {
-	Name                string
-	FullName            string
-	Disabled            bool
-	Lockout             bool
-	PasswordRequired    bool
-	PasswordExpires     bool
-	SID                 string
+	Name             string
+	FullName         string
+	Disabled         bool
+	Lockout          bool
+	PasswordRequired bool
+	PasswordExpires  bool
+	SID              string
 }
 
 type win32GroupUser struct {
@@ -86,7 +86,7 @@ func readAdminMembers() map[string]bool {
 }
 
 func localHostname() string {
-	out, err := exec.Command("hostname").Output()
+	out, err := execx.Command("hostname").Output()
 	if err != nil {
 		return "."
 	}

@@ -85,6 +85,39 @@ export function ExportFavorites(format: string): Promise<string>;
 export function GetToolStates(): Promise<Record<string, any>>;
 export function SaveToolState(key: string, value: string): Promise<void>;
 
+export function GetDeviceIdentity(): Promise<any>;
+export function GetGateways(): Promise<Array<string>>;
+export function CertCheck(host: string, port: number, mode: string): Promise<any>;
+export function PortCheck(host: string, ports: Array<number>): Promise<Array<any>>;
+export function WakeOnLAN(mac: string, broadcast: string, port: number): Promise<void>;
+export function ARPTable(): Promise<Array<any>>;
+export function ProbeDevice(ip: string): Promise<any>;
+export function OpenCommandTarget(target: string, args: Array<string>): Promise<void>;
+export function RunCommand(req: any): Promise<any>;
+export function IsElevated(): Promise<boolean>;
+export function WikiMediaBegin(slug: string, name: string): Promise<string>;
+export function WikiMediaChunk(id: string, b64: string): Promise<void>;
+export function WikiMediaEnd(id: string): Promise<string>;
+export function WikiMediaAbort(id: string): Promise<void>;
+export function PickWikiMedia(slug: string): Promise<string>;
+export function OpenWikiMedia(rel: string): Promise<void>;
+export function CaptureScreenshot(mode: string, delay: number): Promise<string>;
+export function CaptureCapabilities(): Promise<Record<string, boolean>>;
+export function RecordStart(mic: boolean, clicks: boolean): Promise<void>;
+export function RecordStop(slug: string): Promise<string>;
+export function MediaToGIF(rel: string, start: number, end: number): Promise<string>;
+export function GetInfoCard(): Promise<any>;
+export function PublicIP(): Promise<string>;
+export function EventTimeline(days: number): Promise<Array<any>>;
+export function MonitorStart(targets: Array<any>, maxMinutes: number): Promise<void>;
+export function MonitorStop(): Promise<void>;
+export function MonitorStatus(since: number): Promise<any>;
+export function LocalSubnets(): Promise<Array<string>>;
+export function ScanSubnet(cidr: string): Promise<Array<any>>;
+export function ImportWikiFolder(copies: boolean): Promise<any>;
+export function GetEntries(kind: string): Promise<string>;
+export function SaveEntries(kind: string, data: string): Promise<void>;
+
 // Werkzeugkasten W4: Links
 export function GetLinks(): Promise<any>;
 export function SaveLinks(l: any): Promise<void>;
@@ -115,3 +148,49 @@ export function SaveWikiArticle(a: any): Promise<string>;
 export function DeleteWikiArticle(slug: string): Promise<void>;
 export function SaveWikiImage(slug: string, name: string, dataURL: string): Promise<string>;
 export function OpenSystemApp(kind: string): Promise<void>;
+
+export function ListDocuments(): Promise<any>;
+
+export function CreateDocFolder(parent: string, name: string): Promise<string>;
+
+export function RenameDoc(rel: string, newName: string): Promise<string>;
+
+export function DeleteDoc(rel: string): Promise<void>;
+
+export function ReadDocText(rel: string): Promise<string>;
+
+export function SaveDocText(rel: string, content: string): Promise<void>;
+
+export function ImportDocuments(folder: string): Promise<Array<string>>;
+
+export function OpenDocument(rel: string): Promise<void>;
+
+export function RevealDocument(rel: string): Promise<void>;
+
+export function GetDocumentInfo(): Promise<any>;
+
+export function GetWikiCategories(): Promise<Array<string>>;
+
+export function SaveWikiCategories(cats: Array<string>): Promise<void>;
+
+export function IsSyncAvailable(): Promise<boolean>;
+
+export function GetDiskScanRoots(): Promise<Array<any>>;
+
+export function PickDiskScanFolder(): Promise<string>;
+
+export function StartDiskScan(root: string): Promise<void>;
+
+export function CancelDiskScan(): Promise<void>;
+
+export function GetDiskScanStatus(): Promise<any>;
+
+export function GetDiskNodeChildren(path: string, hideSystem: boolean): Promise<any>;
+
+export function GetDiskTopFiles(limit: number, hideSystem: boolean): Promise<Array<any>>;
+
+export function GetDiskHotspots(limit: number): Promise<Array<any>>;
+
+export function DiskMoveToTrash(path: string): Promise<void>;
+
+export function DiskReportSummary(): Promise<string>;

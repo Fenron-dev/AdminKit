@@ -3,7 +3,7 @@
 package services
 
 import (
-	"os/exec"
+	"adminkit/internal/execx"
 	"strings"
 	"time"
 )
@@ -13,7 +13,7 @@ func Scan() ScanResult {
 	result := ScanResult{Timestamp: time.Now()}
 
 	script := `Get-WmiObject Win32_Service | Select-Object Name,DisplayName,PathName,State,StartMode,ProcessId | ConvertTo-Csv -NoTypeInformation`
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	out, err := execx.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil {
 		result.Errors = append(result.Errors, ScanError{Module: "Win32_Service", Message: err.Error()})
 		return result

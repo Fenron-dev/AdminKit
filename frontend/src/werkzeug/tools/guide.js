@@ -63,7 +63,7 @@ async function copyRich(ctx, html, text) {
 }
 
 export default {
-  id: 'guide', name: 'Kunden-Ratgeber', group: 'Für Kunden', icon: 'bookopen',
+  id: 'guide', name: 'Kunden-Ratgeber', group: 'Für Kunden', tags: ['Kunde', 'Drucken', 'Phishing'], icon: 'bookopen',
   keys: 'ratgeber merkblatt kunde faq tipps phishing passwort pdf drucken mail checkliste', online: false,
   render(p, ctx) {
     const br = ctx.branding;

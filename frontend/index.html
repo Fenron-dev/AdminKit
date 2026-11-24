@@ -60,7 +60,9 @@
         <button class="tab-btn" data-tab="tools">Tools</button>
         <button class="tab-btn" data-tab="werkzeug">🧰 Werkzeugkasten</button>
         <button class="tab-btn" data-tab="links">🔗 Links</button>
+        <button class="tab-btn" data-tab="protokolle">📋 Protokolle</button>
         <button class="tab-btn" data-tab="wiki">Wiki</button>
+        <button class="tab-btn" data-tab="docs">📄 Dokumente</button>
         <button class="tab-btn" data-tab="help">Hilfe</button>
       </nav>
 
@@ -545,10 +547,15 @@
 
         <!-- ── TOOLS ── -->
         <section class="tab-panel" id="tab-tools">
-          <div class="tools-layout">
+          <div class="wz-layout tools-wz">
+          <aside class="wz-side">
+            <input type="search" class="tools-search" id="tools-search" placeholder="Tool suchen…" autocomplete="off">
+            <nav id="tools-nav"></nav>
+          </aside>
+          <div class="wz-pane tools-layout" id="tools-pane">
 
             <!-- ── Schnellaktionen ── -->
-            <div class="tools-group">
+            <div class="tools-group" data-tg="quick" data-tg-title="Schnellaktionen" data-tg-icon="⚡" data-tg-cat="Schnellhilfe" data-tg-desc="Häufige Reparaturen mit einem Klick – vor jeder Änderung kommt eine Rückfrage.">
               <h3 class="tools-group-title">Schnellaktionen</h3>
               <div class="tools-grid">
                 <button class="tool-btn tool-btn-action" id="qa-internet-fix">
@@ -578,7 +585,7 @@
               </div>
             </div>
 
-            <div class="tools-group">
+            <div class="tools-group" data-tg="diag" data-tg-title="Diagnose-Werkzeuge" data-tg-icon="🔍" data-tg-cat="Schnellhilfe" data-tg-desc="Scan, Zwischenablage, Vault-Sicherung und Systemauskünfte.">
               <h3 class="tools-group-title">Diagnose-Werkzeuge</h3>
               <div class="tools-grid">
                 <button class="tool-btn" id="tool-full-scan">
@@ -613,7 +620,7 @@
             </div>
 
             <!-- macOS System-Apps Shortcuts -->
-            <div class="tools-group" id="tools-system-apps">
+            <div class="tools-group" id="tools-system-apps" data-tg="sysapps" data-tg-title="macOS System-Apps" data-tg-icon="🍎" data-tg-cat="System" data-tg-platform="darwin" data-tg-desc="Eingebaute Dienstprogramme von macOS direkt öffnen.">
               <h3 class="tools-group-title">macOS System-Apps</h3>
               <div class="tools-grid">
                 <button class="tool-btn tool-btn-sysapp" data-app="Activity Monitor" data-path="/System/Applications/Utilities/Activity Monitor.app">
@@ -650,13 +657,13 @@
             </div>
 
             <!-- Vordefinierte Workflows -->
-            <div class="tools-group">
+            <div class="tools-group" data-tg="workflows" data-tg-title="Workflows" data-tg-icon="🧭" data-tg-cat="Schnellhilfe" data-tg-desc="Mehrere Schritte als geführter Ablauf.">
               <h3 class="tools-group-title">Vordefinierte Workflows</h3>
               <div id="workflows-grid" class="workflows-grid"></div>
             </div>
 
             <!-- Periodic Maintenance (macOS) -->
-            <div class="tools-group" id="tools-maintenance">
+            <div class="tools-group" id="tools-maintenance" data-tg="maintenance" data-tg-title="Wartung (periodic)" data-tg-icon="🗓" data-tg-cat="System" data-tg-platform="darwin">
               <h3 class="tools-group-title">macOS Wartung (Periodic Maintenance)</h3>
               <div id="periodic-status" class="periodic-status">
                 <span class="periodic-item"><strong>Daily:</strong> <span id="periodic-daily-date">–</span></span>
@@ -686,14 +693,14 @@
             </div>
 
             <!-- Homebrew Updates → Software-Tab -->
-            <div class="tools-group" id="tools-homebrew">
+            <div class="tools-group" id="tools-homebrew" data-tg="updates" data-tg-title="Software-Updates" data-tg-icon="⬆" data-tg-cat="System">
               <h3 class="tools-group-title">Software-Updates</h3>
               <p class="settings-hint">Updates, Suche und Installation (Homebrew / winget) findest du jetzt im Software-Tab.</p>
               <button class="btn btn-secondary btn-sm" id="btn-goto-pkg-updates">⬆ Zur Paketverwaltung</button>
             </div>
 
             <!-- SSH-Verwaltung (macOS) -->
-            <div class="tools-group" id="tools-ssh">
+            <div class="tools-group" id="tools-ssh" data-tg="ssh" data-tg-title="Remote Login (SSH)" data-tg-icon="🔐" data-tg-cat="System" data-tg-platform="darwin">
               <h3 class="tools-group-title">Remote Login (SSH)</h3>
               <div class="ssh-status-row">
                 <span id="ssh-status-badge" class="status-badge badge-unknown">⚪ Unbekannt</span>
@@ -705,19 +712,13 @@
             </div>
 
             <!-- Disk-Nutzung nach Ordner -->
-            <div class="tools-group tools-group-full" id="tools-disk-usage">
-              <h3 class="tools-group-title">Disk-Nutzung nach Ordner</h3>
-              <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-                <button class="btn btn-secondary btn-sm" id="btn-disk-usage-scan">🔍 Analysieren</button>
-                <span class="status-badge badge-unknown hidden" id="disk-usage-status"></span>
-              </div>
-              <div id="disk-usage-result">
-                <div class="info-placeholder">„Analysieren" klicken um Verzeichnisgrößen zu messen…</div>
-              </div>
+            <div class="tools-group tools-group-full" id="tools-disk-usage" data-tg="disk" data-tg-title="Disk-Analyzer" data-tg-icon="💽" data-tg-cat="System" data-tg-desc="Was belegt den Speicher? Ordnerbaum, Kachelansicht und größte Dateien – Systembereiche werden markiert.">
+              <h3 class="tools-group-title">Disk-Analyzer</h3>
+              <div id="disk-analyzer-root"><div class="info-placeholder">Disk-Analyzer wird geladen…</div></div>
             </div>
 
             <!-- VirusTotal Datei-Scanner -->
-            <div class="tools-group">
+            <div class="tools-group" data-tg="vt" data-tg-title="VirusTotal" data-tg-icon="🛡" data-tg-cat="Analyse">
               <h3 class="tools-group-title">VirusTotal Datei-Scanner</h3>
               <div class="vt-file-scanner">
                 <div
@@ -731,14 +732,14 @@
                 </div>
                 <div id="vt-file-result" class="vt-file-result hidden"></div>
                 <p class="settings-hint" style="margin-top:6px">
-                  Hash wird berechnet, dann auf virustotal.com geprüft — Datei verlässt das System nie.
-                  Mit API-Key direkt im App, sonst Browser-Redirect.
+                  Geprüft wird nur der SHA256-Hash — die Datei selbst verlässt das System nur, wenn du sie ausdrücklich hochlädst.
+                  Mit API-Key prüft AdminKit direkt, ohne Key öffnest du die VirusTotal-Seite per Klick.
                 </p>
               </div>
             </div>
 
             <!-- Diagnose-Bericht für Claude Code / Codex -->
-            <div class="tools-group tools-group-full" id="diag-report-group">
+            <div class="tools-group tools-group-full" id="diag-report-group" data-tg="report" data-tg-title="Diagnose-Bericht" data-tg-icon="🔬" data-tg-cat="Analyse">
               <h3 class="tools-group-title">Diagnose-Bericht für Claude Code / Codex</h3>
               <p class="settings-hint" style="margin-bottom:10px">
                 Systemereignisse eines Zeitraums auswerten und als strukturierten Bericht für Claude Code / Codex aufbereiten —
@@ -785,7 +786,7 @@
             </div>
 
             <!-- Netzwerk-Terminal (Werkzeuge + freie Eingabe in einem) -->
-            <div class="tools-group tools-group-full">
+            <div class="tools-group tools-group-full" data-tg="terminal" data-tg-title="Netzwerk-Terminal" data-tg-icon="💻" data-tg-cat="Analyse" data-tg-desc="Netzwerk-Befehle mit Erklärung – oder eigene Befehle eingeben.">
               <h3 class="tools-group-title">Netzwerk-Terminal</h3>
               <div class="console-tools">
 
@@ -840,7 +841,8 @@
 
               </div>
             </div>
-          </div>
+          </div><!-- /tools-pane -->
+          </div><!-- /wz-layout -->
         </section>
 
         <!-- ── Werkzeugkasten (#88–#92): gerätunabhängige Werkzeuge aus dem Ideler-Portal ── -->
@@ -879,9 +881,20 @@
           </div>
         </section>
 
+        <!-- ── Protokolle: Abläufe (#119), getrennt vom Wiki ── -->
+        <section class="tab-panel" id="tab-protokolle">
+          <div id="protokolle-root" class="werkzeug-root"><div class="info-placeholder">Protokolle werden geladen…</div></div>
+        </section>
+
+        <!-- ── Dokumente (#96): Vorlagen im Vault unter dokumente/ ── -->
+        <section class="tab-panel" id="tab-docs">
+          <div id="docs-root" class="werkzeug-root"><div class="info-placeholder">Dokumente werden geladen…</div></div>
+        </section>
+
         <!-- ── Help-Tab ─────────────────────────────────────────────────── -->
         <section class="tab-panel" id="tab-help">
-          <div class="tab-panel-simple">
+          <!-- Kapitel werden beim ersten Öffnen von werkzeug/handbuch.js im Wiki-Stil dargestellt (#94) -->
+          <div class="tab-panel-simple" id="handbuch-root">
             <div class="help-content">
               <h2>AdminKit – Hilfe &amp; Handbuch</h2>
               <p class="help-intro">Vollständige Erklärung aller Bereiche, Tabs und Funktionen von AdminKit.</p>
@@ -1360,15 +1373,78 @@
               </div>
 
               <!-- Tastaturkürzel & Feedback -->
-              <div class="help-section">
+              <div class="help-section" id="help-pakete">
+                <h3>Paketverwaltung (winget / Homebrew)</h3>
+                <p>Im Software-Tab installierst, aktualisierst und entfernst du Programme über den Paketmanager der Plattform – unter Windows winget, auf dem Mac Homebrew.</p>
+                <ul>
+                  <li><strong>Installiert</strong> — alle Programme plus die Pakete, die der Paketmanager kennt (entfernen, pinnen, Infos). Funktioniert offline.</li>
+                  <li><strong>Updates</strong> — prüft nur auf Klick und online, einzelne oder alle Pakete aktualisieren.</li>
+                  <li><strong>Suchen</strong> — Suche im offiziellen Katalog; vor jeder Installation wird der genaue Befehl angezeigt.</li>
+                  <li><strong>Favoriten</strong> — eure Standardprogramme mit Paket-ID je Plattform, Tags, Notizen und Profilen (mehrere Programme nacheinander installieren). Mit „Nur für … verfügbare anzeigen“ blendest du Favoriten aus, die es nur für die andere Plattform gibt.</li>
+                </ul>
+                <p>Die Favoriten liegen im Vault unter <code>packages/favorites.yaml</code> und gelten damit für das ganze Team.</p>
+              </div>
+
+              <div class="help-section" id="help-werkzeug">
+                <h3>Werkzeugkasten, Tools, Links &amp; Wiki</h3>
+                <ul>
+                  <li><strong>Tools</strong> — gerätebezogene Aktionen (Schnellreparaturen, Diagnose, Wartung, Terminal). Links die Gruppen, rechts das gewählte Werkzeug; das Suchfeld findet auch einzelne Knöpfe.</li>
+                  <li><strong>Werkzeugkasten</strong> — geräteunabhängige Helfer: Passwörter, WLAN-QR, Ratgeber, DNS- &amp; Mail-Check, Fehlercodes (Windows, Update, Bluescreen, Ereignis-IDs, Outlook, Microsoft 365, macOS – auch mit eigenen Notizen), Prüfsummen u. v. m.</li>
+                  <li><strong>Links</strong> — Team-Links aus dem Vault; mit dem Stern angeheftete Links erscheinen auf dem Dashboard.</li>
+                  <li><strong>Wiki</strong> — Team-Artikel als Markdown im Vault (<code>wiki/</code>), plus Nachschlagewerk für Befehle, Codes und Fehler.</li>
+                </ul>
+                <p>Im <strong>Werkzeugkasten</strong> heftest du Werkzeuge mit dem Stern an; sie stehen dann oben, darunter „Zuletzt benutzt“. Über der Liste filterst du nach <strong>Plattform</strong> und <strong>Tags</strong> (mehrere kombinierbar), die Suche kennt auch Synonyme (z. B. „Kennwort“ findet „Passwort“), Enter öffnet den ersten Treffer. Mit dem Stift über einem Werkzeug änderst du Gruppe und Tags oder blendest es aus. <strong>Eigener Eintrag</strong> legt einen Spickzettel in Markdown an, <strong>Anpassen</strong> ordnet Gruppen, benennt Tags um und exportiert/importiert alles. Gespeichert wird im Vault unter <code>werkzeug/eintraege/tools.json</code>.</p>
+                <p>Wiki, Links und dieses Handbuch lassen sich oben rechts zwischen <strong>Karten</strong> und <strong>Liste</strong> umschalten. Die Wahl wird im Vault gespeichert.</p>
+                <p>Links bekommen <strong>Tags</strong> (Filter-Chips über der Liste) und lassen sich in <strong>eigene Bereiche</strong> sortieren („Bereich anlegen“ in der Seitenleiste, ✎ neben dem Bereichsnamen). Im Wiki legst du <strong>Kategorien</strong> auch vorab an; leere Kategorien entfernst du mit dem ×.</p>
+              </div>
+
+              <div class="help-section" id="help-dokumente">
+                <h3>Dokumente &amp; Vorlagen</h3>
+                <p>Der Tab <strong>Dokumente</strong> zeigt den Vault-Ordner <code>dokumente/</code> mit allen Unterordnern – für Kundendienstzettel, Anschreiben, Checklisten und Formulare.</p>
+                <ul>
+                  <li><strong>Ordner</strong> legst du in der Seitenleiste an (auch Unterordner), umbenennen und löschen (nur leere) über die Knöpfe neben dem Ordnernamen.</li>
+                  <li><strong>Markdown-Vorlagen (.md)</strong> öffnen in AdminKit: lesen, bearbeiten und <strong>ausfüllen &amp; drucken</strong>. Das Ergebnis bekommt Logo, Firma und Kunde und landet in der Session unter <code>exports/</code>.</li>
+                  <li><strong>Andere Dateien</strong> (Word, PDF, Excel …) öffnen mit dem Standardprogramm. „Dateien importieren“ kopiert sie in den aktuellen Ordner – vorhandene werden nie überschrieben.</li>
+                </ul>
+                <table class="help-table">
+                  <tr><th>Platzhalter</th><th>Bedeutung</th></tr>
+                  <tr><td>{{Kunde}}</td><td>Eingabefeld</td></tr>
+                  <tr><td>{{Kostenrahmen|150 €}}</td><td>Feld mit Vorgabe (in Tabellen <code>\|</code> statt <code>|</code>)</td></tr>
+                  <tr><td>{{Fehler:lang}}</td><td>Mehrzeiliges Feld</td></tr>
+                  <tr><td>{{Datum}}, {{Techniker}}, {{Firma}}, {{Kunde}}</td><td>werden automatisch vorbelegt</td></tr>
+                </table>
+              </div>
+
+              <div class="help-section" id="help-disk">
+                <h3>Disk-Analyzer</h3>
+                <p>Tools → <strong>Disk-Analyzer</strong> zeigt, was den Speicher belegt – wie WizTree oder DaisyDisk, direkt in AdminKit (Windows und macOS).</p>
+                <ol>
+                  <li>Benutzerordner, Laufwerk oder „Anderen Ordner wählen…“ auswählen und <strong>Analysieren</strong> klicken. Die Analyse liest nur Größen und verändert nichts; sie lässt sich jederzeit abbrechen.</li>
+                  <li>Links die Ordnerliste (Klick öffnet einen Ordner, ← geht eine Ebene höher), rechts die Kachelansicht – je größer die Kachel, desto mehr Platz.</li>
+                  <li>Unten <strong>Größte Ordner</strong> (wo sich Speicher ballt) und <strong>Größte Dateien</strong>.</li>
+                </ol>
+                <table class="help-table">
+                  <tr><th>Farbe</th><th>Bedeutung</th></tr>
+                  <tr><td>Grau – System</td><td>Betriebssystem; gesperrt, nicht löschbar</td></tr>
+                  <tr><td>Blau – Programme</td><td>installierte Programme und deren Daten – besser regulär deinstallieren</td></tr>
+                  <tr><td>Orange – Cache / Temp</td><td>Caches, Temp-Ordner, Logs – meist gefahrlos aufzuräumen</td></tr>
+                  <tr><td>Grün – Benutzerdaten</td><td>Dokumente, Downloads, Bilder … – nur nach Rücksprache mit dem Kunden</td></tr>
+                </table>
+                <p><strong>In den Papierkorb</strong> (🗑 beim Überfahren) verschiebt nach Rückfrage – wiederherstellbar, Platz wird erst beim Leeren des Papierkorbs frei. Systembereiche, der Benutzerordner selbst und Hauptordner (Downloads, Programme, Library …) sind gesperrt 🔒. Das Ergebnis erscheint im HTML-Bericht unter „Speicherbelegung“ (ohne Systembereiche).</p>
+                <p><strong>Tipp:</strong> Für das komplette Systemlaufwerk AdminKit unter Windows als Administrator starten; unter macOS ggf. „Festplattenvollzugriff“ erteilen – sonst fehlen geschützte Ordner (die Anzahl steht in der Statuszeile).</p>
+              </div>
+
+              <div class="help-section" id="help-tastatur">
                 <h3>Tastaturkürzel</h3>
                 <table class="help-table">
                   <tr><th>Kürzel</th><th>Aktion</th></tr>
+                  <tr><td>Cmd/Strg + K</td><td>Befehlspalette: Tabs, Werkzeuge, Links und Wiki-Artikel suchen</td></tr>
+                  <tr><td>Cmd/Strg + S</td><td>Wiki-Artikel im Editor speichern</td></tr>
                   <tr><td>Escape</td><td>Aktives Modal schließen</td></tr>
                 </table>
               </div>
 
-              <div class="help-section">
+              <div class="help-section" id="help-feedback">
                 <h3>Feedback &amp; Fehler</h3>
                 <p>Bugs und Feature-Wünsche bitte als GitHub-Issue melden: <strong>github.com/Fenron-dev/AdminKit</strong></p>
               </div>
@@ -1633,7 +1709,11 @@
             </div>
           </div>
 
-          <div class="settings-section">
+          <div class="settings-section hidden" id="sync-disabled-note">
+            <h3 class="settings-section-title">Synchronisierung / Fleet (#74)</h3>
+            <p class="settings-hint" style="display:block;margin:0">Vorübergehend deaktiviert: Die LAN-Synchronisierung wird erst nach der Sicherheits-Härtung (verschlüsselte Verbindung) wieder freigegeben. Es wird kein Netzwerk-Port geöffnet.</p>
+          </div>
+          <div class="settings-section" id="sync-settings-section">
             <h3 class="settings-section-title">Synchronisierung / Fleet (#74)</h3>
             <p class="settings-hint" style="margin-bottom:8px">
               Sessions zwischen Techniker-Geräten im LAN zusammenführen. Läuft nur, wenn du den Hub explizit aktivierst.

@@ -164,7 +164,7 @@ async function devInfo(box){
   if(box.isConnected)draw();
 }
 export default {
-  id: 'hw', name: 'Hardwaretest', group: 'Reparatur & Laden', icon: 'monitor',
+  id: 'hw', name: 'Hardwaretest', group: 'Geräte & Hardware', tags: ['Hardware', 'Display', 'Test'], icon: 'monitor',
   keys: 'pixel display bildschirm touch tastatur mikrofon kamera lautsprecher test geräteinfo', online: false,
   render(p, ctx) {
   CTX=ctx;
