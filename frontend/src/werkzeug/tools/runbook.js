@@ -13,6 +13,7 @@ let coll = emptyCollection(), run = null, tpl = null, protoImgs = {}, saveTm = 0
 
 const progress = r => `${r.steps.filter(s => s.done).length}/${r.steps.length}`;
 const openWiki = slug => document.dispatchEvent(new CustomEvent('adminkit:open-wiki', { detail: { slug } }));
+const openProto = slug => document.dispatchEvent(new CustomEvent('adminkit:open-protokoll', { detail: { slug } }));
 
 export default {
   id: 'runbook', name: 'Abläufe', group: 'Windows & macOS', icon: 'clipboard', tags: ['Anleitung', 'Checkliste', 'Protokoll', 'Dokumentation'],
@@ -43,7 +44,7 @@ export default {
       let arts = [];
       try { arts = (await ListWikiArticles()) || []; } catch (_) { /* ohne Vault */ }
       const open = coll.entries.filter(r => !r.finished);
-      p.innerHTML = `<div class="util wide"><h3>Abläufe</h3><p>Einen Wiki-Artikel als Aufgabe durchgehen: Schritte abhaken, Befehle direkt ausführen, Notizen, Bildschirmfotos und Videos festhalten. Daraus entsteht automatisch ein Protokoll im Wiki (Kategorie „${PROTO_CAT}“).</p>
+      p.innerHTML = `<div class="util wide"><h3>Abläufe</h3><p>Einen Wiki-Artikel als Aufgabe durchgehen: Schritte abhaken, Befehle direkt ausführen, Notizen, Bildschirmfotos und Videos festhalten. Daraus entsteht automatisch ein Protokoll im Tab „📋 Protokolle“.</p>
         ${open.length ? `<div class="sub"><h5>Laufende Abläufe <small>${open.length}</small></h5>${open.map(r => `<div class="wz-hrow">${ic('clipboard')}<span><b>${esc(r.title)}</b> <span class="muted">${progress(r)} · ${esc(new Date(r.started).toLocaleDateString('de-DE'))}${r.customer ? ' · ' + esc(r.customer) : ''}</span></span>
           <button class="btn sm primary" type="button" data-rbres="${esc(r.id)}">Fortsetzen</button><button class="icon-btn" type="button" data-rbdis="${esc(r.id)}" title="Verwerfen">${ic('trash')}</button></div>`).join('')}</div>` : ''}
         <div class="sub"><h5>Neuen Ablauf starten</h5><input class="input" id="rbQ" type="search" placeholder="Vorlage suchen (alle Wiki-Artikel)"><div id="rbList" class="rb-tpls"></div>
@@ -129,7 +130,7 @@ export default {
         if (fd.get('print')) ctx.print('protokoll', run.title, renderProto(buildProtocol(run)), { workTitle: '', workDetail: '' });
         ctx.addAction('Ablauf abgeschlossen: ' + run.templateTitle, 'success');
         const id = run.id; run = null;
-        p.innerHTML = `<div class="util wide"><h3>Ablauf abgeschlossen</h3><p>Das Protokoll liegt im Wiki unter „${PROTO_CAT}“.</p><div class="row"><button class="btn primary" type="button" data-rbopen="${esc(id)}">${ic('book')}Protokoll öffnen</button><button class="btn" type="button" data-rbx="home">Zur Übersicht</button></div></div>`;
+        p.innerHTML = `<div class="util wide"><h3>Ablauf abgeschlossen</h3><p>Das Protokoll liegt im Tab „📋 Protokolle“.</p><div class="row"><button class="btn primary" type="button" data-rbopen="${esc(id)}">${ic('book')}Protokoll öffnen</button><button class="btn" type="button" data-rbx="home">Zur Übersicht</button></div></div>`;
       });
     };
 
@@ -164,11 +165,11 @@ export default {
       const wl = t.closest('a[data-wiki]'); if (wl) { e.preventDefault(); openWiki(wl.dataset.wiki); return; }
       const st = t.closest('[data-rbstart]'); if (st) return prepare(st.dataset.rbstart);
       const rs = t.closest('[data-rbres]'); if (rs) return resume(rs.dataset.rbres);
-      const op = t.closest('[data-rbopen]'); if (op) return openWiki(op.dataset.rbopen);
+      const op = t.closest('[data-rbopen]'); if (op) return openProto(op.dataset.rbopen);
       const ds = t.closest('[data-rbdis]');
       if (ds) {
         const r = coll.entries.find(x => x.id === ds.dataset.rbdis);
-        if (!await ctx.confirm({ title: `Ablauf „${r.templateTitle}“ verwerfen?`, what: 'Der Zwischenstand wird gelöscht.', impact: 'Das bisherige Protokoll bleibt als Wiki-Artikel (Kategorie „Protokolle“) erhalten und kann dort gelöscht werden.' })) return;
+        if (!await ctx.confirm({ title: `Ablauf „${r.templateTitle}“ verwerfen?`, what: 'Der Zwischenstand wird gelöscht.', impact: 'Das bisherige Protokoll bleibt im Tab „Protokolle“ erhalten und kann dort gelöscht werden.' })) return;
         coll.entries = coll.entries.filter(x => x.id !== r.id);
         try { await ctx.entries.save(KIND, coll); } catch (err) { ctx.toast(String(err)); }
         return home();
@@ -188,7 +189,7 @@ export default {
       if (fl) { const { pickMedia } = await import('../media.js'); try { const rel = await pickMedia(run.id); if (rel) { run.steps[+fl.dataset.rbfile].media.push(`![[${rel.split('/').pop()}]]`); persist(); view(); } } catch (err) { ctx.toast(String(err)); } return; }
       const x = t.closest('[data-rbx]'); if (!x) return;
       if (x.dataset.rbx === 'home') { await persist(true); home(); }
-      else if (x.dataset.rbx === 'proto') { await persist(true); openWiki(run.id); }
+      else if (x.dataset.rbx === 'proto') { await persist(true); openProto(run.id); }
       else if (x.dataset.rbx === 'finish') finish();
       else if (x.dataset.rbx === 'endcancel') $('#rbEnd', p)?.remove();
       else if (x.dataset.rbx === 'aisum') { const { explainWithAI } = await import('../ai.js'); explainWithAI(ctx, { title: 'Kundenzusammenfassung', mode: 'summary', text: buildProtocol(run), onResult: t => { run.notes = (run.notes ? run.notes + '\n\n' : '') + '**Zusammenfassung für den Kunden**\n\n' + t; persist(); ctx.toast('Zusammenfassung in die allgemeinen Notizen übernommen'); } }); }

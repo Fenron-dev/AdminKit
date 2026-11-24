@@ -896,6 +896,8 @@
 .wz .tl-e.err{border-left-color:var(--red)}.wz .tl-e.warn{border-left-color:var(--amber)}.wz .tl-e.info{border-left-color:var(--cyan)}
 .wz .tl-e summary{display:flex;gap:10px;align-items:baseline;padding:8px 12px;cursor:pointer;flex-wrap:wrap}
 .wz .tl-e summary span.muted{font-size:12.5px;margin-left:auto}
+.wz .tl-row{display:flex;gap:8px;align-items:flex-start}.wz .tl-row>details{flex:1;min-width:0}.wz .tl-pick{margin-top:11px;width:16px;height:16px;flex:none;cursor:pointer}
+.wz .tl-bar{position:sticky;bottom:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--color-bg);box-shadow:0 -6px 20px rgba(0,0,0,.18)}.wz .tl-bar select{width:auto;min-width:150px}
 .wz .tl-b{padding:0 12px 10px}
 .wz .tl-msg{font-size:12.5px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
 /* Verbindungs-Langzeittest (#124) */

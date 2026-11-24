@@ -11,6 +11,7 @@ import { platName } from './entries.js';
 import { ILLU } from './data/illu.js';
 import { viewToggleHTML, getView, setView } from './viewmode.js';
 
+const PROTO_CAT = 'Protokolle'; // eigener Tab, siehe protokolle.js
 let ctx = null, root = null, list = [], cat = '', query = '', allCats = [], addingCat = false;
 let editing = null; // Artikel im Editor (null = keiner)
 let editorAddMedia = null; // Upload-Funktion des offenen Editors (für Aufnahmen, #121)
@@ -27,9 +28,10 @@ export async function initWikiArticles(container, deps) {
 }
 
 async function reload() {
-  try { list = (await ListWikiArticles()) || []; }
+  // Protokolle aus Abläufen haben einen eigenen Tab
+  try { list = ((await ListWikiArticles()) || []).filter(a => a.kategorie !== PROTO_CAT); }
   catch (e) { root.innerHTML = `<div class="info-placeholder">Wiki konnte nicht geladen werden: ${esc(e)}</div>`; list = []; }
-  try { allCats = (await GetWikiCategories()) || []; } catch (_) { allCats = []; }
+  try { allCats = ((await GetWikiCategories()) || []).filter(c => c !== PROTO_CAT); } catch (_) { allCats = []; }
 }
 
 function cats() {
@@ -39,7 +41,7 @@ function cats() {
 
 // Kategorien anlegen / leere entfernen (#96) – gespeichert in wiki/_kategorien.yaml
 async function saveCats(next, msg) {
-  try { await SaveWikiCategories(next); allCats = (await GetWikiCategories()) || []; if (msg) ctx.addAction(msg, 'success'); return true; }
+  try { await SaveWikiCategories(next); allCats = ((await GetWikiCategories()) || []).filter(c => c !== PROTO_CAT); if (msg) ctx.addAction(msg, 'success'); return true; }
   catch (e) { ctx.toast('Kategorien: ' + e); return false; }
 }
 
@@ -80,6 +82,7 @@ function showList() {
 async function showArticle(slug) {
   let a;
   try { a = await GetWikiArticle(slug); } catch (e) { ctx.toast('Artikel nicht gefunden'); return showList(); }
+  if (a.kategorie === PROTO_CAT) { document.dispatchEvent(new CustomEvent('adminkit:open-protokoll', { detail: { slug } })); return; }
   setImages(a.images); setMediaBase(a.slug);
   const html = md(a.body);
   const hasOs = /class="callout os /.test(html), osOnly = ctx.state.get('wikiOsOnly', false);
@@ -90,7 +93,7 @@ async function showArticle(slug) {
       <div class="art-top"><span>${a.geaendert ? 'Aktualisiert ' + esc(fmtDate(a.geaendert)) : ''}${a.autor ? ' von ' + esc(a.autor) : ''}${a.vorgabe ? ' · mitgelieferter Artikel' : ''}</span>
         ${(a.tags || []).length ? `<span class="tags">${a.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</span>` : ''}
         ${hasOs ? `<label class="check wk-osonly"><input type="checkbox" data-wkos${osOnly ? ' checked' : ''}>Nur ${esc(platName(ctx.os))} anzeigen</label>` : ''}
-        <span class="art-acts">${a.kategorie !== 'Protokolle' ? `<button class="btn sm" type="button" data-wk="runbook" data-slug="${esc(a.slug)}" title="Artikel Schritt für Schritt abarbeiten und protokollieren">${ic('clipboard')}Als Ablauf starten</button>` : ''}<button class="btn sm" type="button" data-wk="edit" data-slug="${esc(a.slug)}">${ic('pencil')}Bearbeiten</button><button class="btn sm danger" type="button" data-wk="delete" data-slug="${esc(a.slug)}">${ic('trash')}Löschen</button></span></div>
+        <span class="art-acts">${a.kategorie !== PROTO_CAT ? `<button class="btn sm" type="button" data-wk="runbook" data-slug="${esc(a.slug)}" title="Artikel Schritt für Schritt abarbeiten und protokollieren">${ic('clipboard')}Als Ablauf starten</button>` : ''}<button class="btn sm" type="button" data-wk="edit" data-slug="${esc(a.slug)}">${ic('pencil')}Bearbeiten</button><button class="btn sm danger" type="button" data-wk="delete" data-slug="${esc(a.slug)}">${ic('trash')}Löschen</button></span></div>
       <div class="prose${hasOs && osOnly ? ' os-only-' + esc(ctx.os) : ''}" id="wkProse" data-title="${esc(a.titel)}">${html}</div>
       ${a.erstellt && fmtDate(a.erstellt) ? `<p class="muted" style="margin-top:40px;font-size:13px">Erstellt am ${esc(fmtDate(a.erstellt))}.</p>` : ''}
     </article>
@@ -356,7 +359,8 @@ async function leaveEditor() {
 export async function wikiPaletteItems(deps, openArticle) {
   if (!ctx) ctx = await getContext(deps);
   const L = await ListWikiArticles();
-  return (L || []).map(a => ({ group: 'Wiki', icon: '📄', title: a.titel, sub: a.kategorie + ((a.tags || []).length ? ', ' + a.tags.join(', ') : ''), keys: a.auszug, run: () => openArticle(a.slug) }));
+  return (L || []).map(a => a.kategorie === PROTO_CAT
+    ? { group: 'Protokolle', icon: '📋', title: a.titel, sub: (a.tags || []).join(', '), keys: a.auszug, run: () => document.dispatchEvent(new CustomEvent('adminkit:open-protokoll', { detail: { slug: a.slug } })) } : { group: 'Wiki', icon: '📄', title: a.titel, sub: a.kategorie + ((a.tags || []).length ? ', ' + a.tags.join(', ') : ''), keys: a.auszug, run: () => openArticle(a.slug) });
 }
 export function openArticle(slug) { if (root) showArticle(slug); }
 export { plain };

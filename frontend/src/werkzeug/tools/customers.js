@@ -66,7 +66,7 @@ export default {
     p.addEventListener('click', async e => {
       const t = e.target;
       const b = t.closest('[data-cu]'); if (b) { sel = b.dataset.cu; list(); main(); return; }
-      const w = t.closest('[data-cuwiki]'); if (w) { e.preventDefault(); document.dispatchEvent(new CustomEvent('adminkit:open-wiki', { detail: { slug: w.dataset.cuwiki } })); return; }
+      const w = t.closest('[data-cuwiki]'); if (w) { e.preventDefault(); document.dispatchEvent(new CustomEvent('adminkit:open-protokoll', { detail: { slug: w.dataset.cuwiki } })); return; }
       const c = cur(); if (!c) return;
       const add = t.closest('[data-cuadd]'); if (add) { c[add.dataset.cuadd].push({}); save(); main(); return; }
       if (t.closest('[data-cudel]')) { const it = t.closest('.cu-item'); c[it.dataset.k].splice(+it.dataset.i, 1); save(); main(); return; }

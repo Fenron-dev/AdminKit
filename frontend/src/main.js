@@ -194,6 +194,21 @@ function ensureDokumente() {
     .catch(function(e) { _dokumenteLoaded = false; if (el) el.innerHTML = '<div class="info-placeholder">Dokumente konnten nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
 }
 
+// Tab „Protokolle“: Protokolle aus Abläufen getrennt vom Wiki
+var _protokolleMod = null, _protokolleSlug = '';
+function ensureProtokolle() {
+  var slug = _protokolleSlug; _protokolleSlug = '';
+  if (_protokolleMod) return _protokolleMod.then(function(m) { return m.refresh(slug); });
+  var el = document.getElementById('protokolle-root');
+  _protokolleMod = import('./werkzeug/protokolle.js').then(function(m) { return m.initProtokolle(el, _pkgDeps, slug).then(function() { return m; }); });
+  _protokolleMod.catch(function(e) { _protokolleMod = null; if (el) el.innerHTML = '<div class="info-placeholder">Protokolle konnten nicht geladen werden: ' + escapeHtml(String(e)) + '</div>'; });
+  return _protokolleMod;
+}
+document.addEventListener('adminkit:open-protokoll', function(e) {
+  _protokolleSlug = (e.detail && e.detail.slug) || '';
+  switchTab('protokolle');
+});
+
 // Zuletzt gewählte Tools-Gruppe aus dem Vault (werkzeug/state.json)
 function initToolsState() {
   import('./werkzeug/platform.adminkit.js').then(function(m) { return m.getContext(_pkgDeps); })
@@ -409,6 +424,7 @@ function switchTab(tabId) {
   if (tabId === 'links') ensureLinks();
   if (tabId === 'help') ensureHandbuch();
   if (tabId === 'docs') ensureDokumente();
+  if (tabId === 'protokolle') ensureProtokolle();
   if (tabId === 'wiki' && !document.getElementById('wiki-view-articles')?.classList.contains('hidden')) ensureWikiArticles();
 }
 
